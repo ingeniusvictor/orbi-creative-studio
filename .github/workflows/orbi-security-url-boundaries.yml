@@ -1,0 +1,52 @@
+name: ORBI Security URL boundaries validation
+
+on:
+  push:
+    branches:
+      - security/url-boundaries
+    paths:
+      - .github/workflows/orbi-security-url-boundaries.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout security branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run all root tests
+        run: node --test tests/*.test.js
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Verify security diff scope
+        env:
+          BATCH_A_COMMIT: 7d852659d053995dbf9ca36b236854aac99406ab
+        run: |
+          set -euo pipefail
+          git diff --name-only "$BATCH_A_COMMIT"..HEAD | sort
