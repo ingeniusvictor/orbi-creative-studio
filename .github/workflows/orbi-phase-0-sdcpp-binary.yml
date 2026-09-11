@@ -1,0 +1,86 @@
+name: ORBI Phase 0 sd.cpp binary certification
+
+on:
+  push:
+    branches:
+      - cert/phase-0-sdcpp-binary
+    paths:
+      - .github/workflows/orbi-phase-0-sdcpp-binary.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+          persist-credentials: false
+
+      - name: Resolve binary exactly with upstream selector
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const {pickBinaryAssetForPlatform}=require('./electron/lib/localInferenceAssets');
+          (async()=>{
+            const res=await fetch('https://api.github.com/repos/leejet/stable-diffusion.cpp/releases?per_page=15',{
+              headers:{'User-Agent':'orbi-phase0-cert'}
+            });
+            if(!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
+            const releases=await res.json();
+            for(const release of releases){
+              const zips=(release.assets||[]).filter(a=>a.name.endsWith('.zip'));
+              const names=zips.map(a=>a.name);
+              const picked=pickBinaryAssetForPlatform({
+                platform:'linux',arch:'x64',zipNames:names
+              });
+              if(picked){
+                const asset=zips.find(a=>a.name===picked);
+                const out={
+                  releaseTag:release.tag_name,
+                  releaseId:release.id,
+                  assetName:asset.name,
+                  assetId:asset.id,
+                  assetSize:asset.size,
+                  url:asset.browser_download_url
+                };
+                fs.writeFileSync('/tmp/sdcpp-choice.json',JSON.stringify(out,null,2));
+                console.log(JSON.stringify(out,null,2));
+                return;
+              }
+            }
+            throw new Error('No Linux x64 sd.cpp asset found in last 15 releases');
+          })();
+          NODE
+
+      - name: Download selected asset
+        run: |
+          set -euo pipefail
+          url="$(node -p "require('/tmp/sdcpp-choice.json').url")"
+          name="$(node -p "require('/tmp/sdcpp-choice.json').assetName")"
+          curl --fail --location --retry 3 --output "/tmp/$name" "$url"
+          sha256sum "/tmp/$name"
+          mkdir -p /tmp/sdcpp
+          unzip -q "/tmp/$name" -d /tmp/sdcpp
+          find /tmp/sdcpp -maxdepth 4 -type f -printf '%p %s bytes\n' | sort | head -100
+
+      - name: Locate and execute sd-cli
+        run: |
+          set -euo pipefail
+          cli="$(find /tmp/sdcpp -type f -name sd-cli | head -1)"
+          test -n "$cli"
+          chmod +x "$cli"
+          echo "SD_CLI=$cli"
+          file "$cli"
+          sha256sum "$cli"
+          "$cli" --help > /tmp/sdcpp-help.txt 2>&1
+          head -80 /tmp/sdcpp-help.txt
+          grep -qiE 'stable diffusion|usage|options' /tmp/sdcpp-help.txt
+          echo "SDCPP_BINARY_EXECUTION_PASS"
