@@ -52,7 +52,9 @@ jobs:
         run: npm run build:packages
 
       - name: Build Windows Electron package
-        run: npm run electron:build:win
+        run: |
+          npm run vite:build
+          npx electron-builder --win --publish never
 
       - name: Inventory package outputs
         shell: pwsh
