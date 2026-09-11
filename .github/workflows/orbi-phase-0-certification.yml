@@ -1,0 +1,93 @@
+name: ORBI Phase 0 runtime certification
+
+on:
+  push:
+    branches:
+      - cert/phase-0-runtime
+    paths:
+      - .github/workflows/orbi-phase-0-certification.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout certification branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify certification branch only adds workflow
+        env:
+          PINNED_COMMIT: 871c1d4ef4e184d7b6b5117147d863d30b656cbb
+          PINNED_TREE: 3b4c89a044621ea677d9ceb477f301301a704cdf
+        run: |
+          set -euo pipefail
+          git cat-file -e "$PINNED_COMMIT^{commit}"
+          test "$(git rev-parse "$PINNED_COMMIT^{tree}")" = "$PINNED_TREE"
+          git merge-base --is-ancestor "$PINNED_COMMIT" HEAD
+
+          changed="$(git diff --name-only "$PINNED_COMMIT"..HEAD)"
+          echo "Changes above baseline:"
+          printf '%s\n' "$changed"
+          test "$changed" = ".github/workflows/orbi-phase-0-certification.yml"
+
+      - name: Verify submodule pins
+        run: |
+          set -euo pipefail
+          git submodule status --recursive
+          git submodule status | grep "c65ce897e82bf73659c2725528c8492cd609d831 packages/Vibe-Workflow"
+          git submodule status | grep "3e21ebc92d93bd699ffc6000bbcf980eaa8830cb packages/Open-Poe-AI"
+          git submodule status | grep "ebc0ce7650baad0d13797ccd471c883e78be3161 packages/Open-AI-Design-Agent"
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Record toolchain
+        run: |
+          node --version
+          npm --version
+          git --version
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Run root Node tests
+        run: node --test tests/*.test.js
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next.js application
+        run: npm run build
+
+      - name: Build Electron renderer bundle
+        run: npm run vite:build
+
+      - name: Dependency audit
+        id: audit
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      - name: Certification summary
+        if: always()
+        run: |
+          {
+            echo "## ORBI Phase 0 runtime certification"
+            echo
+            echo "- Baseline: `871c1d4ef4e184d7b6b5117147d863d30b656cbb`"
+            echo "- Root tree: `3b4c89a044621ea677d9ceb477f301301a704cdf`"
+            echo "- Node: `$(node --version 2>/dev/null || echo unavailable)`"
+            echo "- npm: `$(npm --version 2>/dev/null || echo unavailable)`"
+            echo "- Dependency audit step outcome: `${{ steps.audit.outcome }}`"
+          } >> "$GITHUB_STEP_SUMMARY"
