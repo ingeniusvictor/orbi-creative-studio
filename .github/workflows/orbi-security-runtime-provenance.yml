@@ -1,0 +1,123 @@
+name: ORBI Security pinned runtime provenance validation
+
+on:
+  push:
+    branches:
+      - security/runtime-provenance-pin
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  code-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout runtime security branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Electron syntax gate
+        run: find electron -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint gate
+        run: npm run lint -- --max-warnings 11
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production dependency gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a=require('/tmp/prod-audit.json');
+          const v=a.metadata?.vulnerabilities || {};
+          console.log('PINNED_RUNTIME_PROD_AUDIT',JSON.stringify(v));
+          if ((v.critical||0)>0 || (v.high||0)>0) throw new Error('Critical/high production findings remain');
+          NODE
+
+  linux-runtime-asset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Resolve pinned Linux CPU manifest
+        run: |
+          node - <<'NODE' > /tmp/runtime.json
+          const {resolvePinnedRuntime}=require('./electron/lib/runtimeManifest');
+          console.log(JSON.stringify(resolvePinnedRuntime({platform:'linux',arch:'x64',env:{}})));
+          NODE
+          cat /tmp/runtime.json
+
+      - name: Download and verify pinned Linux asset
+        run: |
+          set -euo pipefail
+          url="$(node -p "JSON.parse(require('fs').readFileSync('/tmp/runtime.json')).url")"
+          expected="$(node -p "JSON.parse(require('fs').readFileSync('/tmp/runtime.json')).sha256")"
+          curl --fail --location --retry 3 -o /tmp/runtime.zip "$url"
+          actual="$(sha256sum /tmp/runtime.zip | awk '{print $1}')"
+          echo "EXPECTED=$expected"
+          echo "ACTUAL=$actual"
+          test "$actual" = "$expected"
+          echo "PINNED_LINUX_RUNTIME_HASH_PASS"
+
+  windows-runtime-asset:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Resolve download verify and execute pinned Windows CPU asset
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          @'
+          const fs=require('fs');
+          const {resolvePinnedRuntime}=require('./electron/lib/runtimeManifest');
+          fs.writeFileSync(process.env.RUNNER_TEMP+'\\runtime.json',JSON.stringify(resolvePinnedRuntime({platform:'win32',arch:'x64',env:{}}),null,2));
+          '@ | node
+          $runtime=Get-Content (Join-Path $env:RUNNER_TEMP "runtime.json") | ConvertFrom-Json
+          $zip=Join-Path $env:RUNNER_TEMP $runtime.assetName
+          Invoke-WebRequest -Uri $runtime.url -OutFile $zip
+          $actual=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          Write-Host "EXPECTED=$($runtime.sha256)"
+          Write-Host "ACTUAL=$actual"
+          if($actual -ne $runtime.sha256){throw "Pinned runtime hash mismatch"}
+          $dest=Join-Path $env:RUNNER_TEMP "runtime"
+          Expand-Archive -Path $zip -DestinationPath $dest -Force
+          $cli=Get-ChildItem $dest -Recurse -Filter "sd-cli.exe" | Select-Object -First 1
+          if(-not $cli){throw "sd-cli.exe missing"}
+          $out=& $cli.FullName --help 2>&1
+          if(-not (($out -join "\n") -match "Usage|stable-diffusion|options")){throw "sd-cli did not execute"}
+          Write-Host "PINNED_WINDOWS_CPU_RUNTIME_PASS"
