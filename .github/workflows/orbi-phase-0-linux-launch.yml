@@ -59,17 +59,23 @@ jobs:
           test -x "$exe"
           export ELECTRON_DISABLE_SANDBOX=1
           xvfb-run -a "$exe" --no-sandbox > /tmp/orbi-electron.log 2>&1 &
-          pid=$!
-          echo "PID=$pid"
+          wrapper_pid=$!
+          echo "XVFB_WRAPPER_PID=$wrapper_pid"
           sleep 12
-          if kill -0 "$pid" 2>/dev/null; then
-            echo "DESKTOP_LAUNCH_SMOKE_PASS"
-            ps -p "$pid" -o pid,ppid,stat,etime,cmd
-            kill "$pid" || true
-            sleep 2
+
+          app_pids="$(pgrep -f 'release/linux-unpacked/open-generative-ai' || true)"
+          echo "APP_PIDS=$app_pids"
+
+          if [ -z "$app_pids" ]; then
+            echo "No live Open Generative AI process after 12-second stability window."
             cat /tmp/orbi-electron.log || true
-            exit 0
+            exit 1
           fi
-          echo "Electron exited before the 12-second stability window."
+
+          echo "DESKTOP_CHILD_PROCESS_SMOKE_PASS"
+          ps -fp $app_pids || true
+
+          kill $app_pids 2>/dev/null || true
+          kill "$wrapper_pid" 2>/dev/null || true
+          sleep 2
           cat /tmp/orbi-electron.log || true
-          exit 1
