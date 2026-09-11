@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - integration/orbi-foundation
-    paths:
-      - .github/workflows/orbi-foundation-certification.yml
   workflow_dispatch:
 
 permissions:
@@ -31,6 +29,9 @@ jobs:
 
       - name: Install exact dependency graph
         run: npm ci
+
+      - name: Electron source syntax gate
+        run: find electron -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Deterministic lint gate
         run: npm run lint -- --max-warnings 11
