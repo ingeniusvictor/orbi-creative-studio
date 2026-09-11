@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: orbi-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   core-linux:
     runs-on: ubuntu-latest
