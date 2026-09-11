@@ -34,7 +34,7 @@ jobs:
         run: find electron -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Deterministic lint gate
-        run: npm run lint -- --max-warnings 11
+        run: npm run lint -- --max-warnings 10
 
       - name: Root tests
         run: node --test tests/*.test.js
