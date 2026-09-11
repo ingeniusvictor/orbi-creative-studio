@@ -1,0 +1,101 @@
+name: ORBI Phase 0 Windows install certification
+
+on:
+  push:
+    branches:
+      - cert/phase-0-windows-install
+    paths:
+      - .github/workflows/orbi-phase-0-windows-install.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify workflow-only divergence
+        shell: pwsh
+        env:
+          PINNED_COMMIT: 871c1d4ef4e184d7b6b5117147d863d30b656cbb
+          PINNED_TREE: 3b4c89a044621ea677d9ceb477f301301a704cdf
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tree = git rev-parse "$env:PINNED_COMMIT^{tree}"
+          if ($tree -ne $env:PINNED_TREE) { throw "Root tree mismatch: $tree" }
+          $changed = @(git diff --name-only "$env:PINNED_COMMIT..HEAD")
+          if ($changed.Count -ne 1 -or $changed[0] -ne ".github/workflows/orbi-phase-0-windows-install.yml") {
+            throw "Unexpected branch changes"
+          }
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies and build workspaces
+        run: |
+          npm ci
+          npm run build:packages
+
+      - name: Build installer without publishing
+        run: |
+          npm run vite:build
+          npx electron-builder --win --publish never
+
+      - name: Silent install
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $installer = Get-ChildItem release -Filter "Open Generative AI Setup *.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Installer not found" }
+          $p = Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installer exit code $($p.ExitCode)" }
+          $target = Join-Path $env:LOCALAPPDATA "Open Generative AI"
+          if (-not (Test-Path $target)) { throw "Install directory missing: $target" }
+          $exe = Join-Path $target "Open Generative AI.exe"
+          if (-not (Test-Path $exe)) { throw "Installed executable missing: $exe" }
+          Get-Item $exe | Format-List FullName,Length,LastWriteTime
+          Write-Host "SILENT_INSTALL_PASS"
+
+      - name: Verify installed resources
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $target = Join-Path $env:LOCALAPPDATA "Open Generative AI"
+          $required = @(
+            "Open Generative AI.exe",
+            "resources\app.asar"
+          )
+          foreach ($r in $required) {
+            $p = Join-Path $target $r
+            if (-not (Test-Path $p)) { throw "Missing installed resource: $p" }
+            Write-Host "OK $p"
+          }
+
+      - name: Locate and run uninstaller silently
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $target = Join-Path $env:LOCALAPPDATA "Open Generative AI"
+          $uninstaller = Get-ChildItem $target -Filter "Uninstall*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $uninstaller) {
+            Write-Host "No uninstaller exe found in install root; listing directory for evidence"
+            Get-ChildItem $target | Select-Object Name,Length
+            exit 0
+          }
+          $p = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Uninstaller exit code $($p.ExitCode)" }
+          Start-Sleep -Seconds 2
+          Write-Host "SILENT_UNINSTALL_EXIT_0"
