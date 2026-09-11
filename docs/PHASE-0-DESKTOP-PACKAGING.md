@@ -117,3 +117,19 @@ Before a public ORBI desktop release:
 6. test clean install / upgrade / uninstall,
 7. test local inference asset download and execution,
 8. generate ORBI release hashes and provenance.
+
+
+## macOS
+
+Certification run: `34653185764`
+
+Result: **PASS**
+
+Produced:
+
+- Intel x64 DMG: `Open Generative AI-2.0.0.dmg` — 223,620,184 bytes
+- Apple Silicon arm64 DMG: `Open Generative AI-2.0.0-arm64.dmg` — 216,742,883 bytes
+
+The upstream afterPack hook performs ad-hoc signing, but no Apple Developer ID certificate is configured and notarization is not certified.
+
+See `docs/PHASE-0-MACOS-PACKAGING.md`.
