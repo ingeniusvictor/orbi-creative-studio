@@ -1,0 +1,67 @@
+name: ORBI Phase 0 Docker certification
+
+on:
+  push:
+    branches:
+      - cert/phase-0-docker
+    paths:
+      - .github/workflows/orbi-phase-0-docker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify workflow-only divergence
+        env:
+          PINNED_COMMIT: 871c1d4ef4e184d7b6b5117147d863d30b656cbb
+          PINNED_TREE: 3b4c89a044621ea677d9ceb477f301301a704cdf
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$PINNED_COMMIT^{tree}")" = "$PINNED_TREE"
+          changed="$(git diff --name-only "$PINNED_COMMIT"..HEAD)"
+          printf '%s\n' "$changed"
+          test "$changed" = ".github/workflows/orbi-phase-0-docker.yml"
+
+      - name: Build baseline Docker image
+        run: docker build --pull -t orbi-creative-studio:phase0 .
+
+      - name: Start container
+        run: |
+          docker run -d --name orbi-phase0 -p 3000:3000 orbi-creative-studio:phase0
+          docker ps --filter name=orbi-phase0
+
+      - name: HTTP smoke test
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/ -o /tmp/orbi-home.html; then
+              echo "HTTP smoke test PASS"
+              wc -c /tmp/orbi-home.html
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Container logs:"
+          docker logs orbi-phase0
+          exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs orbi-phase0 || true
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f orbi-phase0 || true
