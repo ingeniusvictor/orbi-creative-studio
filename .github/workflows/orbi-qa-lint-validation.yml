@@ -33,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Enforce current warning ceiling
-        run: npm run lint -- --max-warnings 12
+        run: npm run lint -- --max-warnings 11
 
       - name: Run root tests
         run: node --test tests/*.test.js
