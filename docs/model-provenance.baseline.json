@@ -1,0 +1,194 @@
+{
+  "schema_version": "0.1",
+  "baseline": {
+    "repository": "Anil-matcha/Open-Generative-AI",
+    "commit": "871c1d4ef4e184d7b6b5117147d863d30b656cbb",
+    "captured": "2026-09-11"
+  },
+  "policy": {
+    "note": "Machine-readable Phase 0 provenance inventory. Exact bytes/SHA/revision were verified by Hugging Face LFS metadata where present. Null permission fields remain intentionally unresolved.",
+    "redistribution_requires_explicit_review": true
+  },
+  "assets": [
+    {
+      "id": "z-image-turbo",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "z-image",
+      "filename": "z_image_turbo-Q4_K.gguf",
+      "source_url": "https://huggingface.co/leejet/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q4_K.gguf",
+      "upstream_declared_size_gb": 2.5,
+      "exact_bytes": 3864250304,
+      "sha256": "14b375ab4f226bc5378f68f37e899ef3c2242b8541e61e2bc1aff40976086fbd",
+      "license_id": "Apache-2.0",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [
+        "Upstream size metadata is inconsistent with other project metadata/current remote listing; exact bytes must be measured before release."
+      ],
+      "source_revision": "c61c0e422dc8b541b7548cf33a4ef8302b0f8085",
+      "metadata_verification": {
+        "method": "Hugging Face resolve HEAD x-linked-size/x-linked-etag/x-repo-commit",
+        "verified_at": "2026-09-11",
+        "run_id": "34654551511"
+      }
+    },
+    {
+      "id": "z-image-base",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "z-image",
+      "filename": "z-image-Q4_K_M.gguf",
+      "source_url": "https://huggingface.co/unsloth/Z-Image-GGUF/resolve/main/z-image-Q4_K_M.gguf",
+      "upstream_declared_size_gb": 3.5,
+      "exact_bytes": 5066995776,
+      "sha256": "a62b929f76553b21f68894e9ed34d24b7fb67fb59b5689fa06981865986cce40",
+      "license_id": "Apache-2.0",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [],
+      "source_revision": "c9913e69743c5d9dfa7fdac58a0cc5709a17aa08",
+      "metadata_verification": {
+        "method": "Hugging Face resolve HEAD x-linked-size/x-linked-etag/x-repo-commit",
+        "verified_at": "2026-09-11",
+        "run_id": "34654551511"
+      }
+    },
+    {
+      "id": "z-image-text-encoder",
+      "role": "auxiliary",
+      "runtime": "sd.cpp",
+      "type": "llm",
+      "filename": "Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf",
+      "source_url": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf",
+      "upstream_declared_size_gb": 2.4,
+      "exact_bytes": 2546340960,
+      "sha256": "4bbe1f2f8ebe69fad3be8e15d69f220b06448a9dd26f82d7d81cce88ebfc39fd",
+      "license_id": "Apache-2.0",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [],
+      "source_revision": "a06e946bb6b655725eafa393f4a9745d460374c9",
+      "metadata_verification": {
+        "method": "Hugging Face resolve HEAD x-linked-size/x-linked-etag/x-repo-commit",
+        "verified_at": "2026-09-11",
+        "run_id": "34654551511"
+      }
+    },
+    {
+      "id": "z-image-vae",
+      "role": "auxiliary",
+      "runtime": "sd.cpp",
+      "type": "vae",
+      "filename": "ae.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
+      "upstream_declared_size_gb": 0.33,
+      "exact_bytes": 335304388,
+      "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38",
+      "license_id": "Apache-2.0",
+      "license_status": "repository/file-surface-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [],
+      "source_revision": "08d04455279082882deaabc8d0d09fc914c071e1",
+      "metadata_verification": {
+        "method": "Hugging Face resolve HEAD x-linked-size/x-linked-etag/x-repo-commit",
+        "verified_at": "2026-09-11",
+        "run_id": "34654551511"
+      }
+    },
+    {
+      "id": "dreamshaper-8",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "sd1",
+      "filename": "DreamShaper_8_pruned.safetensors",
+      "source_url": "https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors",
+      "upstream_declared_size_gb": 2.1,
+      "exact_bytes": 2132625894,
+      "sha256": "879db523c30d3b9017143d56705015e15a2cb5628762c11d086fed9538abd7fd",
+      "license_id": null,
+      "license_status": "unresolved-exact-weight",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [
+        "Aggregate source repository reports license 'other'. A separate official DreamShaper 8 repository declares CreativeML Open RAIL-M, but that does not by itself resolve this exact monolithic weight."
+      ],
+      "source_revision": "228d79cb20811466f5c5710aa91f05dabd0b8a14",
+      "metadata_verification": {
+        "method": "Hugging Face resolve HEAD x-linked-size/x-linked-etag/x-repo-commit",
+        "verified_at": "2026-09-11",
+        "run_id": "34654551511"
+      }
+    },
+    {
+      "id": "realistic-vision-v51",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "sd1",
+      "filename": "realisticVisionV51_v51VAE.safetensors",
+      "source_url": "https://huggingface.co/SG161222/Realistic_Vision_V5.1_noVAE/resolve/main/Realistic_Vision_V5.1_fp16-no-ema.safetensors",
+      "upstream_declared_size_gb": 2.1,
+      "exact_bytes": 2132625894,
+      "sha256": "99a75a901f4fec732056930a89fa34cf360f6f72d75ce5bf333ddf82adf8dd2a",
+      "license_id": "CreativeML-Open-RAIL-M",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [],
+      "source_revision": "1e9f017a7b1eaefb63a1900ea6c5953d2739fd21",
+      "metadata_verification": {
+        "method": "Hugging Face resolve HEAD x-linked-size/x-linked-etag/x-repo-commit",
+        "verified_at": "2026-09-11",
+        "run_id": "34654551511"
+      }
+    },
+    {
+      "id": "anything-v5",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "sd1",
+      "filename": "Anything-v5.0-PRT.safetensors",
+      "source_url": "https://huggingface.co/Yntec/AnythingV5/resolve/main/Anything-v5.0-PRT.safetensors",
+      "upstream_declared_size_gb": 2.1,
+      "exact_bytes": 2132625616,
+      "sha256": "23b41e5091ffe1c9ee25f807771b6a007306fe185ecbc21d1fab835f5655a4f7",
+      "license_id": "CreativeML-Open-RAIL-M",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [],
+      "source_revision": "ca6595b27b8dce279b8f2b075a1e373907fda95b",
+      "metadata_verification": {
+        "method": "Hugging Face resolve HEAD x-linked-size/x-linked-etag/x-repo-commit",
+        "verified_at": "2026-09-11",
+        "run_id": "34654551511"
+      }
+    },
+    {
+      "id": "stable-diffusion-xl-base",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "sdxl",
+      "filename": "sd_xl_base_1.0.safetensors",
+      "source_url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
+      "upstream_declared_size_gb": 6.9,
+      "exact_bytes": 6938078334,
+      "sha256": "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b",
+      "license_id": "OpenRAIL++",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [],
+      "source_revision": "462165984030d82259a11f4367a4eed129e94a7b",
+      "metadata_verification": {
+        "method": "Hugging Face resolve HEAD x-linked-size/x-linked-etag/x-repo-commit",
+        "verified_at": "2026-09-11",
+        "run_id": "34654551511"
+      }
+    }
+  ]
+}
