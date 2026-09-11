@@ -1,0 +1,90 @@
+name: ORBI Security Batch A release-surface validation
+
+on:
+  push:
+    branches:
+      - cert/security-batch-a-validation
+    paths:
+      - .github/workflows/orbi-security-batch-a-validation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout remediated branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify validation branch
+        env:
+          BATCH_A_BASE: 7d852659d053995dbf9ca36b236854aac99406ab
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$BATCH_A_BASE" HEAD
+          changed="$(git diff --name-only "$BATCH_A_BASE"..HEAD)"
+          test "$changed" = ".github/workflows/orbi-security-batch-a-validation.yml"
+
+      - name: Build Docker image
+        run: docker build --pull -t orbi-creative-studio:batch-a .
+
+      - name: HTTP smoke
+        run: |
+          set -euo pipefail
+          docker run -d --name orbi-batch-a -p 3000:3000 orbi-creative-studio:batch-a
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ -o /tmp/home.html; then
+              echo "BATCH_A_DOCKER_HTTP_PASS"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs orbi-batch-a
+          exit 1
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f orbi-batch-a || true
+
+  windows-package:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout remediated branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build:packages
+          npm run vite:build
+
+      - name: Package Windows without publishing
+        run: npx electron-builder --win --publish never
+
+      - name: Verify installer exists
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release -Filter "Open Generative AI Setup *.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Installer missing" }
+          $hash = Get-FileHash $installer.FullName -Algorithm SHA256
+          Write-Host "BATCH_A_WINDOWS_PACKAGE_PASS"
+          Write-Host "$($installer.Name) $($installer.Length) bytes"
+          Write-Host "SHA256 $($hash.Hash.ToLower())"
