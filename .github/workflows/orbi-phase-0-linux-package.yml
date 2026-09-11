@@ -49,7 +49,9 @@ jobs:
         run: npm run build:packages
 
       - name: Build Linux Electron packages
-        run: npm run electron:build:linux
+        run: |
+          npm run vite:build
+          npx electron-builder --linux --publish never
 
       - name: Inventory package outputs
         run: |
