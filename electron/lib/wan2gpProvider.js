@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
-const { withWan2gpAvailability } = require('./wan2gpModelAvailability');
+const { withWan2gpAvailability } = require('./wan2gpModelAvailability');\nconst { normalizeWan2gpBaseUrl } = require('./urlPolicy');
 
 const DATA_DIR = path.join(app.getPath('userData'), 'local-ai');
 const CONFIG_FILE = path.join(DATA_DIR, 'wan2gp.json');
@@ -119,7 +119,7 @@ function readConfig() {
     catch { return { url: '' }; }
 }
 function writeConfig(cfg) { fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2)); }
-function normalizeUrl(url) { return (url || '').trim().replace(/\/+$/, ''); }
+function normalizeUrl(url) { return normalizeWan2gpBaseUrl(url); }
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let activeAbort = null;
