@@ -62,10 +62,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git grep -hEo 'https?://[^"'''[:space:]<>)]+' --             '*.js' '*.jsx' '*.mjs' '*.cjs' '*.json' '*.ts' '*.tsx' '*.py'             2>/dev/null | sed 's/[;,]$//' | sort -u > /tmp/urls.txt || true
-          echo "Unique URL-like strings: $(wc -l < /tmp/urls.txt)"
-          cat /tmp/urls.txt
-
+          python3 - <<'PY'
+          import pathlib, re
+          exts={'.js','.jsx','.mjs','.cjs','.json','.ts','.tsx','.py'}
+          urls=set()
+          rx=re.compile(r'https?://[^"\'\s<>)}\\]+')
+          for p in pathlib.Path('.').rglob('*'):
+              if not p.is_file() or p.suffix.lower() not in exts:
+                  continue
+              if '.git' in p.parts:
+                  continue
+              try:
+                  text=p.read_text('utf-8',errors='ignore')
+              except Exception:
+                  continue
+              for m in rx.finditer(text):
+                  urls.add(m.group(0).rstrip(';,'))
+          print(f"Unique URL-like strings: {len(urls)}")
+          for u in sorted(urls):
+              print(u)
+          PY
       - name: Inventory sensitive execution surfaces
         shell: bash
         run: |
