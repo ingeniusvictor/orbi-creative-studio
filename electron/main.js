@@ -1,7 +1,7 @@
 const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
 const { register: registerLocalInference } = require('./lib/localInference');
-const { register: registerWan2gp } = require('./lib/wan2gpProvider');
+const { register: registerWan2gp } = require('./lib/wan2gpProvider');\nconst { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
 process.on('uncaughtException', (err) => {
     console.error('Uncaught exception:', err);
@@ -54,7 +54,13 @@ function createWindow() {
     });
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        shell.openExternal(url);
+        if (isAllowedExternalUrl(url)) {
+            shell.openExternal(url).catch((err) => {
+                console.error('Failed to open external URL:', err.message);
+            });
+        } else {
+            console.warn('Blocked non-HTTP(S) external URL');
+        }
         return { action: 'deny' };
     });
 
