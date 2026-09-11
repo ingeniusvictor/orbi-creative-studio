@@ -1,0 +1,146 @@
+{
+  "schema_version": "0.1",
+  "baseline": {
+    "repository": "Anil-matcha/Open-Generative-AI",
+    "commit": "871c1d4ef4e184d7b6b5117147d863d30b656cbb",
+    "captured": "2026-09-11"
+  },
+  "policy": {
+    "note": "Machine-readable Phase 0 provenance inventory. Null fields are intentionally unresolved and must not be interpreted as permission.",
+    "redistribution_requires_explicit_review": true
+  },
+  "assets": [
+    {
+      "id": "z-image-turbo",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "z-image",
+      "filename": "z_image_turbo-Q4_K.gguf",
+      "source_url": "https://huggingface.co/leejet/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q4_K.gguf",
+      "upstream_declared_size_gb": 2.5,
+      "exact_bytes": null,
+      "sha256": null,
+      "license_id": "Apache-2.0",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [
+        "Upstream size metadata is inconsistent with other project metadata/current remote listing; exact bytes must be measured before release."
+      ]
+    },
+    {
+      "id": "z-image-base",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "z-image",
+      "filename": "z-image-Q4_K_M.gguf",
+      "source_url": "https://huggingface.co/unsloth/Z-Image-GGUF/resolve/main/z-image-Q4_K_M.gguf",
+      "upstream_declared_size_gb": 3.5,
+      "exact_bytes": null,
+      "sha256": null,
+      "license_id": "Apache-2.0",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": []
+    },
+    {
+      "id": "z-image-text-encoder",
+      "role": "auxiliary",
+      "runtime": "sd.cpp",
+      "type": "llm",
+      "filename": "Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf",
+      "source_url": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf",
+      "upstream_declared_size_gb": 2.4,
+      "exact_bytes": null,
+      "sha256": null,
+      "license_id": "Apache-2.0",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": []
+    },
+    {
+      "id": "z-image-vae",
+      "role": "auxiliary",
+      "runtime": "sd.cpp",
+      "type": "vae",
+      "filename": "ae.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
+      "upstream_declared_size_gb": 0.33,
+      "exact_bytes": null,
+      "sha256": null,
+      "license_id": "Apache-2.0",
+      "license_status": "repository/file-surface-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": []
+    },
+    {
+      "id": "dreamshaper-8",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "sd1",
+      "filename": "DreamShaper_8_pruned.safetensors",
+      "source_url": "https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors",
+      "upstream_declared_size_gb": 2.1,
+      "exact_bytes": null,
+      "sha256": "879db523c30d3b9017143d56705015e15a2cb5628762c11d086fed9538abd7fd",
+      "license_id": null,
+      "license_status": "unresolved-exact-weight",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": [
+        "Aggregate source repository reports license 'other'. A separate official DreamShaper 8 repository declares CreativeML Open RAIL-M, but that does not by itself resolve this exact monolithic weight."
+      ]
+    },
+    {
+      "id": "realistic-vision-v51",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "sd1",
+      "filename": "realisticVisionV51_v51VAE.safetensors",
+      "source_url": "https://huggingface.co/SG161222/Realistic_Vision_V5.1_noVAE/resolve/main/Realistic_Vision_V5.1_fp16-no-ema.safetensors",
+      "upstream_declared_size_gb": 2.1,
+      "exact_bytes": null,
+      "sha256": null,
+      "license_id": "CreativeML-Open-RAIL-M",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": []
+    },
+    {
+      "id": "anything-v5",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "sd1",
+      "filename": "Anything-v5.0-PRT.safetensors",
+      "source_url": "https://huggingface.co/Yntec/AnythingV5/resolve/main/Anything-v5.0-PRT.safetensors",
+      "upstream_declared_size_gb": 2.1,
+      "exact_bytes": null,
+      "sha256": null,
+      "license_id": "CreativeML-Open-RAIL-M",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": []
+    },
+    {
+      "id": "stable-diffusion-xl-base",
+      "role": "model",
+      "runtime": "sd.cpp",
+      "type": "sdxl",
+      "filename": "sd_xl_base_1.0.safetensors",
+      "source_url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
+      "upstream_declared_size_gb": 6.9,
+      "exact_bytes": null,
+      "sha256": null,
+      "license_id": "OpenRAIL++",
+      "license_status": "repository-metadata-observed",
+      "commercial_use": null,
+      "redistribution_allowed": null,
+      "notes": []
+    }
+  ]
+}
