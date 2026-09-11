@@ -1,0 +1,193 @@
+name: ORBI Foundation integrated certification
+
+on:
+  push:
+    branches:
+      - integration/orbi-foundation
+    paths:
+      - .github/workflows/orbi-foundation-certification.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout ORBI foundation
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install exact dependency graph
+        run: npm ci
+
+      - name: Deterministic lint gate
+        run: npm run lint -- --max-warnings 11
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production dependency security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a=require('/tmp/prod-audit.json');
+          const v=a.metadata?.vulnerabilities || {};
+          console.log('FOUNDATION_PROD_AUDIT',JSON.stringify(v));
+          const rows=Object.entries(a.vulnerabilities||{}).map(([name,x])=>({
+            name,severity:x.severity,direct:x.isDirect,fixAvailable:x.fixAvailable
+          }));
+          console.log(JSON.stringify(rows,null,2));
+          if ((v.critical||0)>0 || (v.high||0)>0) {
+            throw new Error('Foundation contains critical/high production dependency findings');
+          }
+          NODE
+
+      - name: Docker build
+        run: docker build --pull -t orbi-creative-studio:foundation .
+
+      - name: Docker HTTP runtime smoke
+        run: |
+          set -euo pipefail
+          docker run -d --name orbi-foundation-web -p 3000:3000 orbi-creative-studio:foundation
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ -o /tmp/home.html; then
+              echo "FOUNDATION_DOCKER_HTTP_PASS"
+              docker rm -f orbi-foundation-web
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs orbi-foundation-web || true
+          docker rm -f orbi-foundation-web || true
+          exit 1
+
+      - name: Build Linux unpacked desktop
+        run: npx electron-builder --linux --dir --publish never
+
+      - name: Linux desktop child-process smoke
+        run: |
+          set -euo pipefail
+          exe="release/linux-unpacked/open-generative-ai"
+          test -x "$exe"
+          xvfb-run -a "$exe" --no-sandbox > /tmp/orbi-foundation-electron.log 2>&1 &
+          wrapper_pid=$!
+          sleep 12
+          app_pids="$(pgrep -f 'release/linux-unpacked/open-generative-ai' || true)"
+          echo "APP_PIDS=$app_pids"
+          test -n "$app_pids"
+          echo "FOUNDATION_LINUX_DESKTOP_PASS"
+          ps -fp $app_pids || true
+          kill $app_pids 2>/dev/null || true
+          kill "$wrapper_pid" 2>/dev/null || true
+
+  windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout ORBI foundation
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install and build workspaces
+        run: |
+          npm ci
+          npm run build:packages
+          npm run vite:build
+
+      - name: Package Windows installer
+        run: npx electron-builder --win --publish never
+
+      - name: Install launch and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          $installer=Get-ChildItem release -Filter "Open Generative AI Setup *.exe" | Select-Object -First 1
+          if(-not $installer){throw "Installer missing"}
+          $hash=(Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
+          Write-Host "FOUNDATION_WINDOWS_INSTALLER_SHA256=$hash"
+
+          $p=Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
+          if($p.ExitCode -ne 0){throw "Installer exit code $($p.ExitCode)"}
+
+          $target=Join-Path $env:LOCALAPPDATA "Open Generative AI"
+          $exe=Join-Path $target "Open Generative AI.exe"
+          if(-not (Test-Path $exe)){throw "Installed executable missing"}
+
+          $app=Start-Process -FilePath $exe -ArgumentList "--disable-gpu" -PassThru
+          Start-Sleep -Seconds 10
+          if($app.HasExited){throw "Installed application exited during smoke window"}
+          Write-Host "FOUNDATION_WINDOWS_DESKTOP_PASS PID=$($app.Id)"
+          Stop-Process -Id $app.Id -Force
+          Start-Sleep -Seconds 2
+
+          $uninstaller=Get-ChildItem $target -Filter "Uninstall*.exe" | Select-Object -First 1
+          if(-not $uninstaller){throw "Uninstaller missing"}
+          $u=Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait -PassThru
+          if($u.ExitCode -ne 0){throw "Uninstaller exit code $($u.ExitCode)"}
+          Write-Host "FOUNDATION_WINDOWS_INSTALL_UNINSTALL_PASS"
+
+  macos-package:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout ORBI foundation
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build:packages
+          npm run vite:build
+
+      - name: Package macOS x64 and arm64
+        run: npx electron-builder --mac --publish never
+
+      - name: Verify DMGs and hashes
+        run: |
+          set -euo pipefail
+          test -f "release/Open Generative AI-2.0.0.dmg"
+          test -f "release/Open Generative AI-2.0.0-arm64.dmg"
+          shasum -a 256 "release/Open Generative AI-2.0.0.dmg" "release/Open Generative AI-2.0.0-arm64.dmg"
+          echo "FOUNDATION_MACOS_PACKAGE_PASS"
