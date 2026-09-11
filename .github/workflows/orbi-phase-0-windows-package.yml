@@ -1,0 +1,73 @@
+name: ORBI Phase 0 Windows package certification
+
+on:
+  push:
+    branches:
+      - cert/phase-0-windows-package
+    paths:
+      - .github/workflows/orbi-phase-0-windows-package.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify workflow-only divergence
+        shell: pwsh
+        env:
+          PINNED_COMMIT: 871c1d4ef4e184d7b6b5117147d863d30b656cbb
+          PINNED_TREE: 3b4c89a044621ea677d9ceb477f301301a704cdf
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tree = git rev-parse "$env:PINNED_COMMIT^{tree}"
+          if ($tree -ne $env:PINNED_TREE) { throw "Root tree mismatch: $tree" }
+          $changed = @(git diff --name-only "$env:PINNED_COMMIT..HEAD")
+          $changed | ForEach-Object { Write-Host $_ }
+          if ($changed.Count -ne 1 -or $changed[0] -ne ".github/workflows/orbi-phase-0-windows-package.yml") {
+            throw "Certification branch contains unexpected changes."
+          }
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Build required workspaces
+        run: npm run build:packages
+
+      - name: Build Windows Electron package
+        run: npm run electron:build:win
+
+      - name: Inventory package outputs
+        shell: pwsh
+        run: |
+          if (-not (Test-Path release)) { throw "release directory missing" }
+          Get-ChildItem release -Recurse -File |
+            Sort-Object FullName |
+            ForEach-Object {
+              "{0} {1} bytes" -f $_.FullName, $_.Length
+            }
+          Write-Host ""
+          Write-Host "SHA-256:"
+          Get-ChildItem release -File |
+            Sort-Object Name |
+            ForEach-Object {
+              $h = Get-FileHash $_.FullName -Algorithm SHA256
+              "{0}  {1}" -f $h.Hash.ToLower(), $_.Name
+            }
