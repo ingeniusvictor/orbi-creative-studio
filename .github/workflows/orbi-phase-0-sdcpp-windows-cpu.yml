@@ -1,0 +1,51 @@
+name: ORBI Phase 0 sd.cpp Windows CPU certification
+
+on:
+  push:
+    branches:
+      - cert/phase-0-sdcpp-windows-cpu
+    paths:
+      - .github/workflows/orbi-phase-0-sdcpp-windows-cpu.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-cpu:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download pinned CPU runtime asset
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          $url="https://github.com/leejet/stable-diffusion.cpp/releases/download/master-859-7f410a3/sd-master-7f410a3-bin-win-cpu-x64.zip"
+          $expected="38c58cd603e39f91a63fb4c854db4af19c6a15b642d3982ab3c5b336b05c1855"
+          $zip=Join-Path $env:RUNNER_TEMP "sd-master-7f410a3-bin-win-cpu-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $actual=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CPU_ARCHIVE_SHA256=$actual"
+          if($actual -ne $expected){throw "CPU archive SHA-256 mismatch"}
+
+          $dest=Join-Path $env:RUNNER_TEMP "sdcpp-cpu"
+          Expand-Archive -Path $zip -DestinationPath $dest -Force
+          $cli=Get-ChildItem $dest -Recurse -Filter "sd-cli.exe" | Select-Object -First 1
+          if(-not $cli){throw "sd-cli.exe not found"}
+
+          $cliHash=(Get-FileHash $cli.FullName -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CPU_SDCLI_BYTES=$($cli.Length)"
+          Write-Host "CPU_SDCLI_SHA256=$cliHash"
+
+          $output=& $cli.FullName --help 2>&1
+          $output | Select-Object -First 80
+          if(-not (($output -join "\n") -match "Usage|stable-diffusion|options")){
+            throw "CPU sd-cli help output not recognized"
+          }
+          Write-Host "SDCPP_WINDOWS_CPU_EXECUTION_PASS"
