@@ -28,17 +28,18 @@ Status: **compatible for ORBI derivation, attribution required.**
 - GitHub currently resolves repository metadata to: `Anil-matcha/open-ai-agents-hub`
 - pinned commit: `3e21ebc92d93bd699ffc6000bbcf980eaa8830cb`
 - README at the pinned commit states: `License: MIT`
+- `packages/agents/package.json` at the same pinned commit also declares `"license": "MIT"`
 - no root `LICENSE`, `LICENSE.md`, or `LICENSE.txt` file was found at the pinned commit
 - GitHub repository metadata currently reports no detected SPDX license
 
-Status: **licensing clarification required before ORBI redistribution of this submodule.**
+Status: **MIT license intent is corroborated by two independent files at the pinned commit, but the standalone license text/copyright notice is missing.**
 
-Until clarified:
+ORBI policy:
 
-- keep it as an external Git submodule at its exact pinned commit
-- do not copy its source into an ORBI-owned subtree
-- do not remove upstream attribution
-- do not make commercial redistribution assumptions solely from the README statement
+- keeping the dependency as an external pinned Git submodule is acceptable for Phase 0 development
+- do not vendor/copy the source into an ORBI-owned subtree until the missing standalone license notice is clarified
+- preserve upstream attribution and repository linkage
+- public/commercial redistribution should carry an explicit third-party notice and should not invent a copyright holder that the upstream does not state
 
 ## Submodule 3 — Open AI Design Agent
 
@@ -98,7 +99,7 @@ ORBI should:
 - [x] root MIT license verified
 - [x] Vibe Workflow MIT license verified
 - [x] Open AI Design Agent MIT license verified
-- [ ] Open AI Agents Hub explicit license file / owner clarification obtained
+- [~] Open AI Agents Hub MIT intent corroborated by README + package.json; standalone license notice still missing
 - [ ] model-weight license inventory created
 - [ ] third-party notices file generated
 - [ ] redistribution policy decided before public/commercial release
