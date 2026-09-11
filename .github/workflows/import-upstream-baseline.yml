@@ -6,10 +6,14 @@ on:
       - main
     paths:
       - .github/workflows/import-upstream-baseline.yml
+  issues:
+    types:
+      - opened
   workflow_dispatch:
 
 permissions:
   contents: write
+  issues: read
 
 concurrency:
   group: import-upstream-baseline
@@ -17,6 +21,7 @@ concurrency:
 
 jobs:
   import:
+    if: github.event_name != 'issues' || github.event.issue.title == 'AUTOMATION — Import upstream baseline'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout ORBI repository
