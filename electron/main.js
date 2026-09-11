@@ -1,7 +1,8 @@
 const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
 const { register: registerLocalInference } = require('./lib/localInference');
-const { register: registerWan2gp } = require('./lib/wan2gpProvider');\nconst { isAllowedExternalUrl } = require('./lib/urlPolicy');
+const { register: registerWan2gp } = require('./lib/wan2gpProvider');
+const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
 process.on('uncaughtException', (err) => {
     console.error('Uncaught exception:', err);
