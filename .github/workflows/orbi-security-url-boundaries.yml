@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - security/url-boundaries
-    paths:
-      - .github/workflows/orbi-security-url-boundaries.yml
   workflow_dispatch:
 
 permissions:
@@ -31,6 +29,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Electron source syntax gate
+        run: find electron -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Run all root tests
         run: node --test tests/*.test.js
