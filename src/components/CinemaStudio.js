@@ -1,3 +1,4 @@
+import { getMuapiKey } from '../lib/providerCredentials.mjs';
 
 import { muapi } from '../lib/muapi.js';
 import { CameraControls } from './CameraControls.js';
@@ -538,7 +539,7 @@ export function CinemaStudio() {
         const basePrompt = textarea.value.trim();
         if (!basePrompt) return;
 
-        const apiKey = localStorage.getItem('muapi_key');
+        const apiKey = getMuapiKey();
         if (!apiKey) {
             AuthModal(() => generateBtn.click());
             return;
