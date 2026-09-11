@@ -84,6 +84,21 @@ jobs:
             Write-Host "OK $p"
           }
 
+      - name: Launch installed Windows app smoke
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = Join-Path (Join-Path $env:LOCALAPPDATA "Open Generative AI") "Open Generative AI.exe"
+          if (-not (Test-Path $exe)) { throw "Installed executable missing: $exe" }
+          $p = Start-Process -FilePath $exe -ArgumentList "--disable-gpu" -PassThru
+          Start-Sleep -Seconds 10
+          if ($p.HasExited) {
+            throw "Installed application exited during 10-second smoke window with code $($p.ExitCode)"
+          }
+          Write-Host "WINDOWS_DESKTOP_LAUNCH_SMOKE_PASS PID=$($p.Id)"
+          Stop-Process -Id $p.Id -Force
+          Start-Sleep -Seconds 2
+
       - name: Locate and run uninstaller silently
         shell: pwsh
         run: |
