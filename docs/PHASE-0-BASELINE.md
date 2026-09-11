@@ -26,19 +26,19 @@ Create a reproducible and auditable starting point for ORBI Creative Studio befo
 - [x] Root/submodule licensing baseline recorded
 - [x] Local model provenance baseline started
 - [x] Reproducible import runbook created
-- [ ] Import full upstream source tree into ORBI Git history
-- [ ] Initialize all submodules at pinned commits in the ORBI checkout
-- [ ] Install dependencies without source modification
-- [ ] Run available baseline node tests
-- [ ] Run package/workspace builds
-- [ ] Run root Next.js build
+- [x] Import full upstream source tree into ORBI Git history
+- [x] Initialize all submodules at pinned commits in the ORBI checkout
+- [x] Install dependencies without source modification
+- [x] Run available baseline node tests — 17/17 PASS
+- [x] Run package/workspace builds — PASS
+- [x] Run root Next.js build — PASS
 - [ ] Run baseline Electron desktop build or dev start where practical
-- [ ] Run dependency vulnerability audit after full import
+- [x] Run dependency vulnerability audit after full import — 36 findings; remediation tracked in #8
 - [ ] Verify sd.cpp at runtime on supported desktop hardware
 - [ ] Verify Wan2GP at runtime against a real server
 - [ ] Resolve Open AI Agents Hub license-file ambiguity
 - [ ] Resolve DreamShaper weight-license ambiguity
-- [ ] Record final baseline test/lint/build results
+- [x] Record baseline test/build results in `docs/PHASE-0-RUNTIME-CERTIFICATION.md`
 - [ ] Declare Phase 0 PASS before functional ORBI divergence
 
 ## Baseline pin
