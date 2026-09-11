@@ -9,7 +9,8 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
-const { withWan2gpAvailability } = require('./wan2gpModelAvailability');\nconst { normalizeWan2gpBaseUrl } = require('./urlPolicy');
+const { withWan2gpAvailability } = require('./wan2gpModelAvailability');
+const { normalizeWan2gpBaseUrl } = require('./urlPolicy');
 
 const DATA_DIR = path.join(app.getPath('userData'), 'local-ai');
 const CONFIG_FILE = path.join(DATA_DIR, 'wan2gp.json');
