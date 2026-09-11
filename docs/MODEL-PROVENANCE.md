@@ -56,9 +56,15 @@ Recommended ORBI approach:
 
 ## DreamShaper caution
 
-The current Hugging Face repository metadata reports license `other`, and the model card points users to the original DreamShaper/Civitai source.
+The exact baseline download URL is:
 
-ORBI should not redistribute DreamShaper weights until the exact license applicable to `DreamShaper_8_pruned.safetensors` has been reviewed and recorded.
+`https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors`
+
+The exact file is approximately 2.13 GB and is currently listed under the aggregate `Lykon/DreamShaper` repository, whose Hugging Face metadata reports license `other`.
+
+A separate official repository, `Lykon/dreamshaper-8`, currently declares CreativeML Open RAIL-M, and third-party conversions derived from that repository also identify CreativeML Open RAIL-M. However, that is not sufficient by itself to rewrite the license metadata of the exact monolithic file URL used by the pinned upstream.
+
+ORBI should therefore continue to treat redistribution of `DreamShaper_8_pruned.safetensors` as **unresolved** until the exact weight/license relationship is documented unambiguously.
 
 Local user-side downloading is a different distribution question and should still be documented transparently.
 
