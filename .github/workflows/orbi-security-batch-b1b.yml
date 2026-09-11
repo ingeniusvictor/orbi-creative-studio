@@ -1,0 +1,129 @@
+name: ORBI Security Batch B1b PostCSS root override experiment
+
+on:
+  push:
+    branches:
+      - security/batch-b1b-postcss-root-override
+    paths:
+      - .github/workflows/orbi-security-batch-b1b.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Batch A base
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Verify starting point
+        env:
+          BATCH_A_COMMIT: 7d852659d053995dbf9ca36b236854aac99406ab
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$BATCH_A_COMMIT" HEAD
+          changed="$(git diff --name-only "$BATCH_A_COMMIT"..HEAD)"
+          test "$changed" = ".github/workflows/orbi-security-batch-b1b.yml"
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Add npm direct-spec PostCSS override
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          pkg.overrides ||= {};
+          pkg.overrides.postcss = '$postcss';
+          fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');
+          NODE
+          git diff -- package.json
+
+      - name: Resolve overridden lockfile
+        run: npm install --package-lock-only
+
+      - name: Inspect resolved PostCSS graph
+        run: |
+          node - <<'NODE'
+          const lock=require('./package-lock.json');
+          const root=lock.packages?.['node_modules/postcss']?.version || null;
+          const nested=lock.packages?.['node_modules/next/node_modules/postcss']?.version || null;
+          const next=lock.packages?.['node_modules/next'];
+          console.log(JSON.stringify({
+            declaredPostcss: require('./package.json').devDependencies.postcss,
+            rootPostcss:root,
+            nextDeclaredPostcss:next?.dependencies?.postcss,
+            nextNestedPostcss:nested
+          },null,2));
+          if (!root || !/^8\.5\./.test(root)) throw new Error('Expected root PostCSS 8.5.x');
+          if (nested && !/^8\.5\./.test(nested)) throw new Error('Nested vulnerable PostCSS remains under Next');
+          NODE
+
+      - name: Install overridden graph
+        run: npm ci
+
+      - name: Run root tests
+        run: node --test tests/*.test.js
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production audit gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/audit.json
+          set -e
+          node - <<'NODE'
+          const a=require('/tmp/audit.json');
+          const v=a.metadata?.vulnerabilities || {};
+          console.log('B1B_AUDIT',JSON.stringify(v));
+          const rows=Object.entries(a.vulnerabilities||{}).map(([name,x])=>({
+            name,severity:x.severity,direct:x.isDirect,fixAvailable:x.fixAvailable
+          }));
+          console.log(JSON.stringify(rows,null,2));
+          if ((v.critical||0)>0 || (v.high||0)>0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
+
+      - name: Docker runtime smoke
+        run: |
+          set -euo pipefail
+          docker build -t orbi-creative-studio:b1b .
+          docker run -d --name orbi-b1b -p 3000:3000 orbi-creative-studio:b1b
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ -o /tmp/home.html; then
+              echo "B1B_DOCKER_HTTP_PASS"
+              docker rm -f orbi-b1b
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs orbi-b1b || true
+          docker rm -f orbi-b1b || true
+          exit 1
+
+      - name: Commit successful Batch B1b
+        run: |
+          set -euo pipefail
+          git config user.name "orbi-security-bot"
+          git config user.email "orbi-security-bot@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "security: enforce patched PostCSS across dependency graph"
+          git push origin HEAD:security/batch-b1b-postcss-root-override
