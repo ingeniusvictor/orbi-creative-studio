@@ -1,0 +1,76 @@
+name: ORBI Phase 0 static secret and endpoint scan
+
+on:
+  push:
+    branches:
+      - cert/phase-0-static-scan
+    paths:
+      - .github/workflows/orbi-phase-0-static-scan.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify workflow-only divergence
+        env:
+          PINNED_COMMIT: 871c1d4ef4e184d7b6b5117147d863d30b656cbb
+          PINNED_TREE: 3b4c89a044621ea677d9ceb477f301301a704cdf
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$PINNED_COMMIT^{tree}")" = "$PINNED_TREE"
+          changed="$(git diff --name-only "$PINNED_COMMIT"..HEAD)"
+          test "$changed" = ".github/workflows/orbi-phase-0-static-scan.yml"
+
+      - name: Scan tracked files for high-risk secret patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          patterns=(
+            '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'
+            'sk-[A-Za-z0-9_-]{20,}'
+            'AIza[0-9A-Za-z_-]{30,}'
+            'gh[pousr]_[A-Za-z0-9]{20,}'
+            'xox[baprs]-[A-Za-z0-9-]{10,}'
+          )
+          hit=0
+          for p in "${patterns[@]}"; do
+            echo "=== pattern: $p ==="
+            if git grep -nEI "$p" -- . ':(exclude).github/workflows/orbi-phase-0-static-scan.yml'; then
+              hit=1
+            else
+              echo "no matches"
+            fi
+          done
+          echo "SECRET_PATTERN_HIT=$hit"
+          if [ "$hit" -ne 0 ]; then
+            echo "::warning::Potential secret-like strings found; manual review required."
+          fi
+
+      - name: Inventory hard-coded HTTP and HTTPS origins
+        shell: bash
+        run: |
+          set -euo pipefail
+          git grep -hEo 'https?://[^"'''[:space:]<>)]+' --             '*.js' '*.jsx' '*.mjs' '*.cjs' '*.json' '*.ts' '*.tsx' '*.py'             2>/dev/null | sed 's/[;,]$//' | sort -u > /tmp/urls.txt || true
+          echo "Unique URL-like strings: $(wc -l < /tmp/urls.txt)"
+          cat /tmp/urls.txt
+
+      - name: Inventory sensitive execution surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for p in 'child_process' 'execSync' 'spawn(' 'shell.openExternal' 'shell.openPath' 'ipcMain.handle' 'ipcRenderer.invoke' 'fetch(' 'axios.'; do
+            echo "=== $p ==="
+            git grep -nF "$p" -- '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' 2>/dev/null || true
+          done
