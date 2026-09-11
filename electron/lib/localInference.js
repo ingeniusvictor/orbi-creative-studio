@@ -6,8 +6,9 @@ const http = require('http');
 const { spawn, execFile } = require('child_process');
 const {
     getBundledBinaryResourceDir,
-    pickBinaryAssetForPlatform,
 } = require('./localInferenceAssets');
+const { resolvePinnedRuntime, SD_BACKEND_ENV } = require('./runtimeManifest');
+const { verifyFileSha256 } = require('./fileIntegrity');
 const {
     formatStartupProgressMessage,
     parseGenerationProgressChunk,
@@ -44,28 +45,6 @@ let BINARY_PATH;
 // ─── State ────────────────────────────────────────────────────────────────────
 let activeProcess = null;
 const activeDownloads = new Map(); // modelId → request object
-
-// ─── GitHub release asset matcher per platform ───────────────────────────────
-// Asset names look like: sd-master-44cca3d-bin-Darwin-macOS-15.7.4-arm64.zip
-// We pick the best match in priority order so a single release that only
-// ships e.g. avx512 still resolves cleanly.
-function fetchJson(url) {
-    return new Promise((resolve, reject) => {
-        https.get(url, { headers: { 'User-Agent': 'open-generative-ai' } }, (res) => {
-            if (res.statusCode !== 200) {
-                res.resume();
-                reject(new Error(`HTTP ${res.statusCode} from ${url}`));
-                return;
-            }
-            let body = '';
-            res.on('data', (d) => { body += d; });
-            res.on('end', () => {
-                try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
-            });
-            res.on('error', reject);
-        }).on('error', reject);
-    });
-}
 
 // ─── Robust HTTPS download with redirect-following, range-resume, and retry ───
 function downloadFile(url, destPath, onProgress) {
@@ -215,20 +194,33 @@ function ensureBundledBinaryInstalled() {
 
 async function getBinaryStatus() {
     const exists = ensureBundledBinaryInstalled() || fs.existsSync(BINARY_PATH);
+    let runtime = null;
+    try {
+        runtime = resolvePinnedRuntime({
+            platform: process.platform,
+            arch: process.arch,
+            env: process.env,
+        });
+    } catch {
+        // Unsupported platforms can still use a manually supplied/bundled binary.
+    }
+
     return {
         exists,
         path: BINARY_PATH,
         dataDir: DATA_DIR,
         modelsDir: MODELS_DIR,
         envVar: LOCAL_AI_DIR_ENV,
+        backendEnvVar: SD_BACKEND_ENV,
+        runtime: runtime ? {
+            backend: runtime.backend,
+            release: runtime.release,
+            upstreamCommit: runtime.upstreamCommit,
+            assetName: runtime.assetName,
+            sha256: runtime.sha256,
+        } : null,
     };
 }
-
-// Metal-enabled binaries hosted on our own release (macOS arm64 only).
-// Other platforms fall back to the stock leejet release.
-const CUSTOM_BINARIES = {
-    'darwin-arm64': 'https://github.com/Anil-matcha/Open-Generative-AI/releases/download/v1.0.3-binaries/sd-cli-metal-macos-arm64.zip',
-};
 
 async function downloadBinary(mainWindow) {
     const send = (data) => mainWindow?.webContents.send('local-ai:download-progress', { id: '__binary__', ...data });
@@ -241,59 +233,28 @@ async function downloadBinary(mainWindow) {
             return { ok: true, source: 'bundled' };
         }
 
-        const platformKey = `${process.platform}-${process.arch}`;
-        const customUrl = CUSTOM_BINARIES[platformKey];
-
-        let downloadUrl, zipName;
-
-        if (customUrl) {
-            downloadUrl = customUrl;
-            zipName = path.basename(customUrl);
-        } else {
-            // Walk recent releases until we find one that actually ships a
-            // build for this platform. leejet sometimes publishes a partial
-            // release (e.g. master-587 ships only Mac arm64 + Linux ROCm),
-            // so the very latest tag isn't always usable.
-            const releases = await fetchJson(
-                'https://api.github.com/repos/leejet/stable-diffusion.cpp/releases?per_page=15'
-            );
-
-            let chosen = null;
-            let lastSeen = [];
-            for (const release of releases) {
-                const zips = (release.assets || [])
-                    .filter(a => a.name.endsWith('.zip'));
-                lastSeen = zips.map(a => a.name);
-                const pickedName = pickBinaryAssetForPlatform({
-                    platform: process.platform,
-                    arch: process.arch,
-                    zipNames: lastSeen,
-                });
-                if (pickedName) {
-                    chosen = zips.find(a => a.name === pickedName);
-                    break;
-                }
-            }
-
-            if (!chosen) {
-                if (process.platform === 'darwin' && process.arch !== 'arm64') {
-                    throw new Error('Local inference on macOS only supports Apple Silicon (M1/M2/M3/M4). Mac Intel is not supported by stable-diffusion.cpp upstream.');
-                }
-                if (process.platform === 'linux' && process.arch === 'arm64') {
-                    throw new Error('No upstream stable-diffusion.cpp binary found for linux-arm64. Install a build that bundles local-ai/linux-arm64/bin or provide the binary manually.');
-                }
-                const available = lastSeen.join(', ') || '(none)';
-                throw new Error(`No binary found for ${process.platform}-${process.arch} in the last 15 releases. Latest release assets: ${available}`);
-            }
-            downloadUrl = chosen.browser_download_url;
-            zipName = chosen.name;
-        }
+        const runtime = resolvePinnedRuntime({
+            platform: process.platform,
+            arch: process.arch,
+            env: process.env,
+        });
+        const downloadUrl = runtime.url;
+        const zipName = runtime.assetName;
 
         send({ phase: 'downloading', progress: 0 });
         const zipPath = path.join(BIN_DIR, zipName);
         await downloadFile(downloadUrl, zipPath, (p) => {
             send({ phase: 'downloading', progress: p });
         });
+
+        send({ phase: 'verifying', progress: 0.94 });
+        const integrity = await verifyFileSha256(zipPath, runtime.sha256);
+        if (!integrity.ok) {
+            try { fs.unlinkSync(zipPath); } catch {}
+            throw new Error(
+                `Runtime archive integrity check failed for ${runtime.assetName}: expected ${integrity.expected}, got ${integrity.actual}`
+            );
+        }
 
         send({ phase: 'extracting', progress: 0.95 });
         await extractZip(zipPath, BIN_DIR);
@@ -316,7 +277,15 @@ async function downloadBinary(mainWindow) {
         }
 
         send({ phase: 'done', progress: 1 });
-        return { ok: true };
+        return {
+            ok: true,
+            source: 'download',
+            backend: runtime.backend,
+            release: runtime.release,
+            upstreamCommit: runtime.upstreamCommit,
+            assetName: runtime.assetName,
+            sha256: runtime.sha256,
+        };
     } catch (err) {
         send({ phase: 'error', error: err.message });
         throw err;
