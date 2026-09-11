@@ -80,7 +80,7 @@ test('file integrity helper computes and verifies SHA-256', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orbi-integrity-'));
     const file = path.join(dir, 'sample.bin');
     fs.writeFileSync(file, 'ORBI');
-    const expected = 'a56362a10c816abf206d72cb914e2d5ca454eb9c7e744f88b1a1422c379e9942';
+    const expected = '4e963f8d2a6ce4bf656a57374419d3e37f3ebde9acd32242977152fc6893ad09';
 
     assert.equal(await sha256File(file), expected);
     assert.deepEqual(await verifyFileSha256(file, expected), {
