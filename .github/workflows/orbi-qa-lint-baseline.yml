@@ -1,0 +1,109 @@
+name: ORBI QA deterministic lint baseline experiment
+
+on:
+  push:
+    branches:
+      - qa/lint-baseline-experiment
+    paths:
+      - .github/workflows/orbi-qa-lint-baseline.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Batch A graph
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create temporary ESLint flat config
+        run: |
+          cat > eslint.config.mjs <<'EOF'
+          import { FlatCompat } from "@eslint/eslintrc";
+          import path from "node:path";
+          import { fileURLToPath } from "node:url";
+
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = path.dirname(__filename);
+          const compat = new FlatCompat({ baseDirectory: __dirname });
+
+          export default [
+            {
+              ignores: [
+                "node_modules/**",
+                ".next/**",
+                "dist/**",
+                "release/**",
+                "coverage/**",
+                "packages/**/dist/**",
+                "public/**"
+              ],
+            },
+            ...compat.extends("next/core-web-vitals"),
+          ];
+          EOF
+          cat eslint.config.mjs
+
+      - name: Run deterministic ESLint inventory
+        shell: bash
+        run: |
+          set +e
+          npx eslint . --format json > /tmp/eslint.json 2>/tmp/eslint.stderr
+          status=$?
+          set -e
+
+          echo "ESLINT_EXIT=$status"
+          cat /tmp/eslint.stderr || true
+
+          if ! node -e "JSON.parse(require('fs').readFileSync('/tmp/eslint.json','utf8'))" 2>/dev/null; then
+            echo "::error::ESLint did not produce valid JSON output."
+            head -100 /tmp/eslint.json || true
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const fs=require('fs');
+          const rows=JSON.parse(fs.readFileSync('/tmp/eslint.json','utf8'));
+          let errors=0,warnings=0,fixableErrors=0,fixableWarnings=0,filesWithMessages=0;
+          const rules={};
+          for(const r of rows){
+            errors+=r.errorCount||0;
+            warnings+=r.warningCount||0;
+            fixableErrors+=r.fixableErrorCount||0;
+            fixableWarnings+=r.fixableWarningCount||0;
+            if((r.messages||[]).length) filesWithMessages++;
+            for(const m of r.messages||[]){
+              const key=m.ruleId||"<config/parser>";
+              rules[key]=(rules[key]||0)+1;
+            }
+          }
+          console.log(JSON.stringify({
+            filesScanned:rows.length,
+            filesWithMessages,
+            errors,
+            warnings,
+            fixableErrors,
+            fixableWarnings
+          },null,2));
+          console.log("TOP_RULES");
+          console.log(Object.entries(rules).sort((a,b)=>b[1]-a[1]).slice(0,30).map(([k,v])=>`${v}\t${k}`).join('\n'));
+          NODE
+
+          exit 0
