@@ -32,7 +32,8 @@ Create a reproducible and auditable starting point for ORBI Creative Studio befo
 - [x] Run available baseline node tests — 17/17 PASS
 - [x] Run package/workspace builds — PASS
 - [x] Run root Next.js build — PASS
-- [ ] Run baseline Electron desktop build or dev start where practical
+- [x] Docker/self-hosted web smoke test — PASS
+- [x] Run baseline Electron desktop packaging where practical — Windows x64 PASS; Linux x64 PASS
 - [x] Run dependency vulnerability audit after full import — 36 findings; remediation tracked in #8
 - [ ] Verify sd.cpp at runtime on supported desktop hardware
 - [ ] Verify Wan2GP at runtime against a real server
