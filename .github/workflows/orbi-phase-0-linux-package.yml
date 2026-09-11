@@ -1,0 +1,73 @@
+name: ORBI Phase 0 Linux package certification
+
+on:
+  push:
+    branches:
+      - cert/phase-0-linux-package
+    paths:
+      - .github/workflows/orbi-phase-0-linux-package.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify workflow-only divergence
+        env:
+          PINNED_COMMIT: 871c1d4ef4e184d7b6b5117147d863d30b656cbb
+          PINNED_TREE: 3b4c89a044621ea677d9ceb477f301301a704cdf
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$PINNED_COMMIT^{tree}")" = "$PINNED_TREE"
+          git merge-base --is-ancestor "$PINNED_COMMIT" HEAD
+          changed="$(git diff --name-only "$PINNED_COMMIT"..HEAD)"
+          printf '%s\n' "$changed"
+          test "$changed" = ".github/workflows/orbi-phase-0-linux-package.yml"
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Build required workspaces
+        run: npm run build:packages
+
+      - name: Build Linux Electron packages
+        run: npm run electron:build:linux
+
+      - name: Inventory package outputs
+        run: |
+          set -euo pipefail
+          echo "Generated release artifacts:"
+          find release -maxdepth 2 -type f -printf '%p %s bytes\n' | sort
+          echo
+          echo "SHA-256:"
+          find release -maxdepth 1 -type f -print0 | sort -z | xargs -0 -r sha256sum
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## ORBI Linux package certification"
+            echo
+            echo "- Baseline: 871c1d4ef4e184d7b6b5117147d863d30b656cbb"
+            echo "- Root tree: 3b4c89a044621ea677d9ceb477f301301a704cdf"
+            echo "- Target: Linux x64"
+            echo "- Command: npm run electron:build:linux"
+          } >> "$GITHUB_STEP_SUMMARY"
