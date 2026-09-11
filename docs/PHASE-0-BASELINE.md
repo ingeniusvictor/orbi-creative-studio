@@ -24,7 +24,7 @@ Create a reproducible and auditable starting point for ORBI Creative Studio befo
 - [x] Record environment variables and persistent configuration
 - [x] Static security findings recorded
 - [x] Root/submodule licensing baseline recorded
-- [x] Local model provenance baseline started
+- [x] Local model provenance baseline completed for identity — exact bytes/SHA/revisions captured for 8 local assets
 - [x] Reproducible import runbook created
 - [x] Import full upstream source tree into ORBI Git history
 - [x] Initialize all submodules at pinned commits in the ORBI checkout
@@ -33,11 +33,13 @@ Create a reproducible and auditable starting point for ORBI Creative Studio befo
 - [x] Run package/workspace builds — PASS
 - [x] Run root Next.js build — PASS
 - [x] Docker/self-hosted web smoke test — PASS
-- [x] Run baseline Electron desktop packaging where practical — Windows x64 PASS; Linux x64 PASS
+- [x] Linux Electron desktop launch smoke — real child process sustained >12 s
+- [x] Run baseline Electron desktop packaging — Windows x64 PASS; Linux x64 PASS; macOS x64/arm64 PASS
 - [x] Run dependency vulnerability audit after full import — 36 findings; remediation tracked in #8
-- [ ] Verify sd.cpp at runtime on supported desktop hardware
+- [x] Deterministic ESLint baseline established on QA branch — 0 errors / 12 warnings
+- [x] Verify sd.cpp binary runtime on Linux x64 — dynamic selector/download/execution PASS; real model generation remains a hardware/model gate
 - [ ] Verify Wan2GP at runtime against a real server
-- [ ] Resolve Open AI Agents Hub license-file ambiguity
+- [ ] Resolve Open AI Agents Hub standalone license-file ambiguity — MIT intent corroborated by README + package.json
 - [ ] Resolve DreamShaper weight-license ambiguity
 - [x] Record baseline test/build results in `docs/PHASE-0-RUNTIME-CERTIFICATION.md`
 - [ ] Declare Phase 0 PASS before functional ORBI divergence
