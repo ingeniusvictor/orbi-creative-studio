@@ -1,0 +1,65 @@
+name: ORBI Phase 0 local model metadata certification
+
+on:
+  push:
+    branches:
+      - cert/phase-0-model-metadata
+    paths:
+      - .github/workflows/orbi-phase-0-model-metadata.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pinned baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Query Hugging Face LFS metadata without downloading weights
+        run: |
+          node - <<'NODE'
+          const assets = [
+            ['z-image-turbo','https://huggingface.co/leejet/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q4_K.gguf'],
+            ['z-image-base','https://huggingface.co/unsloth/Z-Image-GGUF/resolve/main/z-image-Q4_K_M.gguf'],
+            ['z-image-text-encoder','https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf'],
+            ['z-image-vae','https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors'],
+            ['dreamshaper-8','https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors'],
+            ['realistic-vision-v51','https://huggingface.co/SG161222/Realistic_Vision_V5.1_noVAE/resolve/main/Realistic_Vision_V5.1_fp16-no-ema.safetensors'],
+            ['anything-v5','https://huggingface.co/Yntec/AnythingV5/resolve/main/Anything-v5.0-PRT.safetensors'],
+            ['stable-diffusion-xl-base','https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors'],
+          ];
+
+          const keep = [
+            'content-length','etag','location','x-linked-etag','x-linked-size',
+            'x-repo-commit','x-request-id','accept-ranges'
+          ];
+
+          (async()=>{
+            const rows=[];
+            for(const [id,url] of assets){
+              const res=await fetch(url,{
+                method:'HEAD',
+                redirect:'manual',
+                headers:{'User-Agent':'orbi-phase0-metadata-cert'}
+              });
+              const headers={};
+              for(const k of keep){
+                const v=res.headers.get(k);
+                if(v!==null) headers[k]=v;
+              }
+              rows.push({id,url,status:res.status,headers});
+            }
+            console.log('MODEL_METADATA_JSON');
+            console.log(JSON.stringify(rows,null,2));
+            if(rows.some(r=>![200,302,307].includes(r.status))){
+              throw new Error('One or more model metadata HEAD requests failed');
+            }
+          })();
+          NODE
