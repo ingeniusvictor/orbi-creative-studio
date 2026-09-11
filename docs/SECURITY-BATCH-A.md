@@ -31,6 +31,15 @@ PASS:
 
 No upstream functional source file was modified.
 
+## Full audit improvement
+
+The complete dependency graph also improved:
+
+- before: **36** vulnerabilities (3 low / 5 moderate / 26 high / 2 critical)
+- after lock-safe remediation: **21** vulnerabilities (0 low / 5 moderate / 15 high / 1 critical)
+
+The remaining full-audit critical/high findings are dominated by development/build/runtime-tooling families such as Electron/electron-builder and related chains. They remain tracked separately and are not hidden by the production-only result.
+
 ## Production audit improvement
 
 Before:
