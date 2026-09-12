@@ -5,6 +5,7 @@ const { execFile, execFileSync } = require('node:child_process');
 
 const COMMAND_TIMEOUT_MS = 2500;
 const COMMAND_MAX_BUFFER = 512 * 1024;
+const DEFAULT_READINESS_CACHE_TTL_MS = 5 * 60 * 1000;
 const ALLOWED_COMMANDS = new Set(['nvidia-smi', 'nvcc', 'vulkaninfo', 'rocminfo']);
 
 function safeNumber(value) {
@@ -237,14 +238,61 @@ async function probeHardwareCapabilitiesAsync({
     });
 }
 
+function createCachedHardwareCapabilityProbe({
+    probeImpl = probeHardwareCapabilitiesAsync,
+    cacheTtlMs = DEFAULT_READINESS_CACHE_TTL_MS,
+    now = Date.now,
+} = {}) {
+    if (typeof probeImpl !== 'function') {
+        throw new TypeError('hardware probe implementation is required');
+    }
+
+    let cached = null;
+    let cachedAt = 0;
+    let inFlight = null;
+
+    async function probe({ force = false } = {}) {
+        const current = now();
+        if (!force && cached && (current - cachedAt) < cacheTtlMs) {
+            return cached;
+        }
+        if (inFlight) return inFlight;
+
+        inFlight = Promise.resolve()
+            .then(() => probeImpl())
+            .then((result) => {
+                cached = result;
+                cachedAt = now();
+                return result;
+            })
+            .finally(() => {
+                inFlight = null;
+            });
+
+        return inFlight;
+    }
+
+    function invalidate() {
+        cached = null;
+        cachedAt = 0;
+    }
+
+    return Object.freeze({
+        probe,
+        invalidate,
+    });
+}
+
 module.exports = {
     ALLOWED_COMMANDS,
     COMMAND_TIMEOUT_MS,
     COMMAND_MAX_BUFFER,
+    DEFAULT_READINESS_CACHE_TTL_MS,
     probeCommand,
     probeCommandAsync,
     parseNvidiaSmi,
     parseCudaVersion,
     probeHardwareCapabilities,
     probeHardwareCapabilitiesAsync,
+    createCachedHardwareCapabilityProbe,
 };
