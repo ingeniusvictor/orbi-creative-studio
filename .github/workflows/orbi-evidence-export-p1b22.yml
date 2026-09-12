@@ -1,0 +1,120 @@
+name: ORBI Evidence export P1B22 validation
+
+on:
+  push:
+    branches:
+      - feature/evidence-export-p1b22
+  pull_request:
+    branches:
+      - feature/build-bound-diagnostics-p1b21
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout evidence export branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Evidence export static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('src/lib/computeRouter/evidenceExport.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+          const diagnostics = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+
+          const required = [
+            "EVIDENCE_EXPORT_EXECUTION_AUTHORITY = 'legacy-dispatcher-only'",
+            'cutoverAuthorized: false',
+            'requireRendererBuildIdentity',
+            'extractBoundCertification',
+            'extractReleaseGates',
+            'validateStudioCutoverReviewBundle',
+            'serializableExportShape',
+            '/^[0-9a-f]{40}$/',
+          ];
+          for (const token of required) {
+            if (!source.includes(token)) {
+              throw new Error('Evidence export invariant missing: ' + token);
+            }
+          }
+
+          const forbidden = [
+            "from 'node:fs'",
+            "require('fs')",
+            "require('node:fs')",
+            'writeFile',
+            'download',
+            'Blob(',
+            'URL.createObjectURL',
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'routeGenerationRequest(',
+            'localAI.generate',
+            'muapi.generate',
+          ];
+          const hits = forbidden.filter((token) => source.includes(token));
+          if (hits.length) {
+            throw new Error('Evidence export side effect coupling: ' + hits.join(', '));
+          }
+
+          if (image.includes('evidenceExport') || video.includes('evidenceExport')) {
+            throw new Error('Evidence export entered a generation component');
+          }
+          if (diagnostics.includes('evidenceExport')) {
+            throw new Error('P1B.22 must not add export actions to diagnostics UI');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Evidence export tests
+        run: node --test tests/evidenceExport.test.js tests/cutoverReviewBundle.test.js tests/parityBuildBinding.test.js tests/releaseEvidenceManifest.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer with identity
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('EVIDENCE_EXPORT_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
