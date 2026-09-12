@@ -1,0 +1,90 @@
+name: ORBI Compute Router readiness snapshot P1B4 validation
+
+on:
+  push:
+    branches:
+      - feature/compute-router-readiness-snapshot-p1b4-prep
+  pull_request:
+    branches:
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout readiness snapshot branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Readiness snapshot security gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const preload = fs.readFileSync('electron/preload.js', 'utf8');
+          const core = fs.readFileSync('electron/lib/computeRouterReadinessSnapshotCore.js', 'utf8');
+          const wrapper = fs.readFileSync('electron/lib/computeRouterReadinessSnapshot.js', 'utf8');
+
+          if (!preload.includes('getReadinessSnapshot')) throw new Error('snapshot preload bridge missing');
+          if (/set|delete|generate|upload/i.test(
+              preload.slice(preload.indexOf("contextBridge.exposeInMainWorld('orbiComputeRouter'"))
+          )) {
+              throw new Error('orbiComputeRouter bridge must remain read-only');
+          }
+          if (core.includes('secret:')) throw new Error('snapshot core must not expose provider secrets');
+          if (!wrapper.includes('assertTrustedSender(event)')) throw new Error('trusted sender guard missing');
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Electron syntax gate
+        run: |
+          node --check electron/lib/hardwareCapabilityProbe.js
+          node --check electron/lib/computeRouterReadinessSnapshotCore.js
+          node --check electron/lib/computeRouterReadinessSnapshot.js
+          node --check electron/main.js
+          node --check electron/preload.js
+
+      - name: Router snapshot tests
+        run: node --test tests/hardwareCapabilityProbe.test.js tests/computeRouterReadinessSnapshot.test.js tests/computeRouterReadinessSnapshotIntegration.test.js tests/computeRouterProviderReadiness.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1B4_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
