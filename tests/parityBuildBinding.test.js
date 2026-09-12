@@ -240,3 +240,21 @@ test('parity build binding remains pure and isolated from Studio execution', () 
     assert.ok(source.includes("PARITY_BUILD_EXECUTION_AUTHORITY = 'legacy-dispatcher-only'"));
     assert.ok(source.includes('cutoverAuthorized: false'));
 });
+
+test('malformed route entries are rejected without crashing binding snapshot creation', async () => {
+    const m = await modules();
+    const certification = validCertification(m);
+    certification.routes[0] = null;
+
+    const binding = m.bindParityCertificationToBuild({
+        sourceCommit: SOURCE,
+        bindingId: 'parity-binding-malformed-route',
+        boundAt: 1000,
+        certification,
+    });
+
+    assert.equal(binding.bindingValid, false);
+    assert.equal(binding.status, 'PARITY_CERTIFICATION_REJECTED');
+    assert.ok(binding.reasons.includes('certification-profile-mismatch'));
+    assert.equal(binding.certification.routes.length, 8);
+});
