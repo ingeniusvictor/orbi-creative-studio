@@ -4,6 +4,7 @@ const { register: registerLocalInference } = require('./lib/localInference');
 const { register: registerWan2gp } = require('./lib/wan2gpProvider');
 const { register: registerProviderCredentials } = require('./lib/providerCredentials');
 const { register: registerMuapiTransport } = require('./lib/muapiTransport');
+const { register: registerComputeRouterReadiness } = require('./lib/computeRouterReadinessSnapshot');
 const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
 process.on('uncaughtException', (err) => {
@@ -25,6 +26,7 @@ if (process.platform === 'linux') {
 }
 
 let mainWindow;
+let providerSecretStore = null;
 
 function createWindow() {
     const isMac = process.platform === 'darwin';
@@ -80,7 +82,7 @@ app.whenReady().then(() => {
     createWindow();
 
     try {
-        const providerSecretStore = registerProviderCredentials();
+        providerSecretStore = registerProviderCredentials();
         registerMuapiTransport({ store: providerSecretStore });
     } catch (err) {
         // Credential readiness can still report an unavailable OS backend, but
@@ -97,6 +99,14 @@ app.whenReady().then(() => {
             'Local AI features unavailable',
             `Open Generative AI started, but local model support failed to initialize:\n\n${err.message}`
         );
+    }
+
+    if (providerSecretStore) {
+        try {
+            registerComputeRouterReadiness({ store: providerSecretStore });
+        } catch (err) {
+            console.error('Failed to register Compute Router readiness snapshot:', err);
+        }
     }
 
     app.on('activate', () => {
