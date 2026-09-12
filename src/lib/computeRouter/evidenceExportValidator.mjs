@@ -614,14 +614,23 @@ function validateCertificationReleaseEvidenceExport(input) {
         throw validationError('evidence export must preserve legacy execution authority');
     }
 
+    const topReadyForReview = requireBoolean(
+        bundle.readyForReview,
+        'exportBundle.readyForReview',
+    );
+    const topReviewStatus = requireString(
+        bundle.reviewStatus,
+        'exportBundle.reviewStatus',
+    );
+
     const parity = validateParity(bundle.parity);
     const release = validateRelease(bundle.release, sourceCommit);
     const review = validateReview(bundle.review, release);
 
-    if (bundle.readyForReview !== review.readyForReview) {
+    if (topReadyForReview !== review.readyForReview) {
         throw validationError('top-level readyForReview is inconsistent');
     }
-    if (bundle.reviewStatus !== review.reviewStatus) {
+    if (topReviewStatus !== review.reviewStatus) {
         throw validationError('top-level reviewStatus is inconsistent');
     }
 
