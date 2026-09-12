@@ -2,6 +2,18 @@ const MUAPI_STORAGE_KEY = 'muapi_key';
 const MUAPI_COOKIE_NAME = 'muapi_key';
 const MUAPI_COOKIE_MAX_AGE_SECONDS = 31536000;
 
+let desktopCredentialSyncPromise = null;
+let desktopCredentialSyncedValue = null;
+
+function getDesktopCredentialBridge() {
+    try {
+        const bridge = globalThis.window?.orbiCredentials;
+        return bridge && bridge.isElectron === true ? bridge : null;
+    } catch {
+        return null;
+    }
+}
+
 function normalizeKey(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -74,6 +86,8 @@ export function setMuapiKey(value) {
     }
 
     storage.setItem(MUAPI_STORAGE_KEY, key);
+    desktopCredentialSyncedValue = null;
+    desktopCredentialSyncPromise = null;
     return key;
 }
 
@@ -82,6 +96,37 @@ export function clearMuapiKey() {
     if (storage && typeof storage.removeItem === 'function') {
         storage.removeItem(MUAPI_STORAGE_KEY);
     }
+    desktopCredentialSyncedValue = null;
+    desktopCredentialSyncPromise = null;
+}
+
+export async function ensureDesktopMuapiCredential() {
+    const bridge = getDesktopCredentialBridge();
+    if (!bridge) return { desktop: false, synced: false };
+
+    const key = getMuapiKey();
+    if (!key) {
+        const readiness = await bridge.getMuapiReadiness();
+        return { desktop: true, synced: false, readiness };
+    }
+
+    if (desktopCredentialSyncedValue === key) {
+        return { desktop: true, synced: true };
+    }
+
+    if (!desktopCredentialSyncPromise) {
+        desktopCredentialSyncPromise = bridge.setMuapiKey(key)
+            .then((result) => {
+                desktopCredentialSyncedValue = key;
+                return result;
+            })
+            .finally(() => {
+                desktopCredentialSyncPromise = null;
+            });
+    }
+
+    const result = await desktopCredentialSyncPromise;
+    return { desktop: true, synced: true, result };
 }
 
 export function syncMuapiKeyCookie(value) {
