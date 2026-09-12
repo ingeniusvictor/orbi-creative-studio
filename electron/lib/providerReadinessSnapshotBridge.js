@@ -6,7 +6,7 @@ const {
     MUAPI_PROVIDER,
     MUAPI_SECRET,
 } = require('./providerCredentials');
-const { probeHardwareCapabilities } = require('./hardwareCapabilityProbe');
+const { probeHardwareCapabilitiesAsync } = require('./hardwareCapabilityProbe');
 const { getReadinessEvidence: getSdCppReadinessEvidence } = require('./localInference');
 const { getReadinessEvidence: getWan2gpReadinessEvidence } = require('./wan2gpProvider');
 const {
@@ -21,7 +21,7 @@ function register({
     store,
     getSdCppEvidence = getSdCppReadinessEvidence,
     getWan2gpEvidence = getWan2gpReadinessEvidence,
-    probeHardware = probeHardwareCapabilities,
+    probeHardware = probeHardwareCapabilitiesAsync,
     createHealthProbe = createMuapiHealthProbe,
 } = {}) {
     if (!store || typeof store.getReadiness !== 'function' || typeof store.getSecret !== 'function') {
@@ -39,7 +39,7 @@ function register({
             getWan2gpEvidence(),
         ]);
 
-        const hardwareSnapshot = probeHardware();
+        const hardwareSnapshot = await probeHardware();
         const muapiCredentialReadiness = store.getReadiness(MUAPI_PROVIDER, MUAPI_SECRET);
 
         const muapiTransportHealth = canProbeMuapiHealth(muapiCredentialReadiness)
