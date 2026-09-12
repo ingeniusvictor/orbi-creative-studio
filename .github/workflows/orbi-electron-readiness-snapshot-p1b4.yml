@@ -1,0 +1,99 @@
+name: ORBI Electron readiness snapshot P1B4 validation
+
+on:
+  push:
+    branches:
+      - feature/electron-readiness-snapshot-p1b4
+  pull_request:
+    branches:
+      - feature/compute-router-readiness-p1b3-clean
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout readiness snapshot branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Snapshot bridge static security gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const bridge = fs.readFileSync('electron/lib/providerReadinessSnapshotBridge.js', 'utf8');
+          const core = fs.readFileSync('electron/lib/providerReadinessSnapshotCore.js', 'utf8');
+          const preload = fs.readFileSync('electron/preload.js', 'utf8');
+
+          const bannedBridgeTokens = [
+            "local-ai:generate",
+            "wan2gp:generate",
+            "muapi-transport:request",
+            ".getSecret(",
+            "decryptString",
+          ];
+          const hits = bannedBridgeTokens.filter((token) => bridge.includes(token));
+          if (hits.length) {
+            throw new Error('Readiness bridge contains execution/secret coupling: ' + hits.join(', '));
+          }
+
+          if (!bridge.includes("compute-router:readiness-snapshot")) {
+            throw new Error('Readiness snapshot IPC channel missing');
+          }
+          if (!bridge.includes('assertTrustedSender')) {
+            throw new Error('Trusted sender gate missing');
+          }
+          if (!core.includes('configured: evidence.config.configured === true')) {
+            throw new Error('Wan2GP redacted configuration boundary missing');
+          }
+          if (!preload.includes('getReadinessSnapshot')) {
+            throw new Error('Narrow preload readiness method missing');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Readiness snapshot tests
+        run: node --test tests/computeRouterContracts.test.js tests/computeRouterProviderAdapters.test.js tests/computeRouterProviderReadiness.test.js tests/providerReadinessSnapshot.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('READINESS_SNAPSHOT_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
