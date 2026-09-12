@@ -233,7 +233,7 @@ test('text report is deterministic and human-readable without private payload fi
 
     const text = formatParityDiagnosticText(report);
     assert.ok(text.includes('ORBI Compute Router — Parity Diagnostic Report'));
-    assert.ok(text.includes('Certification: CERTIFIED (PARITY_CERTIFIED)'));
+    assert.ok(text.includes('Certification targets: CERTIFIED (PARITY_CERTIFIED)'));
     assert.ok(text.includes('sdcpp-device:t2i: CERTIFIED'));
     assert.ok(text.includes('samples 2/2; models 2/2'));
     assert.ok(text.includes('z-image-base, z-image-turbo'));
@@ -309,7 +309,7 @@ test('session diagnostic report reads only the in-memory P1B.10 ledger', async (
     assert.equal(report.totals.samples, 2);
 
     const text = formatStudioParityDiagnosticReport(targets, { generatedAt: 5000 });
-    assert.ok(text.includes('Certification: CERTIFIED'));
+    assert.ok(text.includes('Certification targets: CERTIFIED'));
     assert.ok(text.includes('sdcpp-device:t2i'));
 
     stopStudioParitySessionCollector();
