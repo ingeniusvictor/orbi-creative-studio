@@ -5,6 +5,9 @@ const {
     DEFAULT_TTL_MS,
     createMuapiHealthTracker,
 } = require('../electron/lib/muapiHealthTracker');
+const {
+    buildReadinessSnapshot,
+} = require('../electron/lib/computeRouterReadinessSnapshot');
 
 test('passive MuAPI health starts unknown and performs no active probe', () => {
     let now = 1000;
@@ -71,4 +74,41 @@ test('passive observation does not expose status, URL, error, key, or timestamp'
         key: 'secret',
     });
     assert.deepEqual(Object.keys(tracker.getHealthSnapshot()), ['ok']);
+});
+
+
+test('fresh passive success can promote MuAPI readiness; expiry returns it to unknown', async () => {
+    let now = 1000;
+    const tracker = createMuapiHealthTracker({ now: () => now });
+    tracker.recordResponse({ ok: true, status: 200 });
+
+    const credentialReadiness = {
+        available: true,
+        secure: true,
+        hasSecret: true,
+        storeState: 'ready',
+    };
+
+    const { composeCurrentProviderReadiness } = await import('../src/lib/computeRouter/providerReadiness.mjs');
+
+    const freshSnapshot = buildReadinessSnapshot({
+        credentialReadiness,
+        transportHealth: tracker.getHealthSnapshot(),
+    });
+    const freshProviders = composeCurrentProviderReadiness(freshSnapshot);
+    const freshMuapi = freshProviders.find((provider) => provider.id === 'muapi-cloud');
+
+    assert.equal(freshMuapi.credentials, 'available');
+    assert.equal(freshMuapi.health, 'ready');
+
+    now += DEFAULT_TTL_MS + 1;
+    const staleSnapshot = buildReadinessSnapshot({
+        credentialReadiness,
+        transportHealth: tracker.getHealthSnapshot(),
+    });
+    const staleProviders = composeCurrentProviderReadiness(staleSnapshot);
+    const staleMuapi = staleProviders.find((provider) => provider.id === 'muapi-cloud');
+
+    assert.equal(staleMuapi.credentials, 'available');
+    assert.equal(staleMuapi.health, 'unknown');
 });
