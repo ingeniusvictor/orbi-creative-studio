@@ -25,10 +25,14 @@ function provider(overrides = {}) {
     };
 }
 
-test('contracts reject unknown capabilities and provider enums', async () => {
+test('contracts reject unknown capabilities, enums, and missing identities', async () => {
     const { createGenerationRequest, createProviderDescriptor } = await contracts();
     assert.throws(() => createGenerationRequest({ capability: 'telepathy' }), /Invalid capability/);
     assert.throws(() => createProviderDescriptor(provider({ execution: 'moon' })), /Invalid execution type/);
+    assert.throws(() => createProviderDescriptor(provider({ id: undefined })), /provider id is required/);
+    const missingModel = provider();
+    delete missingModel.capabilities[0].modelId;
+    assert.throws(() => createProviderDescriptor(missingModel), /modelId is required/);
 });
 
 test('device-only privacy rejects cloud providers', async () => {
