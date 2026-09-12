@@ -12,6 +12,7 @@ const DesignAgentStudio = dynamic(() => import('studio').then(mod => mod.DesignA
 import axios from 'axios';
 import ApiKeyModal from './ApiKeyModal';
 import { getCommonCopy, getLocaleConfig, localizeStudioPath } from '@/lib/locales';
+import { clearMuapiKey, clearMuapiKeyCookie, getMuapiKey, setMuapiKey, syncMuapiKeyCookie } from '@/src/lib/providerCredentials.mjs';
 
 // Tab/category ids, icons, and English `label` fallbacks are stable
 // identifiers, not locale copy — the actual rendered label is resolved
@@ -266,7 +267,6 @@ const getNavigationCategory = (tabId) => (
   NAVIGATION_CATEGORIES.find((category) => category.tabIds.includes(tabId))
 );
 
-const STORAGE_KEY = 'muapi_key';
 const NOTIFICATIONS_STORAGE_KEY = 'open_gen_notifications_v1';
 const MAX_VISIBLE_NOTIFICATIONS = 3;
 
@@ -576,27 +576,27 @@ export default function StandaloneShell({ locale = 'en' }) {
 
   useEffect(() => {
     setHasMounted(true);
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = getMuapiKey();
     if (stored) {
       setApiKey(stored);
       fetchBalance(stored);
-      // Sync cookie immediately on mount to establish identity for background requests
-      document.cookie = `muapi_key=${stored}; path=/; max-age=31536000; SameSite=Lax`;
+      // Sync the compatibility cookie through the provider credential boundary.
+      syncMuapiKeyCookie(stored);
     }
   }, [fetchBalance]);
 
   const handleKeySave = useCallback((key) => {
-    localStorage.setItem(STORAGE_KEY, key);
-    setApiKey(key);
-    fetchBalance(key);
-    document.cookie = `muapi_key=${key}; path=/; max-age=31536000; SameSite=Lax`;
+    const storedKey = setMuapiKey(key);
+    setApiKey(storedKey);
+    fetchBalance(storedKey);
+    syncMuapiKeyCookie(storedKey);
   }, [fetchBalance]);
 
   const handleKeyChange = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    clearMuapiKey();
+    clearMuapiKeyCookie();
     setApiKey(null);
     setBalance(null);
-    document.cookie = "muapi_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   }, []);
 
   // Inject API key into all outgoing Axios requests (prop-based approach)
