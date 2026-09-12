@@ -151,7 +151,7 @@ test('human formatter keeps authenticity and cutover boundaries explicit', async
     assert.ok(text.includes('does not prove signer identity or provenance'));
 });
 
-test('formatter rejects any report that tries to claim cutover authority', async () => {
+test('formatter rejects any report that tries to claim cutover authority or authenticity', async () => {
     const m = await modules();
     const bundle = buildBundle(m);
     const fingerprint = await m.createEvidenceFingerprint(bundle, { cryptoProvider: webcrypto });
@@ -159,6 +159,10 @@ test('formatter rejects any report that tries to claim cutover authority', async
 
     assert.throws(
         () => m.formatEvidenceIntegrityText({ ...report, cutoverAuthorized: true }),
+        (error) => error.code === 'INVALID_EVIDENCE_INTEGRITY_REPORT_INPUT',
+    );
+    assert.throws(
+        () => m.formatEvidenceIntegrityText({ ...report, authenticityVerified: true }),
         (error) => error.code === 'INVALID_EVIDENCE_INTEGRITY_REPORT_INPUT',
     );
 });
