@@ -100,37 +100,69 @@ test('setMuapiKey rejects empty credentials and unavailable storage', async () =
 });
 
 
-test('desktop credential sync copies the legacy key into secure storage once per value', async () => {
+test('desktop migration copies legacy key then removes renderer storage', async () => {
     const storage = createStorage({ muapi_key: 'legacy-key' });
-    let writes = 0;
-    let lastValue = null;
+    let secureValue = null;
 
     global.localStorage = storage;
+    global.document = { cookie: 'muapi_key=legacy-key' };
+    global.location = { protocol: 'file:' };
     global.window = {
         orbiCredentials: {
             isElectron: true,
-            getMuapiReadiness: async () => ({ hasSecret: false }),
             setMuapiKey: async (value) => {
-                writes += 1;
-                lastValue = value;
+                secureValue = value;
                 return { stored: true };
             },
+            getMuapiReadiness: async () => ({
+                available: true,
+                secure: true,
+                hasSecret: Boolean(secureValue),
+                storeState: 'ready',
+            }),
+            deleteMuapiKey: async () => ({ deleted: true }),
         },
     };
 
-    const { ensureDesktopMuapiCredential, setMuapiKey } = await loadModule();
+    const { getMuapiKey, hasMuapiCredential, migrateLegacyMuapiCredential } = await loadModule();
 
-    const first = await ensureDesktopMuapiCredential();
-    assert.equal(first.desktop, true);
-    assert.equal(first.synced, true);
-    assert.equal(lastValue, 'legacy-key');
-    assert.equal(writes, 1);
+    const result = await migrateLegacyMuapiCredential();
+    assert.equal(result.desktop, true);
+    assert.equal(result.migrated, true);
+    assert.equal(secureValue, 'legacy-key');
+    assert.equal(storage.snapshot().muapi_key, undefined);
+    assert.equal(getMuapiKey(), null);
+    assert.equal(await hasMuapiCredential(), true);
+});
 
-    await ensureDesktopMuapiCredential();
-    assert.equal(writes, 1);
+test('desktop secure credential setter never repopulates browser localStorage', async () => {
+    const storage = createStorage();
+    let secureValue = null;
 
-    setMuapiKey('rotated-key');
-    await ensureDesktopMuapiCredential();
-    assert.equal(lastValue, 'rotated-key');
-    assert.equal(writes, 2);
+    global.localStorage = storage;
+    global.document = { cookie: '' };
+    global.window = {
+        orbiCredentials: {
+            isElectron: true,
+            setMuapiKey: async (value) => {
+                secureValue = value;
+                return { stored: true };
+            },
+            getMuapiReadiness: async () => ({
+                available: true,
+                secure: true,
+                hasSecret: Boolean(secureValue),
+                storeState: 'ready',
+            }),
+            deleteMuapiKey: async () => ({ deleted: true }),
+        },
+    };
+
+    const { setMuapiCredential, getMuapiKey, hasMuapiCredential } = await loadModule();
+    await setMuapiCredential('secure-only-key');
+
+    assert.equal(secureValue, 'secure-only-key');
+    assert.equal(storage.snapshot().muapi_key, undefined);
+    assert.equal(getMuapiKey(), null);
+    assert.equal(await hasMuapiCredential(), true);
 });
