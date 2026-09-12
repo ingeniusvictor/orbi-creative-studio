@@ -10,6 +10,12 @@ const {
 const { resolvePinnedRuntime, SD_BACKEND_ENV } = require('./runtimeManifest');
 const { verifyFileSha256 } = require('./fileIntegrity');
 const {
+    clearIntegrityCache,
+    getFileSizeState,
+    promoteVerifiedAsset,
+    verifyModelAsset,
+} = require('./modelAssetIntegrity');
+const {
     formatStartupProgressMessage,
     parseGenerationProgressChunk,
     resolveGenerationSteps,
@@ -295,15 +301,31 @@ async function downloadBinary(mainWindow) {
 // ─── Model management ─────────────────────────────────────────────────────────
 function getModelState(model) {
     const filePath = path.join(MODELS_DIR, model.filename);
-    const partPath = filePath + '.part';
-    if (fs.existsSync(filePath)) return 'downloaded';
-    if (fs.existsSync(partPath)) return 'partial';
+    const partialPaths = [
+        filePath + '.part',
+        filePath + '.download',
+        filePath + '.download.part',
+    ];
+
+    if (fs.existsSync(filePath)) {
+        try {
+            return getFileSizeState(filePath, model).sizeMatches ? 'downloaded' : 'integrity-failed';
+        } catch {
+            return 'integrity-failed';
+        }
+    }
+    if (partialPaths.some((candidate) => fs.existsSync(candidate))) return 'partial';
     return 'not-downloaded';
 }
 
 function getAuxState(aux) {
     const filePath = path.join(MODELS_DIR, aux.filename);
-    return fs.existsSync(filePath) ? 'downloaded' : 'not-downloaded';
+    if (!fs.existsSync(filePath)) return 'not-downloaded';
+    try {
+        return getFileSizeState(filePath, aux).sizeMatches ? 'downloaded' : 'integrity-failed';
+    } catch {
+        return 'integrity-failed';
+    }
 }
 
 async function listModels() {
@@ -326,21 +348,34 @@ async function downloadModel(modelId, mainWindow) {
     if (!model) throw new Error(`Unknown model: ${modelId}`);
 
     const destPath = path.join(MODELS_DIR, model.filename);
-    if (fs.existsSync(destPath)) return { ok: true, path: destPath };
+    const stagedPath = destPath + '.download';
 
     const send = (data) => mainWindow?.webContents.send('local-ai:download-progress', { id: modelId, ...data });
+
+    if (fs.existsSync(destPath)) {
+        try {
+            const integrity = await verifyModelAsset(destPath, model);
+            return { ok: true, path: destPath, integrity };
+        } catch (error) {
+            if (!['MODEL_ASSET_SIZE_MISMATCH', 'MODEL_ASSET_HASH_MISMATCH'].includes(error.code)) throw error;
+            clearIntegrityCache(destPath);
+            fs.unlinkSync(destPath);
+        }
+    }
+
     send({ phase: 'downloading', progress: 0 });
 
     try {
-        await downloadFile(model.downloadUrl, destPath, (p) => {
-            send({ phase: 'downloading', progress: p });
+        await downloadFile(model.downloadUrl, stagedPath, (p) => {
+            send({ phase: 'downloading', progress: p * 0.96 });
         });
+        send({ phase: 'verifying', progress: 0.97 });
+        const integrity = await promoteVerifiedAsset(stagedPath, destPath, model);
+        send({ phase: 'done', progress: 1 });
+        return { ok: true, path: destPath, integrity };
     } catch (err) {
-        throw new Error(`Failed to download "${model.name}" (id: ${model.id}, url: ${model.downloadUrl}): ${err.message}`);
+        throw new Error(`Failed to download/verify "${model.name}" (id: ${model.id}, url: ${model.downloadUrl}): ${err.message}`);
     }
-
-    send({ phase: 'done', progress: 1 });
-    return { ok: true, path: destPath };
 }
 
 async function downloadAuxiliary(auxKey, mainWindow) {
@@ -349,22 +384,35 @@ async function downloadAuxiliary(auxKey, mainWindow) {
     if (!aux) throw new Error(`Unknown auxiliary file: ${auxKey}`);
 
     const destPath = path.join(MODELS_DIR, aux.filename);
-    if (fs.existsSync(destPath)) return { ok: true, path: destPath };
+    const stagedPath = destPath + '.download';
 
     const id = aux.id;
     const send = (data) => mainWindow?.webContents.send('local-ai:download-progress', { id, ...data });
+
+    if (fs.existsSync(destPath)) {
+        try {
+            const integrity = await verifyModelAsset(destPath, aux);
+            return { ok: true, path: destPath, integrity };
+        } catch (error) {
+            if (!['MODEL_ASSET_SIZE_MISMATCH', 'MODEL_ASSET_HASH_MISMATCH'].includes(error.code)) throw error;
+            clearIntegrityCache(destPath);
+            fs.unlinkSync(destPath);
+        }
+    }
+
     send({ phase: 'downloading', progress: 0 });
 
     try {
-        await downloadFile(aux.downloadUrl, destPath, (p) => {
-            send({ phase: 'downloading', progress: p });
+        await downloadFile(aux.downloadUrl, stagedPath, (p) => {
+            send({ phase: 'downloading', progress: p * 0.96 });
         });
+        send({ phase: 'verifying', progress: 0.97 });
+        const integrity = await promoteVerifiedAsset(stagedPath, destPath, aux);
+        send({ phase: 'done', progress: 1 });
+        return { ok: true, path: destPath, integrity };
     } catch (err) {
-        throw new Error(`Failed to download "${aux.displayName}" (id: ${aux.id}, url: ${aux.downloadUrl}): ${err.message}`);
+        throw new Error(`Failed to download/verify "${aux.displayName}" (id: ${aux.id}, url: ${aux.downloadUrl}): ${err.message}`);
     }
-
-    send({ phase: 'done', progress: 1 });
-    return { ok: true, path: destPath };
 }
 
 async function deleteModel(modelId) {
@@ -373,9 +421,15 @@ async function deleteModel(modelId) {
     if (!model) throw new Error(`Unknown model: ${modelId}`);
 
     const filePath = path.join(MODELS_DIR, model.filename);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    const partPath = filePath + '.part';
-    if (fs.existsSync(partPath)) fs.unlinkSync(partPath);
+    clearIntegrityCache(filePath);
+    for (const candidate of [
+        filePath,
+        filePath + '.part',
+        filePath + '.download',
+        filePath + '.download.part',
+    ]) {
+        if (fs.existsSync(candidate)) fs.unlinkSync(candidate);
+    }
     return { ok: true };
 }
 
@@ -405,11 +459,16 @@ async function generate(params, mainWindow) {
     const modelPath = path.join(MODELS_DIR, model.filename);
     if (!fs.existsSync(modelPath)) throw new Error(`Model file not found. Download "${model.name}" in Settings > Local Models.`);
 
+    send({ status: 'verifying', progress: 0 });
+    await verifyModelAsset(modelPath, model);
+
     if (model.requiresAuxiliary) {
         const llmPath = path.join(MODELS_DIR, ZIMAGE_AUXILIARY.llm.filename);
         const vaePath = path.join(MODELS_DIR, ZIMAGE_AUXILIARY.vae.filename);
         if (!fs.existsSync(llmPath)) throw new Error('Text encoder (Qwen3-4B) not downloaded. Go to Settings > Local Models and download all required files for Z-Image.');
         if (!fs.existsSync(vaePath)) throw new Error('VAE (ae.safetensors) not downloaded. Go to Settings > Local Models and download all required files for Z-Image.');
+        await verifyModelAsset(llmPath, ZIMAGE_AUXILIARY.llm);
+        await verifyModelAsset(vaePath, ZIMAGE_AUXILIARY.vae);
     }
 
     const [width, height] = arToDimensions(params.aspect_ratio || '1:1', model.type);
