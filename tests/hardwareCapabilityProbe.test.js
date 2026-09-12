@@ -3,12 +3,14 @@ const assert = require('node:assert/strict');
 const {
     COMMAND_TIMEOUT_MS,
     COMMAND_MAX_BUFFER,
+    DEFAULT_READINESS_CACHE_TTL_MS,
     probeCommand,
     probeCommandAsync,
     parseNvidiaSmi,
     parseCudaVersion,
     probeHardwareCapabilities,
     probeHardwareCapabilitiesAsync,
+    createCachedHardwareCapabilityProbe,
 } = require('../electron/lib/hardwareCapabilityProbe');
 
 function fakeOs() {
@@ -181,4 +183,57 @@ test('async hardware readiness probe degrades missing tools without throwing', a
     assert.equal(result.accelerators.cudaToolkit.available, false);
     assert.equal(result.accelerators.vulkan.available, false);
     assert.equal(result.accelerators.rocm.available, false);
+});
+
+
+test('cached hardware readiness probe reuses stable evidence and can be invalidated', async () => {
+    let calls = 0;
+    let clock = 1000;
+    const snapshot = Object.freeze({ schemaVersion: 1, platform: 'test' });
+    const cached = createCachedHardwareCapabilityProbe({
+        probeImpl: async () => {
+            calls += 1;
+            return snapshot;
+        },
+        cacheTtlMs: DEFAULT_READINESS_CACHE_TTL_MS,
+        now: () => clock,
+    });
+
+    const first = await cached.probe();
+    const second = await cached.probe();
+    assert.equal(calls, 1);
+    assert.equal(first, snapshot);
+    assert.equal(second, snapshot);
+
+    clock += DEFAULT_READINESS_CACHE_TTL_MS + 1;
+    await cached.probe();
+    assert.equal(calls, 2);
+
+    cached.invalidate();
+    await cached.probe();
+    assert.equal(calls, 3);
+});
+
+test('cached hardware readiness probe coalesces concurrent collection', async () => {
+    let calls = 0;
+    let resolveProbe;
+    const cached = createCachedHardwareCapabilityProbe({
+        probeImpl: () => {
+            calls += 1;
+            return new Promise((resolve) => {
+                resolveProbe = resolve;
+            });
+        },
+        cacheTtlMs: 0,
+    });
+
+    const first = cached.probe();
+    const second = cached.probe();
+    assert.equal(calls, 1);
+
+    const snapshot = Object.freeze({ schemaVersion: 1, platform: 'test' });
+    resolveProbe(snapshot);
+    const [a, b] = await Promise.all([first, second]);
+    assert.equal(a, snapshot);
+    assert.equal(a, b);
 });
