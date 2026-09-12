@@ -1,5 +1,9 @@
 import { createProviderDescriptor } from './contracts.mjs';
 import {
+    DEFAULT_MAX_EVIDENCE_AGE_MS,
+    DEFAULT_MAX_FUTURE_SKEW_MS,
+} from './parityCertification.mjs';
+import {
     STUDIO_PARITY_PROFILE_ID,
     STUDIO_PARITY_TARGETS,
 } from './studioParityTargets.mjs';
@@ -29,36 +33,46 @@ function missingReleaseGates(gates) {
 }
 
 function certificationRouteMap(certification) {
+    const map = new Map();
+    const duplicates = new Set();
+
     if (!certification || typeof certification !== 'object' || Array.isArray(certification)) {
-        return new Map();
+        return Object.freeze({ map, duplicates });
     }
 
     const routes = Array.isArray(certification.routes) ? certification.routes : [];
-    const map = new Map();
-
     for (const route of routes) {
         if (!route || typeof route !== 'object') continue;
         const key = typeof route.routeKey === 'string' ? route.routeKey.trim() : '';
-        if (!key || map.has(key)) continue;
+        if (!key) continue;
+        if (map.has(key)) {
+            duplicates.add(key);
+            continue;
+        }
         map.set(key, route);
     }
 
-    return map;
+    return Object.freeze({ map, duplicates });
 }
 
 function providerMap(providers = []) {
-    if (!Array.isArray(providers)) return new Map();
-
     const map = new Map();
+    const duplicates = new Set();
+    if (!Array.isArray(providers)) return Object.freeze({ map, duplicates });
+
     for (const providerInput of providers) {
         try {
             const provider = createProviderDescriptor(providerInput);
-            if (!map.has(provider.id)) map.set(provider.id, provider);
+            if (map.has(provider.id)) {
+                duplicates.add(provider.id);
+                continue;
+            }
+            map.set(provider.id, provider);
         } catch {
             // Invalid provider evidence is ignored and therefore fails closed as missing.
         }
     }
-    return map;
+    return Object.freeze({ map, duplicates });
 }
 
 function capabilityModelIds(provider, operation) {
@@ -185,14 +199,32 @@ function assessStudioCutoverEligibility({
 } = {}) {
     const gates = normalizeReleaseGates(releaseGates);
     const missingGates = missingReleaseGates(gates);
-    const certificationRoutes = certificationRouteMap(certification);
-    const providersById = providerMap(providers);
+    const certificationRouteState = certificationRouteMap(certification);
+    const providerState = providerMap(providers);
+    const certificationRoutes = certificationRouteState.map;
+    const providersById = providerState.map;
+
+    const certificationSchemaValid = certification?.schemaVersion === 1;
+    const certificationAgeMs = Number(certification?.maxEvidenceAgeMs);
+    const certificationFutureSkewMs = Number(certification?.maxFutureSkewMs);
+    const certificationFreshnessStrict = (
+        Number.isFinite(certificationAgeMs)
+        && certificationAgeMs > 0
+        && certificationAgeMs <= DEFAULT_MAX_EVIDENCE_AGE_MS
+        && Number.isFinite(certificationFutureSkewMs)
+        && certificationFutureSkewMs >= 0
+        && certificationFutureSkewMs <= DEFAULT_MAX_FUTURE_SKEW_MS
+    );
 
     const profileMatches = profileId === STUDIO_PARITY_PROFILE_ID
+        && certificationRouteState.duplicates.size === 0
+        && providerState.duplicates.size === 0
         && profileMatchesCertification(certificationRoutes);
 
     const certificationGloballyCertified = Boolean(
-        certification
+        certificationSchemaValid
+        && certificationFreshnessStrict
+        && certification
         && certification.certified === true
         && certification.reason === 'PARITY_CERTIFIED'
     );
@@ -215,6 +247,10 @@ function assessStudioCutoverEligibility({
         ];
 
         if (!profileMatches) reasons.push('certification-profile-mismatch');
+        if (!certificationSchemaValid) reasons.push('certification-schema-invalid');
+        if (!certificationFreshnessStrict) reasons.push('certification-freshness-weakened');
+        if (certificationRouteState.duplicates.size) reasons.push('certification-route-duplicates');
+        if (providerState.duplicates.size) reasons.push('provider-readiness-duplicates');
         if (!certificationGloballyCertified) reasons.push('certification-global-not-certified');
         for (const gate of missingGates) reasons.push(`release-gate:${gate}`);
 
@@ -242,7 +278,11 @@ function assessStudioCutoverEligibility({
         profileId: STUDIO_PARITY_PROFILE_ID,
         requestedProfileId: profileId,
         profileMatches,
+        certificationSchemaValid,
+        certificationFreshnessStrict,
         certificationGloballyCertified,
+        duplicateCertificationRoutes: Object.freeze([...certificationRouteState.duplicates].sort()),
+        duplicateProviders: Object.freeze([...providerState.duplicates].sort()),
         releaseGates: gates,
         missingReleaseGates: missingGates,
         eligibleForCutoverReview,
