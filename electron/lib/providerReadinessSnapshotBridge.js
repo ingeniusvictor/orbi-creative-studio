@@ -9,7 +9,10 @@ const {
 const { probeHardwareCapabilities } = require('./hardwareCapabilityProbe');
 const { getReadinessEvidence: getSdCppReadinessEvidence } = require('./localInference');
 const { getReadinessEvidence: getWan2gpReadinessEvidence } = require('./wan2gpProvider');
-const { buildProviderReadinessSnapshot } = require('./providerReadinessSnapshotCore');
+const {
+    buildProviderReadinessSnapshot,
+    canProbeMuapiHealth,
+} = require('./providerReadinessSnapshotCore');
 const { createMuapiHealthProbe } = require('./muapiHealthProbe');
 
 const CHANNEL = 'compute-router:readiness-snapshot';
@@ -39,13 +42,7 @@ function register({
         const hardwareSnapshot = probeHardware();
         const muapiCredentialReadiness = store.getReadiness(MUAPI_PROVIDER, MUAPI_SECRET);
 
-        const credentialCanProbe = Boolean(
-            muapiCredentialReadiness?.available === true
-            && muapiCredentialReadiness?.secure === true
-            && muapiCredentialReadiness?.hasSecret === true
-            && muapiCredentialReadiness?.storeState !== 'corrupt'
-        );
-        const muapiTransportHealth = credentialCanProbe
+        const muapiTransportHealth = canProbeMuapiHealth(muapiCredentialReadiness)
             ? await muapiHealthProbe.probe()
             : undefined;
 
