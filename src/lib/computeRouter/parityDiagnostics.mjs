@@ -214,7 +214,7 @@ function formatParityDiagnosticText(report) {
     const lines = [
         'ORBI Compute Router — Parity Diagnostic Report',
         `Generated: ${iso(report.generatedAt)}`,
-        `Certification: ${report.certification?.certified ? 'CERTIFIED' : 'NOT CERTIFIED'} (${report.certification?.reason || 'UNKNOWN'})`,
+        `Certification targets: ${report.certification?.certified ? 'CERTIFIED' : 'NOT CERTIFIED'} (${report.certification?.reason || 'UNKNOWN'})`,
         `Observed: ${report.totals?.samples || 0} samples across ${report.totals?.observedRoutes || 0} routes`,
         `Parity totals: ${report.totals?.matches || 0} match / ${report.totals?.blocked || 0} blocked / ${report.totals?.mismatches || 0} mismatch`,
         '',
