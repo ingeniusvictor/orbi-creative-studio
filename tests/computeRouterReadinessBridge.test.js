@@ -6,6 +6,7 @@ const {
     buildReadinessSnapshot,
     sanitizeCredentialReadiness,
     sanitizeHardwareSnapshot,
+    sanitizeTransportHealth,
     sanitizeWan2gpSnapshot,
 } = require('../electron/lib/computeRouterReadinessSnapshot');
 
@@ -62,6 +63,19 @@ test('credential readiness never exposes backend reason or secret material', () 
         hasSecret: true,
         storeState: 'ready',
     });
+});
+
+test('MuAPI transport health crosses only as a boolean observation', () => {
+    const safe = sanitizeTransportHealth({
+        ok: true,
+        status: 200,
+        observedAt: 123456,
+        url: 'https://api.muapi.ai/private',
+        error: 'must-not-cross',
+    });
+
+    assert.deepEqual(safe, { ok: true });
+    assert.equal(sanitizeTransportHealth({ status: 200 }), undefined);
 });
 
 test('Wan2GP readiness redacts the LAN endpoint and endpoint metadata', () => {

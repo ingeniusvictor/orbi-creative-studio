@@ -24,8 +24,9 @@ async function collectReadinessSnapshot({
     getSdCppSnapshot,
     getWan2gpSnapshot,
     getHardwareSnapshot = probeHardwareCapabilities,
+    getMuapiTransportHealth,
 } = {}) {
-    const [sdcpp, wan2gp, hardware, credentialReadiness] = await Promise.all([
+    const [sdcpp, wan2gp, hardware, credentialReadiness, transportHealth] = await Promise.all([
         typeof getSdCppSnapshot === 'function'
             ? failSoft(() => getSdCppSnapshot())
             : undefined,
@@ -38,6 +39,9 @@ async function collectReadinessSnapshot({
         store && typeof store.getReadiness === 'function'
             ? failSoft(() => store.getReadiness(MUAPI_PROVIDER, MUAPI_SECRET))
             : undefined,
+        typeof getMuapiTransportHealth === 'function'
+            ? failSoft(() => getMuapiTransportHealth())
+            : undefined,
     ]);
 
     return buildReadinessSnapshot({
@@ -45,6 +49,7 @@ async function collectReadinessSnapshot({
         wan2gp,
         hardware,
         credentialReadiness,
+        transportHealth,
     });
 }
 
@@ -53,6 +58,7 @@ function register({
     getSdCppSnapshot,
     getWan2gpSnapshot,
     getHardwareSnapshot,
+    getMuapiTransportHealth,
 } = {}) {
     const sdCppReader = getSdCppSnapshot
         || require('./localInference').getReadinessSnapshot;
@@ -67,6 +73,7 @@ function register({
             getSdCppSnapshot: sdCppReader,
             getWan2gpSnapshot: wan2gpReader,
             getHardwareSnapshot,
+            getMuapiTransportHealth,
         });
     });
 }
