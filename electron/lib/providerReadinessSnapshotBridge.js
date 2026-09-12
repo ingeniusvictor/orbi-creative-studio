@@ -6,7 +6,7 @@ const {
     MUAPI_PROVIDER,
     MUAPI_SECRET,
 } = require('./providerCredentials');
-const { probeHardwareCapabilitiesAsync } = require('./hardwareCapabilityProbe');
+const { createCachedHardwareCapabilityProbe } = require('./hardwareCapabilityProbe');
 const { getReadinessEvidence: getSdCppReadinessEvidence } = require('./localInference');
 const { getReadinessEvidence: getWan2gpReadinessEvidence } = require('./wan2gpProvider');
 const {
@@ -21,13 +21,14 @@ function register({
     store,
     getSdCppEvidence = getSdCppReadinessEvidence,
     getWan2gpEvidence = getWan2gpReadinessEvidence,
-    probeHardware = probeHardwareCapabilitiesAsync,
+    createHardwareProbe = createCachedHardwareCapabilityProbe,
     createHealthProbe = createMuapiHealthProbe,
 } = {}) {
     if (!store || typeof store.getReadiness !== 'function' || typeof store.getSecret !== 'function') {
         throw new TypeError('Provider secret store with readiness/secret access is required');
     }
 
+    const hardwareProbe = createHardwareProbe();
     const muapiHealthProbe = createHealthProbe({ store });
 
     ipcMain.removeHandler(CHANNEL);
@@ -39,7 +40,7 @@ function register({
             getWan2gpEvidence(),
         ]);
 
-        const hardwareSnapshot = await probeHardware();
+        const hardwareSnapshot = await hardwareProbe.probe();
         const muapiCredentialReadiness = store.getReadiness(MUAPI_PROVIDER, MUAPI_SECRET);
 
         const muapiTransportHealth = canProbeMuapiHealth(muapiCredentialReadiness)
