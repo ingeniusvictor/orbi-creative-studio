@@ -4,22 +4,13 @@ import { CreateAgentPage } from "ai-agent";
 import "ai-agent/dist/tailwind.css";
 import { useCallback, useEffect, useRef } from "react";
 import axios from "axios";
-
-const STORAGE_KEY = "muapi_key";
+import { getMuapiKey } from "@/src/lib/providerCredentials.mjs";
 
 export default function AgentCreateClient({ userData }) {
   const interceptorRef = useRef(null);
 
   useEffect(() => {
-    const getKey = () => {
-      if (typeof window === "undefined") return null;
-      const fromStorage = localStorage.getItem(STORAGE_KEY);
-      if (fromStorage) return fromStorage;
-      const match = document.cookie.match(/muapi_key=([^;]+)/);
-      return match ? match[1] : null;
-    };
-
-    const apiKey = getKey();
+    const apiKey = getMuapiKey({ includeCookie: true });
     if (!apiKey) return;
 
     interceptorRef.current = axios.interceptors.request.use((config) => {
