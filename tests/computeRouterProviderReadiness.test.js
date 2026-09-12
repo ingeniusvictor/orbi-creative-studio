@@ -184,3 +184,14 @@ test('router cannot select unavailable local models or silently fall back to clo
 
     assert.equal(localReady.selected.provider.id, 'sdcpp-device');
 });
+
+
+test('stale runtime model identities fail closed instead of exposing the full catalog', async () => {
+    const { composeSdCppReadiness } = await readiness();
+    const provider = composeSdCppReadiness({
+        binaryStatus: { exists: true },
+        models: [{ id: 'removed-model-id', provider: 'sdcpp', state: 'downloaded' }],
+    });
+
+    assert.equal(provider.health, 'misconfigured');
+});
