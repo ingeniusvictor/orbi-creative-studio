@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-12",
+  "policy": {
+    "commercialUseValues": [
+      "unreviewed",
+      "allowed",
+      "blocked"
+    ],
+    "redistributionValues": [
+      "unreviewed",
+      "allowed",
+      "blocked"
+    ],
+    "note": "License declarations are recorded as upstream metadata. ORBI distribution/commercial decisions remain separate governance fields and require explicit review."
+  },
+  "assets": [
+    {
+      "id": "z-image-turbo",
+      "role": "model",
+      "runtime": "stable-diffusion.cpp",
+      "localFilename": "z_image_turbo-Q4_K.gguf",
+      "source": {
+        "provider": "huggingface",
+        "repo": "leejet/Z-Image-Turbo-GGUF",
+        "revision": "a90f482",
+        "path": "z_image_turbo-Q4_K.gguf"
+      },
+      "expectedBytes": 3864250304,
+      "sha256": "14b375ab4f226bc5378f68f37e899ef3c2242b8541e61e2bc1aff40976086fbd",
+      "license": {
+        "declared": "apache-2.0",
+        "reviewStatus": "metadata-verified"
+      },
+      "commercialUse": "unreviewed",
+      "redistribution": "unreviewed",
+      "minimumTestedRamMiB": null,
+      "minimumTestedVramMiB": null,
+      "verificationStatus": "source-hash-size-verified",
+      "hardwareCertification": "pending-physical-validation"
+    },
+    {
+      "id": "z-image-base",
+      "role": "model",
+      "runtime": "stable-diffusion.cpp",
+      "localFilename": "z-image-Q4_K_M.gguf",
+      "source": {
+        "provider": "huggingface",
+        "repo": "unsloth/Z-Image-GGUF",
+        "revision": "c9913e69743c5d9dfa7fdac58a0cc5709a17aa08",
+        "path": "z-image-Q4_K_M.gguf"
+      },
+      "expectedBytes": 5066995776,
+      "sha256": "a62b929f76553b21f68894e9ed34d24b7fb67fb59b5689fa06981865986cce40",
+      "license": {
+        "declared": "apache-2.0",
+        "reviewStatus": "metadata-verified"
+      },
+      "commercialUse": "unreviewed",
+      "redistribution": "unreviewed",
+      "minimumTestedRamMiB": null,
+      "minimumTestedVramMiB": null,
+      "verificationStatus": "source-hash-size-verified",
+      "hardwareCertification": "pending-physical-validation"
+    },
+    {
+      "id": "dreamshaper-8",
+      "role": "model",
+      "runtime": "stable-diffusion.cpp",
+      "localFilename": "DreamShaper_8_pruned.safetensors",
+      "source": {
+        "provider": "huggingface",
+        "repo": "Lykon/DreamShaper",
+        "revision": "c6565f0",
+        "path": "DreamShaper_8_pruned.safetensors"
+      },
+      "expectedBytes": 2132625894,
+      "sha256": "879db523c30d3b9017143d56705015e15a2cb5628762c11d086fed9538abd7fd",
+      "license": {
+        "declared": "other",
+        "reviewStatus": "clarification-required"
+      },
+      "commercialUse": "unreviewed",
+      "redistribution": "blocked",
+      "distributionGate": "blocked-pending-license-clarification",
+      "minimumTestedRamMiB": null,
+      "minimumTestedVramMiB": null,
+      "verificationStatus": "source-hash-size-verified-license-blocked",
+      "hardwareCertification": "pending-physical-validation"
+    },
+    {
+      "id": "realistic-vision-v51",
+      "role": "model",
+      "runtime": "stable-diffusion.cpp",
+      "localFilename": "realisticVisionV51_v51VAE.safetensors",
+      "source": {
+        "provider": "huggingface",
+        "repo": "SG161222/Realistic_Vision_V5.1_noVAE",
+        "revision": "305469d",
+        "path": "Realistic_Vision_V5.1_fp16-no-ema.safetensors"
+      },
+      "expectedBytes": 2132625894,
+      "sha256": "99a75a901f4fec732056930a89fa34cf360f6f72d75ce5bf333ddf82adf8dd2a",
+      "license": {
+        "declared": "creativeml-openrail-m",
+        "reviewStatus": "metadata-verified"
+      },
+      "commercialUse": "unreviewed",
+      "redistribution": "unreviewed",
+      "minimumTestedRamMiB": null,
+      "minimumTestedVramMiB": null,
+      "verificationStatus": "source-hash-size-verified",
+      "hardwareCertification": "pending-physical-validation"
+    },
+    {
+      "id": "anything-v5",
+      "role": "model",
+      "runtime": "stable-diffusion.cpp",
+      "localFilename": "Anything-v5.0-PRT.safetensors",
+      "source": {
+        "provider": "huggingface",
+        "repo": "Yntec/AnythingV5",
+        "revision": "8d99af4196531e73987d63948c1ddc60bbba6640",
+        "path": "Anything-v5.0-PRT.safetensors"
+      },
+      "expectedBytes": 2132625616,
+      "sha256": "23b41e5091ffe1c9ee25f807771b6a007306fe185ecbc21d1fab835f5655a4f7",
+      "license": {
+        "declared": "creativeml-openrail-m",
+        "reviewStatus": "metadata-verified"
+      },
+      "commercialUse": "unreviewed",
+      "redistribution": "unreviewed",
+      "minimumTestedRamMiB": null,
+      "minimumTestedVramMiB": null,
+      "verificationStatus": "source-hash-size-verified",
+      "hardwareCertification": "pending-physical-validation"
+    },
+    {
+      "id": "stable-diffusion-xl-base",
+      "role": "model",
+      "runtime": "stable-diffusion.cpp",
+      "localFilename": "sd_xl_base_1.0.safetensors",
+      "source": {
+        "provider": "huggingface",
+        "repo": "stabilityai/stable-diffusion-xl-base-1.0",
+        "revision": "f298da3",
+        "path": "sd_xl_base_1.0.safetensors"
+      },
+      "expectedBytes": 6938078334,
+      "sha256": "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b",
+      "license": {
+        "declared": "openrail++",
+        "reviewStatus": "metadata-verified"
+      },
+      "commercialUse": "unreviewed",
+      "redistribution": "unreviewed",
+      "minimumTestedRamMiB": null,
+      "minimumTestedVramMiB": null,
+      "verificationStatus": "source-hash-size-verified",
+      "hardwareCertification": "pending-physical-validation"
+    },
+    {
+      "id": "z-image-text-encoder",
+      "role": "text-encoder",
+      "runtime": "stable-diffusion.cpp",
+      "localFilename": "Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf",
+      "source": {
+        "provider": "huggingface",
+        "repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
+        "revision": "fd75aca5701564ed71c2d931be4621fdf4531105",
+        "path": "Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf"
+      },
+      "expectedBytes": 2546340960,
+      "sha256": "4bbe1f2f8ebe69fad3be8e15d69f220b06448a9dd26f82d7d81cce88ebfc39fd",
+      "license": {
+        "declared": "apache-2.0",
+        "reviewStatus": "metadata-verified"
+      },
+      "commercialUse": "unreviewed",
+      "redistribution": "unreviewed",
+      "minimumTestedRamMiB": null,
+      "minimumTestedVramMiB": null,
+      "verificationStatus": "source-hash-size-verified",
+      "hardwareCertification": "pending-physical-validation"
+    },
+    {
+      "id": "z-image-vae",
+      "role": "vae",
+      "runtime": "stable-diffusion.cpp",
+      "localFilename": "ae.safetensors",
+      "source": {
+        "provider": "huggingface",
+        "repo": "Comfy-Org/z_image_turbo",
+        "revision": "93fae7d",
+        "path": "split_files/vae/ae.safetensors"
+      },
+      "expectedBytes": 335304388,
+      "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38",
+      "license": {
+        "declared": "apache-2.0",
+        "reviewStatus": "metadata-verified"
+      },
+      "commercialUse": "unreviewed",
+      "redistribution": "unreviewed",
+      "minimumTestedRamMiB": null,
+      "minimumTestedVramMiB": null,
+      "verificationStatus": "source-hash-size-verified",
+      "hardwareCertification": "pending-physical-validation"
+    }
+  ]
+}
