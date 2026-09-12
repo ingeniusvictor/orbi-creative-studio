@@ -1,6 +1,9 @@
 import './style.css';
 import { Header } from './components/Header.js';
 import { ImageStudio } from './components/ImageStudio.js';
+import { startStudioParitySessionCollector } from './lib/computeRouter/paritySession.mjs';
+
+startStudioParitySessionCollector();
 
 const app = document.querySelector('#app');
 let contentArea;
