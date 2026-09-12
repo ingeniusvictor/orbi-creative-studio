@@ -27,7 +27,7 @@ function filterProviderCapabilities(provider, modelIds) {
     if (!ids.size) return provider;
 
     const capabilities = provider.capabilities.filter((capability) => ids.has(capability.modelId));
-    if (!capabilities.length) return provider;
+    if (!capabilities.length) return cloneProviderWith(provider, { health: 'misconfigured' });
     return cloneProviderWith(provider, { capabilities });
 }
 
