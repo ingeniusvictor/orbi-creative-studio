@@ -1,0 +1,82 @@
+name: ORBI MuAPI passive health P1B6 validation
+
+on:
+  push:
+    branches:
+      - feature/muapi-passive-health-p1b6
+  pull_request:
+    branches:
+      - feature/compute-router-shadow-parity-p1b5
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout passive health branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: No-active-probe static gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const tracker = fs.readFileSync('electron/lib/muapiHealthTracker.js', 'utf8');
+          const transport = fs.readFileSync('electron/lib/muapiTransport.js', 'utf8');
+          if (tracker.includes('fetch(') || tracker.includes('setInterval') || tracker.includes('setTimeout')) {
+            throw new Error('Passive tracker gained active network/timer behavior');
+          }
+          if (!transport.includes('healthTracker.recordResponse')) {
+            throw new Error('Existing transport outcomes are not observed');
+          }
+          if (!transport.includes('healthTracker.recordError')) {
+            throw new Error('Existing transport errors are not observed');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Passive health tests
+        run: node --test tests/muapiHealthTracker.test.js tests/muapiTransport.test.js tests/computeRouterReadinessBridge.test.js tests/computeRouterProviderReadiness.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('MUAPI_PASSIVE_HEALTH_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE

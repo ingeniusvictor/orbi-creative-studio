@@ -127,26 +127,34 @@ function sanitizeCredentialReadiness(readiness) {
     });
 }
 
+function sanitizeTransportHealth(health) {
+    if (!health || typeof health !== 'object' || typeof health.ok !== 'boolean') {
+        return undefined;
+    }
+    return freezeObject({ ok: health.ok });
+}
+
 function buildReadinessSnapshot({
     sdcpp,
     wan2gp,
     hardware,
     credentialReadiness,
+    transportHealth,
 } = {}) {
     const safeSdCpp = { ...sanitizeSdCppSnapshot(sdcpp) };
     const safeHardware = sanitizeHardwareSnapshot(hardware);
     if (safeHardware) safeSdCpp.hardwareSnapshot = safeHardware;
 
     const safeCredential = sanitizeCredentialReadiness(credentialReadiness);
+    const safeTransportHealth = sanitizeTransportHealth(transportHealth);
+    const muapi = {};
+    if (safeCredential) muapi.credentialReadiness = safeCredential;
+    if (safeTransportHealth) muapi.transportHealth = safeTransportHealth;
 
     return freezeObject({
         sdcpp: freezeObject(safeSdCpp),
         wan2gp: sanitizeWan2gpSnapshot(wan2gp),
-        muapi: freezeObject(
-            safeCredential
-                ? { credentialReadiness: safeCredential }
-                : {}
-        ),
+        muapi: freezeObject(muapi),
     });
 }
 
@@ -155,5 +163,6 @@ module.exports = {
     sanitizeCredentialReadiness,
     sanitizeHardwareSnapshot,
     sanitizeSdCppSnapshot,
+    sanitizeTransportHealth,
     sanitizeWan2gpSnapshot,
 };

@@ -81,9 +81,11 @@ app.whenReady().then(() => {
     createWindow();
 
     let providerSecretStore = null;
+    let muapiTransportHealthReader = null;
     try {
         providerSecretStore = registerProviderCredentials();
-        registerMuapiTransport({ store: providerSecretStore });
+        const muapiTransport = registerMuapiTransport({ store: providerSecretStore });
+        muapiTransportHealthReader = muapiTransport.getHealthSnapshot;
     } catch (err) {
         // Credential readiness can still report an unavailable OS backend, but
         // handler registration itself should not prevent the desktop app from starting.
@@ -102,7 +104,10 @@ app.whenReady().then(() => {
     }
 
     try {
-        registerComputeRouterReadinessBridge({ store: providerSecretStore });
+        registerComputeRouterReadinessBridge({
+            store: providerSecretStore,
+            getMuapiTransportHealth: muapiTransportHealthReader,
+        });
     } catch (err) {
         // Readiness is descriptive only. Failure to register this bridge must
         // never change the Studio's existing execution path.
