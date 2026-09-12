@@ -258,7 +258,8 @@ function normalizedCommitEvidencePassed(evidence, sourceCommit, generatedAt, app
     }
 
     const timestamp = normalizeTimestamp(evidence.timestamp, 'evidence.timestamp', generatedAt);
-    if (evidenceCommit !== sourceCommit || !evidence.proofId || !timestamp) return false;
+    const proofId = normalizeProofId(evidence.proofId);
+    if (evidenceCommit !== sourceCommit || !proofId || !timestamp) return false;
 
     return approval ? evidence.approved === true : evidence.status === 'passed';
 }
