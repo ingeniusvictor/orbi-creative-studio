@@ -119,6 +119,15 @@ const translations = {
         'routerDiagnostics.statusSamples': 'Need samples',
         'routerDiagnostics.statusModels': 'Need models',
         'routerDiagnostics.statusNotCertified': 'Not certified',
+        'routerDiagnostics.buildIdentity': 'Build identity',
+        'routerDiagnostics.buildVersion': 'App version',
+        'routerDiagnostics.buildCommit': 'Source commit',
+        'routerDiagnostics.sessionBinding': 'Session binding',
+        'routerDiagnostics.bindingBound': 'Bound',
+        'routerDiagnostics.bindingRejected': 'Rejected',
+        'routerDiagnostics.executionAuthority': 'Execution authority',
+        'routerDiagnostics.bindingPreviewNote': 'Read-only preview. This binding is not persisted and cannot authorize execution.',
+        'routerDiagnostics.unavailableValue': 'Unavailable',
 
         // Auth Modal
         'auth.title': 'Muapi API Key Required',
@@ -344,6 +353,15 @@ const translations = {
         'routerDiagnostics.statusSamples': '样本不足',
         'routerDiagnostics.statusModels': '模型不足',
         'routerDiagnostics.statusNotCertified': '未认证',
+        'routerDiagnostics.buildIdentity': '构建身份',
+        'routerDiagnostics.buildVersion': '应用版本',
+        'routerDiagnostics.buildCommit': '源提交',
+        'routerDiagnostics.sessionBinding': '会话绑定',
+        'routerDiagnostics.bindingBound': '已绑定',
+        'routerDiagnostics.bindingRejected': '已拒绝',
+        'routerDiagnostics.executionAuthority': '执行权限',
+        'routerDiagnostics.bindingPreviewNote': '只读预览。此绑定不会持久化，也不能授权执行。',
+        'routerDiagnostics.unavailableValue': '不可用',
 
         // Auth Modal
         'auth.title': '需要 Muapi API 密钥',
