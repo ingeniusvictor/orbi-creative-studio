@@ -1,0 +1,81 @@
+name: ORBI Model download integrity P1D validation
+
+on:
+  push:
+    branches:
+      - security/model-download-integrity-p1d-prep
+  pull_request:
+    branches:
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout integrity branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Integrity wiring static gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('electron/lib/localInference.js', 'utf8');
+          const helper = fs.readFileSync('electron/lib/modelAssetIntegrity.js', 'utf8');
+          if (!source.includes('promoteVerifiedAsset')) throw new Error('staged promotion wiring missing');
+          if (!source.includes('verifyModelAsset(modelPath, model)')) throw new Error('pre-generation verification missing');
+          if (!helper.includes('MODEL_ASSET_HASH_MISMATCH')) throw new Error('hash mismatch failure missing');
+          if (!helper.includes('MODEL_ASSET_SIZE_MISMATCH')) throw new Error('size mismatch failure missing');
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Electron syntax gate
+        run: |
+          node --check electron/lib/modelAssetIntegrity.js
+          node --check electron/lib/localInference.js
+
+      - name: Model integrity tests
+        run: node --test tests/modelAssetIntegrity.test.js tests/modelDownloadIntegrityWiring.test.js tests/modelProvenance.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('MODEL_INTEGRITY_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
