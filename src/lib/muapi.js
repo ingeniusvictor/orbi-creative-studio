@@ -1,6 +1,6 @@
 import { getModelById, getVideoModelById, getI2IModelById, getI2VModelById, getV2VModelById, getLipSyncModelById } from './models.js';
 import { pollForGenerationResult } from '../../packages/studio/src/utils/generationLifecycle.js';
-import { getMuapiKey } from './providerCredentials.mjs';
+import { ensureDesktopMuapiCredential, getMuapiKey } from './providerCredentials.mjs';
 
 export class MuapiClient {
     constructor() {
@@ -8,10 +8,69 @@ export class MuapiClient {
         this.baseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.DEV) ? '' : 'https://api.muapi.ai';
     }
 
+    isDesktopTransportAvailable() {
+        return typeof window !== 'undefined'
+            && window.orbiMuapi?.isElectron === true
+            && typeof window.orbiMuapi.request === 'function';
+    }
+
     getKey() {
+        if (this.isDesktopTransportAvailable()) return 'desktop-secure-transport';
         const key = getMuapiKey();
         if (!key) throw new Error('API Key missing. Please set it in Settings.');
         return key;
+    }
+
+    createDesktopResponse(result) {
+        const text = typeof result?.text === 'string'
+            ? result.text
+            : (result?.data == null ? '' : JSON.stringify(result.data));
+        return {
+            ok: Boolean(result?.ok),
+            status: Number(result?.status) || 0,
+            statusText: String(result?.statusText || ''),
+            text: async () => text,
+            json: async () => {
+                if (result?.data != null) return result.data;
+                return text ? JSON.parse(text) : {};
+            },
+        };
+    }
+
+    async authenticatedFetch(url, options = {}) {
+        if (!this.isDesktopTransportAvailable()) {
+            return fetch(url, options);
+        }
+
+        await ensureDesktopMuapiCredential();
+
+        const target = new URL(url, 'https://api.muapi.ai');
+        const path = target.pathname + target.search;
+        const method = String(options.method || 'GET').toUpperCase();
+
+        if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
+            const file = options.body.get('file');
+            if (!file || typeof file.arrayBuffer !== 'function') {
+                throw new Error('Desktop MuAPI upload requires a file payload');
+            }
+            const bytes = await file.arrayBuffer();
+            const result = await window.orbiMuapi.uploadFile({
+                name: file.name || 'upload.bin',
+                type: file.type || 'application/octet-stream',
+                bytes,
+            });
+            return this.createDesktopResponse(result);
+        }
+
+        let body;
+        if (typeof options.body === 'string' && options.body) {
+            body = JSON.parse(options.body);
+        } else if (options.body != null) {
+            body = options.body;
+        }
+
+        const result = await window.orbiMuapi.request({ path, method, body });
+        return this.createDesktopResponse(result);
     }
 
     /**
@@ -72,7 +131,7 @@ export class MuapiClient {
 
         try {
             // Step 1: Submit the task
-            const response = await fetch(url, {
+            const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -129,6 +188,7 @@ export class MuapiClient {
             apiKey: key,
             maxAttempts,
             interval,
+            fetchImpl: this.authenticatedFetch.bind(this),
         });
     }
 
@@ -154,7 +214,7 @@ export class MuapiClient {
         console.log('[Muapi] Video Payload:', finalPayload);
 
         try {
-            const response = await fetch(url, {
+            const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -230,7 +290,7 @@ export class MuapiClient {
         console.log('[Muapi] I2I Payload:', finalPayload);
 
         try {
-            const response = await fetch(url, {
+            const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': key },
                 body: JSON.stringify(finalPayload)
@@ -321,7 +381,7 @@ export class MuapiClient {
         console.log('[Muapi] I2V Payload:', finalPayload);
 
         try {
-            const response = await fetch(url, {
+            const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': key },
                 body: JSON.stringify(finalPayload)
@@ -364,7 +424,7 @@ export class MuapiClient {
 
         console.log('[Muapi] Uploading file:', file.name);
 
-        const response = await fetch(url, {
+        const response = await this.authenticatedFetch(url, {
             method: 'POST',
             headers: { 'x-api-key': key },
             body: formData
@@ -413,7 +473,7 @@ export class MuapiClient {
         console.log('[Muapi] V2V Payload:', finalPayload);
 
         try {
-            const response = await fetch(url, {
+            const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': key },
                 body: JSON.stringify(finalPayload)
@@ -474,7 +534,7 @@ export class MuapiClient {
         console.log('[Muapi] LipSync Payload:', finalPayload);
 
         try {
-            const response = await fetch(url, {
+            const response = await this.authenticatedFetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': key },
                 body: JSON.stringify(finalPayload)
