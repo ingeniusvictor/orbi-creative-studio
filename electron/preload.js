@@ -49,3 +49,13 @@ contextBridge.exposeInMainWorld('orbiCredentials', {
     setMuapiKey: (value) => ipcRenderer.invoke('provider-credentials:set-muapi-key', value),
     deleteMuapiKey: () => ipcRenderer.invoke('provider-credentials:delete-muapi-key'),
 });
+
+
+// MuAPI cloud requests are executed in the trusted main process. The renderer
+// supplies only an allowed API path/body or upload bytes; credentials are never
+// returned through this bridge.
+contextBridge.exposeInMainWorld('orbiMuapi', {
+    isElectron: true,
+    request: (request) => ipcRenderer.invoke('muapi-transport:request', request),
+    uploadFile: (payload) => ipcRenderer.invoke('muapi-transport:upload', payload),
+});
