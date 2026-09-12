@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const { getBuildIdentity } = require('./lib/buildIdentity');
 
 contextBridge.exposeInMainWorld('localAI', {
     isElectron: true,
@@ -67,3 +68,8 @@ contextBridge.exposeInMainWorld('orbiComputeRouter', {
     isElectron: true,
     getReadinessSnapshot: () => ipcRenderer.invoke('compute-router:readiness-snapshot'),
 });
+
+
+// Build identity is generated before packaging and exposed as immutable,
+ // non-sensitive metadata. It carries no execution or provider authority.
+contextBridge.exposeInMainWorld('orbiBuildIdentity', getBuildIdentity());
