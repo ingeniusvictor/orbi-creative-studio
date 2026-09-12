@@ -184,7 +184,9 @@ function certificationIntegrity(certification) {
 
 function cloneCertification(certification) {
     const routes = Array.isArray(certification.routes)
-        ? certification.routes.map((route) => Object.freeze({
+        ? certification.routes
+            .filter((route) => route && typeof route === 'object' && !Array.isArray(route))
+            .map((route) => Object.freeze({
             routeKey: String(route.routeKey || ''),
             expectedProviderId: String(route.expectedProviderId || ''),
             operation: String(route.operation || ''),
@@ -197,7 +199,7 @@ function cloneCertification(certification) {
             distinctModels: Number(route.distinctModels),
             modelIds: Object.freeze(Array.isArray(route.modelIds) ? [...route.modelIds] : []),
             certified: route.certified === true,
-            reasons: Object.freeze(Array.isArray(route.reasons) ? [...route.reasons] : []),
+            reasons: Object.freeze(Array.isArray(route.reasons) ? route.reasons.map(String) : []),
         }))
         : [];
 
