@@ -39,6 +39,12 @@ function optionalString(value, label) {
     return value.trim();
 }
 
+function requireString(value, label) {
+    const normalized = optionalString(value, label);
+    if (!normalized) throw routerError('INVALID_CONTRACT', `${label} is required`);
+    return normalized;
+}
+
 function normalizeStringArray(value, label, { allowEmpty = true } = {}) {
     if (value == null) return [];
     if (!Array.isArray(value)) throw routerError('INVALID_CONTRACT', `${label} must be an array`);
@@ -109,7 +115,7 @@ function normalizeCapabilityDescriptor(input = {}) {
     }
 
     return Object.freeze({
-        modelId: optionalString(input.modelId, 'modelId'),
+        modelId: requireString(input.modelId, 'modelId'),
         operations: Object.freeze(operations),
         inputTypes: Object.freeze(normalizeStringArray(input.inputTypes, 'inputTypes')),
         outputTypes: Object.freeze(normalizeStringArray(input.outputTypes, 'outputTypes')),
@@ -138,7 +144,7 @@ function createProviderDescriptor(input = {}) {
         : {};
 
     return Object.freeze({
-        id: optionalString(input.id, 'provider id'),
+        id: requireString(input.id, 'provider id'),
         execution: requireEnum(input.execution, sets.execution, 'execution type'),
         trustBoundary: requireEnum(input.trustBoundary, sets.trust, 'trust boundary'),
         metering: requireEnum(input.metering || 'unknown', sets.metering, 'metering type'),
@@ -175,8 +181,8 @@ function matchingCapabilities(request, provider) {
 }
 
 function evaluateProvider(requestInput, providerInput) {
-    const request = requestInput?.policy ? requestInput : createGenerationRequest(requestInput);
-    const provider = providerInput?.capabilities?.[0]?.operations ? providerInput : createProviderDescriptor(providerInput);
+    const request = createGenerationRequest(requestInput);
+    const provider = createProviderDescriptor(providerInput);
     const reasons = [];
 
     if (!['ready', 'degraded'].includes(provider.health)) reasons.push(`health:${provider.health}`);
@@ -216,7 +222,7 @@ function scoreProvider(request, evaluation) {
 }
 
 function routeGenerationRequest(requestInput, providerInputs = []) {
-    const request = requestInput?.policy ? requestInput : createGenerationRequest(requestInput);
+    const request = createGenerationRequest(requestInput);
     if (!Array.isArray(providerInputs)) throw routerError('INVALID_CONTRACT', 'providers must be an array');
 
     const evaluations = providerInputs.map((provider) => evaluateProvider(request, provider));
