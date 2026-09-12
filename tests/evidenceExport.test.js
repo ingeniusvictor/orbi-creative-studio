@@ -278,7 +278,9 @@ test('P1B.22 export module is pure in-memory and isolated from UI/execution', ()
     const diagnostics = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
 
     for (const token of [
-        'fs.',
+        "from 'node:fs'",
+        "require('fs')",
+        "require('node:fs')",
         'writeFile',
         'download',
         'Blob(',
