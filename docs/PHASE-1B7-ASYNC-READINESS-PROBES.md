@@ -21,6 +21,8 @@ P1B.7 keeps the certified synchronous API for compatibility and adds an asynchro
 - keeps the same 2.5 second per-command timeout;
 - keeps the same bounded output buffer;
 - starts all four probes concurrently with `Promise.all`;
+- caches the stable hardware readiness snapshot for 5 minutes;
+- coalesces concurrent readiness requests;
 - preserves the existing hardware snapshot semantics;
 - degrades missing/failed tools to unavailable facts instead of throwing.
 
@@ -28,7 +30,7 @@ Because commands run concurrently, readiness is bounded by the slowest command r
 
 ## Readiness bridge
 
-`providerReadinessSnapshotBridge.js` now awaits the async hardware probe.
+`providerReadinessSnapshotBridge.js` now awaits a cached wrapper around the async hardware probe. The first collection is non-blocking; subsequent readiness snapshots reuse the cached hardware evidence until the 5-minute TTL expires.
 
 The bridge still:
 
