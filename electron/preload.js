@@ -39,3 +39,13 @@ contextBridge.exposeInMainWorld('localAI', {
         return () => ipcRenderer.removeListener('local-ai:download-progress', listener);
     },
 });
+
+// Provider secrets remain owned by the Electron main process. The renderer gets
+// only the operations required for readiness and mutation; no generic secret
+// read or filesystem/keychain access is exposed here.
+contextBridge.exposeInMainWorld('orbiCredentials', {
+    isElectron: true,
+    getMuapiReadiness: () => ipcRenderer.invoke('provider-credentials:readiness'),
+    setMuapiKey: (value) => ipcRenderer.invoke('provider-credentials:set-muapi-key', value),
+    deleteMuapiKey: () => ipcRenderer.invoke('provider-credentials:delete-muapi-key'),
+});
