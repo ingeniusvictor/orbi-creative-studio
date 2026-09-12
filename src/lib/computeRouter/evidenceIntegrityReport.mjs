@@ -164,6 +164,18 @@ function formatEvidenceIntegrityText(report) {
         throw error;
     }
 
+    if (report.authenticityVerified !== false) {
+        const error = new Error('integrity report cannot claim authenticity verification');
+        error.code = 'INVALID_EVIDENCE_INTEGRITY_REPORT_INPUT';
+        throw error;
+    }
+
+    if (typeof report.integrityVerified !== 'boolean') {
+        const error = new Error('integrity report integrityVerified must be boolean');
+        error.code = 'INVALID_EVIDENCE_INTEGRITY_REPORT_INPUT';
+        throw error;
+    }
+
     if (report.executionAuthority !== EVIDENCE_INTEGRITY_REPORT_AUTHORITY) {
         const error = new Error('integrity report must preserve legacy execution authority');
         error.code = 'INVALID_EVIDENCE_INTEGRITY_REPORT_INPUT';
