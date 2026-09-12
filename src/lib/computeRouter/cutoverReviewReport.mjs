@@ -47,6 +47,8 @@ function requireAssessment(assessment) {
 function globalBlockers(assessment) {
     const blockers = [];
 
+    if (assessment.eligibleForCutoverReview !== true) blockers.push('eligibility-assessment-not-eligible');
+
     if (assessment.profileMatches !== true) blockers.push('certification-profile');
     if (assessment.certificationSchemaValid !== true) blockers.push('certification-schema');
     if (assessment.certificationFreshnessStrict !== true) blockers.push('certification-freshness');
@@ -83,6 +85,12 @@ function normalizeRoute(route) {
     const routeKey = typeof route.routeKey === 'string' ? route.routeKey.trim() : '';
     if (!routeKey) {
         const error = new Error('routeKey is required');
+        error.code = 'INVALID_CUTOVER_REVIEW_INPUT';
+        throw error;
+    }
+
+    if (route.cutoverAuthorized !== false || route.executionAuthority !== 'legacy-dispatcher-only') {
+        const error = new Error('route review requires non-authorizing legacy execution authority');
         error.code = 'INVALID_CUTOVER_REVIEW_INPUT';
         throw error;
     }
