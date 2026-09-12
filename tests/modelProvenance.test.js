@@ -13,7 +13,7 @@ function byId(id) {
 }
 
 function expectedSourceFragment(asset) {
-    return `huggingface.co/${asset.source.repo}/resolve/main/${asset.source.path}`;
+    return `huggingface.co/${asset.source.repo}/resolve/${asset.source.revision}/${asset.source.path}`;
 }
 
 function rendererBlock(source, id) {
