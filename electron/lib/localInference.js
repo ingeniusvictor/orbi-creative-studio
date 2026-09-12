@@ -363,6 +363,17 @@ async function downloadModel(modelId, mainWindow) {
         }
     }
 
+    if (fs.existsSync(stagedPath)) {
+        try {
+            send({ phase: 'verifying', progress: 0.97 });
+            const integrity = await promoteVerifiedAsset(stagedPath, destPath, model);
+            send({ phase: 'done', progress: 1 });
+            return { ok: true, path: destPath, integrity, recoveredStaging: true };
+        } catch {
+            // Invalid or stale completed staging is removed by promoteVerifiedAsset.
+        }
+    }
+
     send({ phase: 'downloading', progress: 0 });
 
     try {
@@ -397,6 +408,17 @@ async function downloadAuxiliary(auxKey, mainWindow) {
             if (!['MODEL_ASSET_SIZE_MISMATCH', 'MODEL_ASSET_HASH_MISMATCH'].includes(error.code)) throw error;
             clearIntegrityCache(destPath);
             fs.unlinkSync(destPath);
+        }
+    }
+
+    if (fs.existsSync(stagedPath)) {
+        try {
+            send({ phase: 'verifying', progress: 0.97 });
+            const integrity = await promoteVerifiedAsset(stagedPath, destPath, aux);
+            send({ phase: 'done', progress: 1 });
+            return { ok: true, path: destPath, integrity, recoveredStaging: true };
+        } catch {
+            // Invalid or stale completed staging is removed by promoteVerifiedAsset.
         }
     }
 
