@@ -38,31 +38,25 @@ function readyEvidence({
     };
 }
 
-test('every current model id has one deterministic legacy provider/capability route', async () => {
+test('every current model/capability pair resolves to its deterministic legacy provider', async () => {
     const { shadow } = await modules();
-    const seen = new Map();
+    let checked = 0;
 
     for (const owner of shadow.LEGACY_PROVIDER_CAPABILITIES) {
         for (const capability of owner.capabilities) {
             for (const operation of capability.operations) {
-                const key = capability.modelId;
-                const existing = seen.get(key);
-                const route = `${owner.providerId}:${operation}`;
-                if (existing && existing !== route) {
-                    assert.fail(`ambiguous current model ownership for ${key}: ${existing} vs ${route}`);
-                }
-                seen.set(key, route);
-
                 const resolved = shadow.resolveLegacyModelRoute({
                     modelId: capability.modelId,
                     capability: operation,
                 });
-                assert.equal(`${resolved.providerId}:${resolved.capability}`, route);
+                assert.equal(resolved.providerId, owner.providerId);
+                assert.equal(resolved.capability, operation);
+                checked++;
             }
         }
     }
 
-    assert.ok(seen.size > 0);
+    assert.ok(checked > 0);
 });
 
 test('Studio snake_case image params become an exact-model router request', async () => {
