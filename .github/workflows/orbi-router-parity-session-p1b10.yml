@@ -1,0 +1,102 @@
+name: ORBI Router parity session P1B10 validation
+
+on:
+  push:
+    branches:
+      - feature/router-parity-session-p1b10
+  pull_request:
+    branches:
+      - feature/router-parity-certification-p1b9
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout parity session branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Session collector static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const session = fs.readFileSync('src/lib/computeRouter/paritySession.mjs', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+
+          const forbidden = [
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localAI.generate',
+            'muapi.generate',
+            'window.orbiRouterParity',
+            'globalThis.orbiRouterParity',
+          ];
+          const hits = forbidden.filter((token) => session.includes(token));
+          if (hits.length) {
+            throw new Error('Parity session contains persistence/execution/global coupling: ' + hits.join(', '));
+          }
+
+          if (!session.includes("import { SHADOW_EVENT } from './studioShadowObserver.mjs'")) {
+            throw new Error('Session collector is not bound to the sanitized shadow event');
+          }
+          if (!session.includes('createParityCertificationLedger()')) {
+            throw new Error('Session collector is not using P1B.9 certification ledger');
+          }
+
+          const starts = (main.match(/startStudioParitySessionCollector\(\);/g) || []).length;
+          if (starts !== 1) {
+            throw new Error('Renderer bootstrap must start exactly one parity session collector');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Parity session tests
+        run: node --test tests/routerParitySession.test.js tests/routerParityCertification.test.js tests/studioShadowObserver.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('PARITY_SESSION_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
