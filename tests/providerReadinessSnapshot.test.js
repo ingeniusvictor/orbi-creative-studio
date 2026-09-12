@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     buildProviderReadinessSnapshot,
+    canProbeMuapiHealth,
 } = require('../electron/lib/providerReadinessSnapshotCore');
 
 async function readiness() {
@@ -195,4 +196,24 @@ test('readiness snapshot is immutable at its routing boundary', () => {
     assert.equal(Object.isFrozen(snapshot.sdcpp), true);
     assert.equal(Object.isFrozen(snapshot.wan2gp), true);
     assert.equal(Object.isFrozen(snapshot.muapi), true);
+});
+
+
+test('MuAPI health probe eligibility requires secure usable credential readiness', () => {
+    assert.equal(canProbeMuapiHealth({
+        available: true,
+        secure: true,
+        hasSecret: true,
+        storeState: 'ready',
+    }), true);
+
+    for (const readiness of [
+        undefined,
+        { available: false, secure: true, hasSecret: true, storeState: 'ready' },
+        { available: true, secure: false, hasSecret: true, storeState: 'ready' },
+        { available: true, secure: true, hasSecret: false, storeState: 'ready' },
+        { available: true, secure: true, hasSecret: true, storeState: 'corrupt' },
+    ]) {
+        assert.equal(canProbeMuapiHealth(readiness), false);
+    }
 });
