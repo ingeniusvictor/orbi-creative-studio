@@ -247,6 +247,22 @@ function buildReleaseEvidenceManifest({
     });
 }
 
+function normalizedCommitEvidencePassed(evidence, sourceCommit, generatedAt, approval = false) {
+    if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return false;
+
+    let evidenceCommit;
+    try {
+        evidenceCommit = normalizeCommit(evidence.sourceCommit, 'evidence.sourceCommit');
+    } catch {
+        return false;
+    }
+
+    const timestamp = normalizeTimestamp(evidence.timestamp, 'evidence.timestamp', generatedAt);
+    if (evidenceCommit !== sourceCommit || !evidence.proofId || !timestamp) return false;
+
+    return approval ? evidence.approved === true : evidence.status === 'passed';
+}
+
 function extractReleaseGates(manifest) {
     if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
         throw releaseEvidenceError('release evidence manifest is required');
@@ -260,7 +276,11 @@ function extractReleaseGates(manifest) {
         throw releaseEvidenceError('release evidence profile mismatch');
     }
 
-    normalizeCommit(manifest.sourceCommit);
+    const sourceCommit = normalizeCommit(manifest.sourceCommit);
+    const generatedAt = Number(manifest.generatedAt);
+    if (!Number.isFinite(generatedAt) || generatedAt <= 0) {
+        throw releaseEvidenceError('release evidence generatedAt is invalid');
+    }
 
     if (manifest.cutoverAuthorized !== false) {
         throw releaseEvidenceError('release evidence cannot authorize cutover');
@@ -270,15 +290,40 @@ function extractReleaseGates(manifest) {
         throw releaseEvidenceError('release evidence must preserve legacy execution authority');
     }
 
-    const input = manifest.releaseGates && typeof manifest.releaseGates === 'object'
-        ? manifest.releaseGates
+    const evidence = manifest.evidence && typeof manifest.evidence === 'object'
+        ? manifest.evidence
+        : {};
+    const platforms = evidence.platforms && typeof evidence.platforms === 'object'
+        ? evidence.platforms
         : {};
 
     return Object.freeze({
-        ciGreen: input.ciGreen === true,
-        platformMatrixGreen: input.platformMatrixGreen === true,
-        securityReviewApproved: input.securityReviewApproved === true,
-        rollbackPlanApproved: input.rollbackPlanApproved === true,
+        ciGreen: normalizedCommitEvidencePassed(
+            evidence.ci,
+            sourceCommit,
+            generatedAt,
+            false,
+        ),
+        platformMatrixGreen: REQUIRED_PLATFORMS.every((platform) => (
+            normalizedCommitEvidencePassed(
+                platforms[platform],
+                sourceCommit,
+                generatedAt,
+                false,
+            )
+        )),
+        securityReviewApproved: normalizedCommitEvidencePassed(
+            evidence.securityReview,
+            sourceCommit,
+            generatedAt,
+            true,
+        ),
+        rollbackPlanApproved: normalizedCommitEvidencePassed(
+            evidence.rollbackPlan,
+            sourceCommit,
+            generatedAt,
+            true,
+        ),
     });
 }
 
