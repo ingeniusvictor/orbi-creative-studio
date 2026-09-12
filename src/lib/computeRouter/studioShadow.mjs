@@ -58,11 +58,18 @@ function createStudioShadowRequest({
     resolution,
     durationSeconds,
 } = {}) {
-    const expectedProviderId = inferLegacyProviderId(modelId);
+    if (typeof modelId !== 'string' || !modelId.trim()) {
+        const error = new Error('Studio shadow routing requires an explicit modelId');
+        error.code = 'INVALID_SHADOW_CONTEXT';
+        throw error;
+    }
+
+    const normalizedModelId = modelId.trim();
+    const expectedProviderId = inferLegacyProviderId(normalizedModelId);
 
     const request = createGenerationRequest({
         capability: operation,
-        modelPreference: modelId,
+        modelPreference: normalizedModelId,
         output: {
             aspectRatio,
             resolution,
