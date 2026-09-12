@@ -9,6 +9,7 @@ const {
 } = require('./localInferenceAssets');
 const { resolvePinnedRuntime, SD_BACKEND_ENV } = require('./runtimeManifest');
 const { verifyFileSha256 } = require('./fileIntegrity');
+const { verifyAndPromoteCatalogAsset } = require('./modelDownloadIntegrity');
 const {
     formatStartupProgressMessage,
     parseGenerationProgressChunk,
@@ -296,8 +297,10 @@ async function downloadBinary(mainWindow) {
 function getModelState(model) {
     const filePath = path.join(MODELS_DIR, model.filename);
     const partPath = filePath + '.part';
+    const pendingPath = filePath + '.pending-verification';
+    const pendingPartPath = pendingPath + '.part';
     if (fs.existsSync(filePath)) return 'downloaded';
-    if (fs.existsSync(partPath)) return 'partial';
+    if (fs.existsSync(partPath) || fs.existsSync(pendingPath) || fs.existsSync(pendingPartPath)) return 'partial';
     return 'not-downloaded';
 }
 
@@ -320,27 +323,65 @@ async function listModels() {
     }));
 }
 
+async function downloadVerifiedCatalogAsset({
+    catalogEntry,
+    eventId,
+    displayName,
+    mainWindow,
+}) {
+    const destPath = path.join(MODELS_DIR, catalogEntry.filename);
+    if (fs.existsSync(destPath)) return { ok: true, path: destPath, source: 'existing' };
+
+    const pendingPath = destPath + '.pending-verification';
+    const send = (data) => mainWindow?.webContents.send('local-ai:download-progress', { id: eventId, ...data });
+
+    const verifyAndPromote = async () => {
+        send({ phase: 'verifying', progress: 0.99 });
+        const integrity = await verifyAndPromoteCatalogAsset({
+            stagedPath: pendingPath,
+            destinationPath: destPath,
+            catalogEntry,
+        });
+        send({ phase: 'done', progress: 1 });
+        return { ok: true, path: destPath, source: 'download', integrity };
+    };
+
+    try {
+        // A previous process may have completed the transfer but exited before
+        // verification. Reuse that staged file instead of downloading it again.
+        if (fs.existsSync(pendingPath)) {
+            return await verifyAndPromote();
+        }
+
+        send({ phase: 'downloading', progress: 0 });
+        await downloadFile(catalogEntry.downloadUrl, pendingPath, (p) => {
+            send({ phase: 'downloading', progress: p });
+        });
+
+        return await verifyAndPromote();
+    } catch (err) {
+        // Keep .pending-verification.part on transport failure so range-resume
+        // remains available. A complete unverified staged file must never linger.
+        if (fs.existsSync(pendingPath)) {
+            try { fs.unlinkSync(pendingPath); } catch {}
+        }
+        throw new Error(
+            `Failed to download or verify "${displayName}" (id: ${catalogEntry.id}, url: ${catalogEntry.downloadUrl}): ${err.message}`
+        );
+    }
+}
+
 async function downloadModel(modelId, mainWindow) {
     const { LOCAL_MODEL_CATALOG } = require('./modelCatalog');
     const model = LOCAL_MODEL_CATALOG.find(m => m.id === modelId);
     if (!model) throw new Error(`Unknown model: ${modelId}`);
 
-    const destPath = path.join(MODELS_DIR, model.filename);
-    if (fs.existsSync(destPath)) return { ok: true, path: destPath };
-
-    const send = (data) => mainWindow?.webContents.send('local-ai:download-progress', { id: modelId, ...data });
-    send({ phase: 'downloading', progress: 0 });
-
-    try {
-        await downloadFile(model.downloadUrl, destPath, (p) => {
-            send({ phase: 'downloading', progress: p });
-        });
-    } catch (err) {
-        throw new Error(`Failed to download "${model.name}" (id: ${model.id}, url: ${model.downloadUrl}): ${err.message}`);
-    }
-
-    send({ phase: 'done', progress: 1 });
-    return { ok: true, path: destPath };
+    return downloadVerifiedCatalogAsset({
+        catalogEntry: model,
+        eventId: modelId,
+        displayName: model.name,
+        mainWindow,
+    });
 }
 
 async function downloadAuxiliary(auxKey, mainWindow) {
@@ -348,23 +389,12 @@ async function downloadAuxiliary(auxKey, mainWindow) {
     const aux = ZIMAGE_AUXILIARY[auxKey];
     if (!aux) throw new Error(`Unknown auxiliary file: ${auxKey}`);
 
-    const destPath = path.join(MODELS_DIR, aux.filename);
-    if (fs.existsSync(destPath)) return { ok: true, path: destPath };
-
-    const id = aux.id;
-    const send = (data) => mainWindow?.webContents.send('local-ai:download-progress', { id, ...data });
-    send({ phase: 'downloading', progress: 0 });
-
-    try {
-        await downloadFile(aux.downloadUrl, destPath, (p) => {
-            send({ phase: 'downloading', progress: p });
-        });
-    } catch (err) {
-        throw new Error(`Failed to download "${aux.displayName}" (id: ${aux.id}, url: ${aux.downloadUrl}): ${err.message}`);
-    }
-
-    send({ phase: 'done', progress: 1 });
-    return { ok: true, path: destPath };
+    return downloadVerifiedCatalogAsset({
+        catalogEntry: aux,
+        eventId: aux.id,
+        displayName: aux.displayName,
+        mainWindow,
+    });
 }
 
 async function deleteModel(modelId) {
@@ -373,9 +403,14 @@ async function deleteModel(modelId) {
     if (!model) throw new Error(`Unknown model: ${modelId}`);
 
     const filePath = path.join(MODELS_DIR, model.filename);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    const partPath = filePath + '.part';
-    if (fs.existsSync(partPath)) fs.unlinkSync(partPath);
+    for (const candidate of [
+        filePath,
+        filePath + '.part',
+        filePath + '.pending-verification',
+        filePath + '.pending-verification.part',
+    ]) {
+        if (fs.existsSync(candidate)) fs.unlinkSync(candidate);
+    }
     return { ok: true };
 }
 
