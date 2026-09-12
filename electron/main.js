@@ -2,6 +2,7 @@ const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
 const { register: registerLocalInference } = require('./lib/localInference');
 const { register: registerWan2gp } = require('./lib/wan2gpProvider');
+const { register: registerProviderCredentials } = require('./lib/providerCredentials');
 const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
 process.on('uncaughtException', (err) => {
@@ -76,6 +77,14 @@ function createWindow() {
 
 app.whenReady().then(() => {
     createWindow();
+
+    try {
+        registerProviderCredentials();
+    } catch (err) {
+        // Credential readiness can still report an unavailable OS backend, but
+        // handler registration itself should not prevent the desktop app from starting.
+        console.error('Failed to register provider credential handlers:', err);
+    }
 
     try {
         registerLocalInference();
