@@ -1,0 +1,106 @@
+name: ORBI Studio parity target profile P1B12 validation
+
+on:
+  push:
+    branches:
+      - feature/studio-parity-target-profile-p1b12
+  pull_request:
+    branches:
+      - feature/router-parity-diagnostics-p1b11
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Studio parity target profile branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Target profile static safety gate
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const { STUDIO_PARITY_TARGETS } = await import('./src/lib/computeRouter/studioParityTargets.mjs');
+          const session = fs.readFileSync('src/lib/computeRouter/paritySession.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          const requiredRoutes = [
+            'sdcpp-device:t2i',
+            'wan2gp-lan:t2i',
+            'wan2gp-lan:t2v',
+            'wan2gp-lan:i2v',
+            'muapi-cloud:t2i',
+            'muapi-cloud:i2i',
+            'muapi-cloud:t2v',
+            'muapi-cloud:i2v',
+            'muapi-cloud:v2v',
+          ].sort();
+
+          const actualRoutes = STUDIO_PARITY_TARGETS.map((target) => target.routeKey).sort();
+          if (JSON.stringify(actualRoutes) !== JSON.stringify(requiredRoutes)) {
+            throw new Error('Studio parity v1 route set changed unexpectedly');
+          }
+          if (STUDIO_PARITY_TARGETS.length !== 9) {
+            throw new Error('Studio parity v1 must contain exactly 9 routes');
+          }
+          for (const target of STUDIO_PARITY_TARGETS) {
+            if (target.minSamples !== 10 || target.minDistinctModels !== 1) {
+              throw new Error('Studio parity v1 evidence floor changed unexpectedly');
+            }
+          }
+          if (!session.includes('evaluateCurrentStudioParitySession')) {
+            throw new Error('Session is not bound to the v1 target profile');
+          }
+          if (image.includes('studioParityTargets') || video.includes('studioParityTargets')) {
+            throw new Error('Target profile must not be imported into execution components');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Studio parity profile tests
+        run: node --test tests/studioParityTargets.test.js tests/routerParityDiagnostics.test.js tests/routerParitySession.test.js tests/routerParityCertification.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('STUDIO_PARITY_PROFILE_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
