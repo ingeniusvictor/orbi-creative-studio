@@ -218,7 +218,6 @@ function assessStudioCutoverEligibility({
 
     const profileMatches = profileId === STUDIO_PARITY_PROFILE_ID
         && certificationRouteState.duplicates.size === 0
-        && providerState.duplicates.size === 0
         && profileMatchesCertification(certificationRoutes);
 
     const certificationGloballyCertified = Boolean(
