@@ -1,7 +1,7 @@
 import { LocalModelManager } from './LocalModelManager.js';
 import { isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { t } from '../lib/i18n.js';
-import { getMuapiKey, setMuapiKey } from '../lib/providerCredentials.mjs';
+import { getMuapiKey, setMuapiCredential } from '../lib/providerCredentials.mjs';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -101,13 +101,19 @@ export function SettingsModal(onClose) {
     };
 
     apiPanel.querySelector('#settings-cancel-btn').onclick = close;
-    apiPanel.querySelector('#settings-save-btn').onclick = () => {
+    apiPanel.querySelector('#settings-save-btn').onclick = async () => {
         const key = apiPanel.querySelector('#settings-api-key').value.trim();
-        if (key) {
-            setMuapiKey(key);
-            close();
-        } else {
+        if (!key) {
             alert(t('settings.invalidKey'));
+            return;
+        }
+
+        try {
+            await setMuapiCredential(key);
+            close();
+        } catch (error) {
+            console.error('[Credentials] Failed to update MuAPI credential:', error);
+            alert(`Unable to store the API key securely: ${error.message}`);
         }
     };
 
