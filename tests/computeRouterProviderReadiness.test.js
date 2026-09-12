@@ -98,6 +98,14 @@ test('Wan2GP distinguishes unconfigured offline and ready states', async () => {
 
     assert.equal(
         composeWan2gpReadiness({
+            config: { configured: true },
+            probe: { ok: false, error: 'timeout' },
+        }).health,
+        'offline',
+    );
+
+    assert.equal(
+        composeWan2gpReadiness({
             config: { url: 'http://192.168.1.20:7860' },
             probe: { ok: false, error: 'timeout' },
         }).health,
