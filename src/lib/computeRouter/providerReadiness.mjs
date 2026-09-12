@@ -142,7 +142,7 @@ export function composeWan2gpReadiness({
     latencyMs,
     queueDepth,
 } = {}) {
-    const configured = typeof config?.url === 'string' && Boolean(config.url.trim());
+    const configured = config?.configured === true\n        || (typeof config?.url === 'string' && Boolean(config.url.trim()));
 
     if (!config) {
         return createWan2gpProviderDescriptor({ health: 'unknown', latencyMs, queueDepth });
