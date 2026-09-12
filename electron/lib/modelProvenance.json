@@ -23,7 +23,7 @@
       "source": {
         "provider": "huggingface",
         "repo": "leejet/Z-Image-Turbo-GGUF",
-        "revision": "a90f482",
+        "revision": "a90f482a21813cdaf21422c4031628658680b5fd",
         "path": "z_image_turbo-Q4_K.gguf"
       },
       "expectedBytes": 3864250304,
@@ -71,7 +71,7 @@
       "source": {
         "provider": "huggingface",
         "repo": "Lykon/DreamShaper",
-        "revision": "c6565f0",
+        "revision": "c6565f0dbcab40e8eb7be2d1e54f49cfc5415127",
         "path": "DreamShaper_8_pruned.safetensors"
       },
       "expectedBytes": 2132625894,
@@ -96,7 +96,7 @@
       "source": {
         "provider": "huggingface",
         "repo": "SG161222/Realistic_Vision_V5.1_noVAE",
-        "revision": "305469d",
+        "revision": "305469dfd7d7410cff6299d34727e237374b5f36",
         "path": "Realistic_Vision_V5.1_fp16-no-ema.safetensors"
       },
       "expectedBytes": 2132625894,
@@ -144,7 +144,7 @@
       "source": {
         "provider": "huggingface",
         "repo": "stabilityai/stable-diffusion-xl-base-1.0",
-        "revision": "f298da3",
+        "revision": "f298da3c058bd8f1f1c62f3ecfa775244a243897",
         "path": "sd_xl_base_1.0.safetensors"
       },
       "expectedBytes": 6938078334,
@@ -192,7 +192,7 @@
       "source": {
         "provider": "huggingface",
         "repo": "Comfy-Org/z_image_turbo",
-        "revision": "93fae7d",
+        "revision": "93fae7d7f6189cc408fdd7cec36c91447b8506a2",
         "path": "split_files/vae/ae.safetensors"
       },
       "expectedBytes": 335304388,
