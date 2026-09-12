@@ -63,7 +63,8 @@ jobs:
             throw new Error('MuAPI health probe contains forbidden behavior: ' + hits.join(', '));
           }
 
-          if (!bridge.includes('credentialCanProbe')) {
+          const core = fs.readFileSync('electron/lib/providerReadinessSnapshotCore.js', 'utf8');
+          if (!bridge.includes('canProbeMuapiHealth') || !core.includes('function canProbeMuapiHealth')) {
             throw new Error('Credential-gated health probing is missing');
           }
           NODE
