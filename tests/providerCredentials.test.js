@@ -98,3 +98,39 @@ test('setMuapiKey rejects empty credentials and unavailable storage', async () =
     assert.throws(() => setMuapiKey('   '), /non-empty/);
     assert.throws(() => setMuapiKey('abc'), /storage is unavailable/);
 });
+
+
+test('desktop credential sync copies the legacy key into secure storage once per value', async () => {
+    const storage = createStorage({ muapi_key: 'legacy-key' });
+    let writes = 0;
+    let lastValue = null;
+
+    global.localStorage = storage;
+    global.window = {
+        orbiCredentials: {
+            isElectron: true,
+            getMuapiReadiness: async () => ({ hasSecret: false }),
+            setMuapiKey: async (value) => {
+                writes += 1;
+                lastValue = value;
+                return { stored: true };
+            },
+        },
+    };
+
+    const { ensureDesktopMuapiCredential, setMuapiKey } = await loadModule();
+
+    const first = await ensureDesktopMuapiCredential();
+    assert.equal(first.desktop, true);
+    assert.equal(first.synced, true);
+    assert.equal(lastValue, 'legacy-key');
+    assert.equal(writes, 1);
+
+    await ensureDesktopMuapiCredential();
+    assert.equal(writes, 1);
+
+    setMuapiKey('rotated-key');
+    await ensureDesktopMuapiCredential();
+    assert.equal(lastValue, 'rotated-key');
+    assert.equal(writes, 2);
+});
