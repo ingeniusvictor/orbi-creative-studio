@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n.js';
-import { setMuapiKey } from '../lib/providerCredentials.mjs';
+import { setMuapiCredential } from '../lib/providerCredentials.mjs';
 
 export function AuthModal(onSuccess) {
     const overlay = document.createElement('div');
@@ -69,15 +69,26 @@ export function AuthModal(onSuccess) {
         if (e.target === overlay) close();
     });
 
-    btn.onclick = () => {
+    btn.onclick = async () => {
         const key = input.value.trim();
-        if (key) {
-            setMuapiKey(key);
-            close();
-            if (onSuccess) onSuccess();
-        } else {
+        if (!key) {
             input.classList.add('border-red-500/50');
             setTimeout(() => input.classList.remove('border-red-500/50'), 2000);
+            return;
+        }
+
+        btn.disabled = true;
+        try {
+            await setMuapiCredential(key);
+            close();
+            if (onSuccess) await onSuccess();
+        } catch (error) {
+            console.error('[Credentials] Failed to store MuAPI credential:', error);
+            input.classList.add('border-red-500/50');
+            alert(`Unable to store the API key securely: ${error.message}`);
+            setTimeout(() => input.classList.remove('border-red-500/50'), 2000);
+        } finally {
+            if (document.body.contains(overlay)) btn.disabled = false;
         }
     };
 
