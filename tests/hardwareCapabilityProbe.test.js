@@ -4,9 +4,11 @@ const {
     COMMAND_TIMEOUT_MS,
     COMMAND_MAX_BUFFER,
     probeCommand,
+    probeCommandAsync,
     parseNvidiaSmi,
     parseCudaVersion,
     probeHardwareCapabilities,
+    probeHardwareCapabilitiesAsync,
 } = require('../electron/lib/hardwareCapabilityProbe');
 
 function fakeOs() {
@@ -105,4 +107,62 @@ test('missing probe tools degrade to unavailable facts rather than throwing', ()
     assert.equal(result.accelerators.cudaToolkit.available, false);
     assert.equal(result.accelerators.vulkan.available, false);
     assert.equal(result.accelerators.rocm.available, false);
+});
+
+
+test('async command probe uses bounded execFile without shell and resolves failures as facts', async () => {
+    let observed;
+    const ok = await probeCommandAsync('nvcc', ['--version'], {
+        execFileImpl: (command, args, options, callback) => {
+            observed = { command, args, options };
+            callback(null, 'Cuda compilation tools, release 12.5, V12.5.1', '');
+        },
+    });
+
+    assert.equal(ok.available, true);
+    assert.equal(observed.command, 'nvcc');
+    assert.deepEqual(observed.args, ['--version']);
+    assert.equal(observed.options.timeout, COMMAND_TIMEOUT_MS);
+    assert.equal(observed.options.maxBuffer, COMMAND_MAX_BUFFER);
+    assert.equal(Object.prototype.hasOwnProperty.call(observed.options, 'shell'), false);
+
+    const missing = await probeCommandAsync('rocminfo', [], {
+        execFileImpl: (_command, _args, _options, callback) => {
+            const error = new Error('missing');
+            error.code = 'ENOENT';
+            callback(error, '', '');
+        },
+    });
+    assert.equal(missing.available, false);
+    assert.equal(missing.error, 'ENOENT');
+});
+
+test('async hardware probe launches independent accelerator checks without blocking composition', async () => {
+    const calls = [];
+    const execFileImpl = (command, _args, _options, callback) => {
+        calls.push(command);
+        queueMicrotask(() => {
+            if (command === 'nvidia-smi') return callback(null, 'NVIDIA RTX ASYNC, 12288, 560.10\n', '');
+            if (command === 'nvcc') return callback(null, 'Cuda compilation tools, release 12.5, V12.5.1', '');
+            if (command === 'vulkaninfo') return callback(null, 'Vulkan Instance Version: 1.3', '');
+            const error = new Error('missing');
+            error.code = 'ENOENT';
+            callback(error, '', '');
+        });
+    };
+
+    const result = await probeHardwareCapabilitiesAsync({
+        osImpl: fakeOs(),
+        execFileImpl,
+        platform: 'win32',
+        arch: 'x64',
+    });
+
+    assert.deepEqual(calls, ['nvidia-smi', 'nvcc', 'vulkaninfo', 'rocminfo']);
+    assert.equal(result.accelerators.nvidia.available, true);
+    assert.equal(result.accelerators.nvidia.gpus[0].memoryTotalMiB, 12288);
+    assert.equal(result.accelerators.cudaToolkit.version, '12.5');
+    assert.equal(result.accelerators.vulkan.available, true);
+    assert.equal(result.accelerators.rocm.available, false);
+    assert.equal(result.probePolicy.execution, 'async-parallel');
 });
