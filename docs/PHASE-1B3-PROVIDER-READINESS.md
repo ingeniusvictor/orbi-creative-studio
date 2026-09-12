@@ -33,13 +33,14 @@ A runtime-reported model ID that no longer exists in the catalog fails closed to
 ## Wan2GP readiness
 
 Inputs:
-- configured URL
+- configuration-present evidence (`configured: true`) or legacy configured URL
 - probe result
 - per-model readiness
 
 Rules:
 - no config evidence → `unknown`
-- empty URL → `misconfigured`
+- explicit unconfigured/empty URL → `misconfigured`
+- `configured: true` may be used by a narrow bridge so the LAN endpoint itself does not need to cross IPC
 - configured server probe fails → `offline`
 - server reachable but model evidence absent → `unknown`
 - server reachable but zero usable mapped models → `misconfigured`
