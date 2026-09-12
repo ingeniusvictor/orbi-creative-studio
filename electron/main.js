@@ -3,6 +3,7 @@ const path = require('path');
 const { register: registerLocalInference } = require('./lib/localInference');
 const { register: registerWan2gp } = require('./lib/wan2gpProvider');
 const { register: registerProviderCredentials } = require('./lib/providerCredentials');
+const { register: registerMuapiTransport } = require('./lib/muapiTransport');
 const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
 process.on('uncaughtException', (err) => {
@@ -79,11 +80,12 @@ app.whenReady().then(() => {
     createWindow();
 
     try {
-        registerProviderCredentials();
+        const providerSecretStore = registerProviderCredentials();
+        registerMuapiTransport({ store: providerSecretStore });
     } catch (err) {
         // Credential readiness can still report an unavailable OS backend, but
         // handler registration itself should not prevent the desktop app from starting.
-        console.error('Failed to register provider credential handlers:', err);
+        console.error('Failed to register provider credential/transport handlers:', err);
     }
 
     try {
