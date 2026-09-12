@@ -549,6 +549,30 @@ function cancelGeneration() {
     return { ok: true };
 }
 
+async function getReadinessSnapshot() {
+    ensureLocalAiPaths();
+    const binaryStatus = await getBinaryStatus();
+    const models = await listModels();
+
+    return Object.freeze({
+        binaryStatus: Object.freeze({
+            exists: binaryStatus?.exists === true,
+        }),
+        models: Object.freeze(models.map((model) => Object.freeze({
+            id: model.id,
+            provider: 'sdcpp',
+            state: model.state,
+            ...(model.requiresAuxiliary === true ? {
+                requiresAuxiliary: true,
+                auxiliaryStatus: Object.freeze({
+                    llm: model.auxiliaryStatus?.llm,
+                    vae: model.auxiliaryStatus?.vae,
+                }),
+            } : {}),
+        }))),
+    });
+}
+
 // ─── IPC Registration ─────────────────────────────────────────────────────────
 function getMainWindow() {
     return BrowserWindow.getAllWindows()[0] || null;
@@ -567,5 +591,6 @@ function register() {
 }
 
 module.exports = {
+    getReadinessSnapshot,
     register,
 };

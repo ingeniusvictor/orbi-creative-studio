@@ -59,3 +59,10 @@ contextBridge.exposeInMainWorld('orbiMuapi', {
     request: (request) => ipcRenderer.invoke('muapi-transport:request', request),
     uploadFile: (payload) => ipcRenderer.invoke('muapi-transport:upload', payload),
 });
+
+// Compute Router readiness is a read-only, redacted snapshot. It does not expose
+// provider execution, model paths, LAN endpoint details, or provider secrets.
+contextBridge.exposeInMainWorld('orbiComputeRouter', {
+    isElectron: true,
+    getReadinessSnapshot: () => ipcRenderer.invoke('compute-router:readiness-snapshot'),
+});
