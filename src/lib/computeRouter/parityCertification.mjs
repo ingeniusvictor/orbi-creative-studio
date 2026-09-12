@@ -1,7 +1,9 @@
 const DEFAULT_MIN_SAMPLES_PER_ROUTE = 10;
 const DEFAULT_MIN_DISTINCT_MODELS = 1;
 const DEFAULT_MAX_EVIDENCE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_MAX_FUTURE_SKEW_MS = 60 * 1000;
 
+const VALID_PROVIDER_IDS = new Set(['sdcpp-device', 'wan2gp-lan', 'muapi-cloud']);
 const VALID_PARITY = new Set(['match', 'blocked', 'mismatch']);
 const VALID_OPERATIONS = new Set(['t2i', 'i2i', 't2v', 'i2v', 'v2v', 'lipsync', 'audio']);
 
@@ -49,6 +51,11 @@ function normalizeEvidence(report, observedAt = Date.now()) {
     }
 
     const expectedProviderId = nonEmptyString(report.expectedProviderId, 'expectedProviderId');
+    if (!VALID_PROVIDER_IDS.has(expectedProviderId)) {
+        const error = new Error(`unsupported expected provider: ${expectedProviderId}`);
+        error.code = 'INVALID_PARITY_EVIDENCE';
+        throw error;
+    }
     const modelId = nonEmptyString(report.modelId, 'modelId');
     const parity = nonEmptyString(report.parity, 'parity');
     if (!VALID_PARITY.has(parity)) {
@@ -60,6 +67,11 @@ function normalizeEvidence(report, observedAt = Date.now()) {
     const selectedProviderId = report.selectedProviderId == null
         ? null
         : nonEmptyString(report.selectedProviderId, 'selectedProviderId');
+    if (selectedProviderId && !VALID_PROVIDER_IDS.has(selectedProviderId)) {
+        const error = new Error(`unsupported selected provider: ${selectedProviderId}`);
+        error.code = 'INVALID_PARITY_EVIDENCE';
+        throw error;
+    }
 
     const timestamp = Number(observedAt);
     if (!Number.isFinite(timestamp) || timestamp <= 0) {
@@ -97,6 +109,11 @@ function normalizeEvidence(report, observedAt = Date.now()) {
 
 function normalizeTarget(target = {}) {
     const expectedProviderId = nonEmptyString(target.expectedProviderId, 'expectedProviderId');
+    if (!VALID_PROVIDER_IDS.has(expectedProviderId)) {
+        const error = new Error(`unsupported target provider: ${expectedProviderId}`);
+        error.code = 'INVALID_CERTIFICATION_TARGET';
+        throw error;
+    }
     const operation = nonEmptyString(target.operation, 'operation');
     if (!VALID_OPERATIONS.has(operation)) {
         const error = new Error(`unsupported target operation: ${operation}`);
@@ -169,11 +186,16 @@ function evaluateTarget(target, evidence) {
 
 function createParityCertificationLedger({
     maxEvidenceAgeMs = DEFAULT_MAX_EVIDENCE_AGE_MS,
+    maxFutureSkewMs = DEFAULT_MAX_FUTURE_SKEW_MS,
     now = Date.now,
 } = {}) {
     const maxAge = Number(maxEvidenceAgeMs);
     if (!Number.isFinite(maxAge) || maxAge <= 0) {
         throw new TypeError('maxEvidenceAgeMs must be a positive finite number');
+    }
+    const futureSkew = Number(maxFutureSkewMs);
+    if (!Number.isFinite(futureSkew) || futureSkew < 0) {
+        throw new TypeError('maxFutureSkewMs must be a non-negative finite number');
     }
     if (typeof now !== 'function') {
         throw new TypeError('now must be a function');
@@ -194,9 +216,15 @@ function createParityCertificationLedger({
     }
 
     function record(report, { observedAt = now() } = {}) {
+        const referenceNow = now();
         const evidence = normalizeEvidence(report, observedAt);
+        if (evidence.observedAt > referenceNow + futureSkew) {
+            const error = new Error('parity evidence timestamp is too far in the future');
+            error.code = 'INVALID_PARITY_EVIDENCE';
+            throw error;
+        }
         entries.push(evidence);
-        prune(now());
+        prune(referenceNow);
         return evidence;
     }
 
@@ -207,6 +235,7 @@ function createParityCertificationLedger({
                 certified: false,
                 reason: 'NO_CERTIFICATION_TARGETS',
                 maxEvidenceAgeMs: maxAge,
+                maxFutureSkewMs: futureSkew,
                 routes: Object.freeze([]),
             });
         }
@@ -231,6 +260,7 @@ function createParityCertificationLedger({
                 ? 'PARITY_CERTIFIED'
                 : 'PARITY_NOT_CERTIFIED',
             maxEvidenceAgeMs: maxAge,
+                maxFutureSkewMs: futureSkew,
             routes: Object.freeze(routes),
         });
     }
@@ -254,6 +284,7 @@ function createParityCertificationLedger({
 
 export {
     DEFAULT_MAX_EVIDENCE_AGE_MS,
+    DEFAULT_MAX_FUTURE_SKEW_MS,
     DEFAULT_MIN_DISTINCT_MODELS,
     DEFAULT_MIN_SAMPLES_PER_ROUTE,
     createParityCertificationLedger,
