@@ -45,11 +45,14 @@ jobs:
           if (!probe.includes('shell: false')) {
             throw new Error('Async hardware probe must explicitly disable shell');
           }
-          if (!bridge.includes('probeHardwareCapabilitiesAsync')) {
-            throw new Error('Readiness bridge is not using the async hardware probe');
+          if (!probe.includes('function createCachedHardwareCapabilityProbe')) {
+            throw new Error('Cached hardware readiness wrapper missing');
           }
-          if (!bridge.includes('const hardwareSnapshot = await probeHardware();')) {
-            throw new Error('Readiness bridge is not awaiting async hardware evidence');
+          if (!bridge.includes('createCachedHardwareCapabilityProbe')) {
+            throw new Error('Readiness bridge is not using cached async hardware evidence');
+          }
+          if (!bridge.includes('const hardwareSnapshot = await hardwareProbe.probe();')) {
+            throw new Error('Readiness bridge is not awaiting cached async hardware evidence');
           }
 
           const forbiddenBridge = [
