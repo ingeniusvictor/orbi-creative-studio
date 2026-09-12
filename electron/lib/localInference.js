@@ -567,5 +567,7 @@ function register() {
 }
 
 module.exports = {
+    getBinaryStatus,
+    listModels,
     register,
 };
