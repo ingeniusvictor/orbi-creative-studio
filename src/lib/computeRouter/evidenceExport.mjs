@@ -214,6 +214,112 @@ function buildCertificationReleaseEvidenceExport({
     });
 }
 
+function serializableExportShape(input) {
+    const parity = requireObject(input.parity, 'exportBundle.parity');
+    const certification = requireObject(parity.certification, 'exportBundle.parity.certification');
+    const release = requireObject(input.release, 'exportBundle.release');
+    const proofs = requireObject(release.proofs, 'exportBundle.release.proofs');
+    const proofPlatforms = requireObject(proofs.platforms, 'exportBundle.release.proofs.platforms');
+    const review = requireObject(input.review, 'exportBundle.review');
+
+    const proofShape = (proof) => Object.freeze({
+        sourceCommit: typeof proof?.sourceCommit === 'string' ? proof.sourceCommit : null,
+        state: String(proof?.state || 'unavailable'),
+        proofId: typeof proof?.proofId === 'string' ? proof.proofId : null,
+        timestamp: Number.isFinite(Number(proof?.timestamp)) ? Number(proof.timestamp) : null,
+        passed: proof?.passed === true,
+    });
+
+    return Object.freeze({
+        schemaVersion: EVIDENCE_EXPORT_SCHEMA_VERSION,
+        exportedAt: Number(input.exportedAt),
+        sourceCommit: input.sourceCommit,
+        appVersion: String(input.appVersion || ''),
+        profileId: String(input.profileId || ''),
+        evidenceValid: true,
+        reviewStatus: input.readyForReview === true ? 'READY_FOR_REVIEW' : 'BLOCKED',
+        readyForReview: input.readyForReview === true,
+        cutoverAuthorized: false,
+        executionAuthority: EVIDENCE_EXPORT_EXECUTION_AUTHORITY,
+        parity: Object.freeze({
+            bindingId: String(parity.bindingId || ''),
+            bindingStatus: String(parity.bindingStatus || 'UNKNOWN'),
+            bindingValid: parity.bindingValid === true,
+            boundAt: Number(parity.boundAt),
+            certification: Object.freeze({
+                certified: certification.certified === true,
+                reason: String(certification.reason || ''),
+                maxEvidenceAgeMs: Number(certification.maxEvidenceAgeMs),
+                maxFutureSkewMs: Number(certification.maxFutureSkewMs),
+                routeCount: Number(certification.routeCount || 0),
+                routes: Object.freeze(
+                    Array.isArray(certification.routes)
+                        ? certification.routes.map((route) => Object.freeze({
+                            routeKey: String(route.routeKey || ''),
+                            expectedProviderId: String(route.expectedProviderId || ''),
+                            operation: String(route.operation || ''),
+                            samples: Number(route.samples),
+                            matches: Number(route.matches),
+                            blocked: Number(route.blocked),
+                            mismatches: Number(route.mismatches),
+                            distinctModels: Number(route.distinctModels),
+                            modelIds: stringArray(route.modelIds),
+                            certified: route.certified === true,
+                            reasons: stringArray(route.reasons),
+                        }))
+                        : [],
+                ),
+            }),
+        }),
+        release: Object.freeze({
+            status: String(release.status || 'UNKNOWN'),
+            ready: release.ready === true,
+            generatedAt: Number(release.generatedAt),
+            gates: Object.freeze({
+                ciGreen: release.gates?.ciGreen === true,
+                platformMatrixGreen: release.gates?.platformMatrixGreen === true,
+                securityReviewApproved: release.gates?.securityReviewApproved === true,
+                rollbackPlanApproved: release.gates?.rollbackPlanApproved === true,
+            }),
+            issues: stringArray(release.issues),
+            proofs: Object.freeze({
+                ci: proofShape(proofs.ci),
+                platforms: Object.freeze({
+                    linux: proofShape(proofPlatforms.linux),
+                    macos: proofShape(proofPlatforms.macos),
+                    windows: proofShape(proofPlatforms.windows),
+                }),
+                securityReview: proofShape(proofs.securityReview),
+                rollbackPlan: proofShape(proofs.rollbackPlan),
+            }),
+        }),
+        review: Object.freeze({
+            reviewStatus: review.readyForReview === true ? 'READY_FOR_REVIEW' : 'BLOCKED',
+            readyForReview: review.readyForReview === true,
+            releaseEvidenceComplete: review.releaseEvidenceComplete === true,
+            globalBlockers: stringArray(review.globalBlockers),
+            summary: Object.freeze({
+                routeCount: Number(review.summary?.routeCount || 0),
+                eligibleRouteCount: Number(review.summary?.eligibleRouteCount || 0),
+                blockedRouteCount: Number(review.summary?.blockedRouteCount || 0),
+                missingReleaseGateCount: Number(review.summary?.missingReleaseGateCount || 0),
+            }),
+            routes: Object.freeze(
+                Array.isArray(review.routes)
+                    ? review.routes.map((route) => Object.freeze({
+                        routeKey: String(route.routeKey || ''),
+                        expectedProviderId: String(route.expectedProviderId || ''),
+                        operation: String(route.operation || ''),
+                        eligibleForCutoverReview: route.eligibleForCutoverReview === true,
+                        certifiedModelIds: stringArray(route.certifiedModelIds),
+                        reasons: stringArray(route.reasons),
+                    }))
+                    : [],
+            ),
+        }),
+    });
+}
+
 function serializeCertificationReleaseEvidenceExport(exportBundle) {
     const input = requireObject(exportBundle, 'exportBundle');
 
@@ -240,7 +346,10 @@ function serializeCertificationReleaseEvidenceExport(exportBundle) {
         throw exportError('evidence export source commit is invalid');
     }
 
-    return `${JSON.stringify(input, null, 2)}\n`;
+    positiveTimestamp(input.exportedAt, 'exportedAt');
+
+    const sanitized = serializableExportShape(input);
+    return `${JSON.stringify(sanitized, null, 2)}\n`;
 }
 
 export {
