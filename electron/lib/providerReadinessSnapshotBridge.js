@@ -10,6 +10,7 @@ const { probeHardwareCapabilities } = require('./hardwareCapabilityProbe');
 const { getReadinessEvidence: getSdCppReadinessEvidence } = require('./localInference');
 const { getReadinessEvidence: getWan2gpReadinessEvidence } = require('./wan2gpProvider');
 const { buildProviderReadinessSnapshot } = require('./providerReadinessSnapshotCore');
+const { createMuapiHealthProbe } = require('./muapiHealthProbe');
 
 const CHANNEL = 'compute-router:readiness-snapshot';
 
@@ -18,10 +19,13 @@ function register({
     getSdCppEvidence = getSdCppReadinessEvidence,
     getWan2gpEvidence = getWan2gpReadinessEvidence,
     probeHardware = probeHardwareCapabilities,
+    createHealthProbe = createMuapiHealthProbe,
 } = {}) {
-    if (!store || typeof store.getReadiness !== 'function') {
-        throw new TypeError('Provider secret store with getReadiness() is required');
+    if (!store || typeof store.getReadiness !== 'function' || typeof store.getSecret !== 'function') {
+        throw new TypeError('Provider secret store with readiness/secret access is required');
     }
+
+    const muapiHealthProbe = createHealthProbe({ store });
 
     ipcMain.removeHandler(CHANNEL);
     ipcMain.handle(CHANNEL, async (event) => {
@@ -35,10 +39,21 @@ function register({
         const hardwareSnapshot = probeHardware();
         const muapiCredentialReadiness = store.getReadiness(MUAPI_PROVIDER, MUAPI_SECRET);
 
+        const credentialCanProbe = Boolean(
+            muapiCredentialReadiness?.available === true
+            && muapiCredentialReadiness?.secure === true
+            && muapiCredentialReadiness?.hasSecret === true
+            && muapiCredentialReadiness?.storeState !== 'corrupt'
+        );
+        const muapiTransportHealth = credentialCanProbe
+            ? await muapiHealthProbe.probe()
+            : undefined;
+
         return buildProviderReadinessSnapshot({
             sdcppEvidence,
             wan2gpEvidence,
             muapiCredentialReadiness,
+            muapiTransportHealth,
             hardwareSnapshot,
         });
     });
