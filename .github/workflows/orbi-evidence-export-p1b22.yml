@@ -55,7 +55,9 @@ jobs:
           }
 
           const forbidden = [
-            'fs.',
+            "from 'node:fs'",
+            "require('fs')",
+            "require('node:fs')",
             'writeFile',
             'download',
             'Blob(',
