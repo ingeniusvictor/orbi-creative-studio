@@ -260,7 +260,7 @@ function createParityCertificationLedger({
                 ? 'PARITY_CERTIFIED'
                 : 'PARITY_NOT_CERTIFIED',
             maxEvidenceAgeMs: maxAge,
-                maxFutureSkewMs: futureSkew,
+            maxFutureSkewMs: futureSkew,
             routes: Object.freeze(routes),
         });
     }
