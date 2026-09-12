@@ -78,6 +78,16 @@ function sanitizeCredentialReadiness(readiness) {
     });
 }
 
+function canProbeMuapiHealth(readiness) {
+    return Boolean(
+        readiness
+        && readiness.available === true
+        && readiness.secure === true
+        && readiness.hasSecret === true
+        && readiness.storeState !== 'corrupt'
+    );
+}
+
 function sanitizeTransportHealth(health) {
     if (!health || typeof health !== 'object') return undefined;
     const status = Number(health.status);
@@ -161,6 +171,7 @@ function buildProviderReadinessSnapshot({
 
 module.exports = {
     buildProviderReadinessSnapshot,
+    canProbeMuapiHealth,
     sanitizeCredentialReadiness,
     sanitizeHardwareSnapshot,
     sanitizeSdCppEvidence,
