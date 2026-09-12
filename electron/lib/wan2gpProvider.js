@@ -270,13 +270,20 @@ async function uploadFile({ name, type, bytes }) {
     return { url: fileUrl, path };
 }
 
-async function listModels() {
-    const { url } = readConfig();
-    if (!url) return WAN2GP_CATALOG.map(m => ({ ...m, ready: false, unavailableReason: 'Wan2GP URL not set' }));
+function listModelsFromProbe(url, probeRes) {
     const base = normalizeUrl(url);
-    const probeRes = await probe(url); // populates fnResolutionCache
+    if (!base) {
+        return WAN2GP_CATALOG.map(m => ({ ...m, ready: false, unavailableReason: 'Wan2GP URL not set' }));
+    }
     const cached = fnResolutionCache.get(base);
     return WAN2GP_CATALOG.map(m => withWan2gpAvailability(m, probeRes, cached));
+}
+
+async function listModels() {
+    const { url } = readConfig();
+    if (!url) return listModelsFromProbe('', { ok: false, error: 'Wan2GP URL not set' });
+    const probeRes = await probe(url); // populates fnResolutionCache
+    return listModelsFromProbe(url, probeRes);
 }
 
 // ─── Generate ─────────────────────────────────────────────────────────────────
@@ -454,4 +461,4 @@ function register() {
     ipcMain.handle('wan2gp:upload-file', (_, payload) => uploadFile(payload));
 }
 
-module.exports = { register, WAN2GP_CATALOG };
+module.exports = { register, WAN2GP_CATALOG, readConfig, probe, listModels, listModelsFromProbe };
