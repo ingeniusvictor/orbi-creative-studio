@@ -291,7 +291,7 @@ function ModelCard(model, onStateChange) {
         const auxSection = card.querySelector('.aux-section');
         auxSection.appendChild(document.createElement('span')).className = 'text-[10px] text-muted uppercase tracking-wider font-bold';
         auxSection.querySelector('span').textContent = t('localModels.requiredComponents');
-        auxSection.appendChild(AuxRow('Qwen3-4B Text Encoder (2.4 GB)', 'llm', auxStatus.llm, onStateChange));
+        auxSection.appendChild(AuxRow('Qwen3-4B Text Encoder (2.55 GB)', 'llm', auxStatus.llm, onStateChange));
         auxSection.appendChild(AuxRow('FLUX VAE (335 MB)', 'vae', auxStatus.vae, onStateChange));
     }
 
