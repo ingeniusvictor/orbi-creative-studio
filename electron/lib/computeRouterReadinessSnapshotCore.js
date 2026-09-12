@@ -3,7 +3,6 @@
 function safeError(error) {
     return {
         code: typeof error?.code === 'string' ? error.code : 'READINESS_CAPTURE_FAILED',
-        message: typeof error?.message === 'string' ? error.message.slice(0, 500) : 'Readiness capture failed',
     };
 }
 
