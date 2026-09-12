@@ -27,7 +27,7 @@ function normalizeMetadata(asset) {
 }
 
 function fingerprint(filePath, stat, expectedSha256) {
-    return `${filePath}|${stat.size}|${stat.mtimeMs}|${expectedSha256}`;
+    return `${filePath}|${stat.size}|${stat.mtimeMs}|${stat.ctimeMs}|${expectedSha256}`;
 }
 
 function clearIntegrityCache(filePath) {
