@@ -1,0 +1,95 @@
+name: ORBI Session build binding P1B20 validation
+
+on:
+  push:
+    branches:
+      - feature/session-build-binding-p1b20
+  pull_request:
+    branches:
+      - feature/build-identity-injection-p1b19
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout session build binding branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Session build binding static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const client = fs.readFileSync('src/lib/computeRouter/buildIdentityClient.mjs', 'utf8');
+          const session = fs.readFileSync('src/lib/computeRouter/paritySession.mjs', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          if (!client.includes('/^[0-9a-f]{40}$/i')) {
+            throw new Error('Renderer build identity exact SHA validation missing');
+          }
+          if (!session.includes('bindCurrentStudioParitySessionToBuild')) {
+            throw new Error('Session build-binding API missing');
+          }
+          if (!session.includes('bindParityCertificationToBuild')) {
+            throw new Error('Session binding does not use P1B.17 contract');
+          }
+          if (!session.includes('requireRendererBuildIdentity')) {
+            throw new Error('Session binding bypasses P1B.19 build identity');
+          }
+          if (main.includes('bindCurrentStudioParitySessionToBuild')) {
+            throw new Error('Session build binding must not auto-run at bootstrap');
+          }
+          if (image.includes('bindCurrentStudioParitySessionToBuild') || video.includes('bindCurrentStudioParitySessionToBuild')) {
+            throw new Error('Session build binding entered a generation component');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Session build binding tests
+        run: node --test tests/sessionBuildBinding.test.js tests/buildIdentity.test.js tests/parityBuildBinding.test.js tests/routerParitySession.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer with identity
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('SESSION_BUILD_BINDING_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
