@@ -2,6 +2,8 @@ import { SHADOW_EVENT } from './studioShadowObserver.mjs';
 import { createParityCertificationLedger } from './parityCertification.mjs';
 import { buildParityDiagnosticReport, formatParityDiagnosticText } from './parityDiagnostics.mjs';
 import { STUDIO_PARITY_TARGETS } from './studioParityTargets.mjs';
+import { bindParityCertificationToBuild } from './parityBuildBinding.mjs';
+import { requireRendererBuildIdentity } from './buildIdentityClient.mjs';
 
 const ledger = createParityCertificationLedger();
 
@@ -85,6 +87,31 @@ function formatCurrentStudioParityDiagnosticReport(options) {
     return formatStudioParityDiagnosticReport(STUDIO_PARITY_TARGETS, options);
 }
 
+function bindCurrentStudioParitySessionToBuild({
+    buildIdentity,
+    bindingId,
+    boundAt = Date.now(),
+} = {}) {
+    const identity = requireRendererBuildIdentity(buildIdentity);
+    const timestamp = Number(boundAt);
+    if (!Number.isFinite(timestamp) || timestamp <= 0) {
+        const error = new Error('boundAt must be a positive finite timestamp');
+        error.code = 'INVALID_PARITY_SESSION_BINDING';
+        throw error;
+    }
+
+    const resolvedBindingId = typeof bindingId === 'string' && bindingId.trim()
+        ? bindingId.trim()
+        : `studio-session:${identity.sourceCommit}:${Math.trunc(timestamp)}`;
+
+    return bindParityCertificationToBuild({
+        sourceCommit: identity.sourceCommit,
+        bindingId: resolvedBindingId,
+        boundAt: timestamp,
+        certification: evaluateCurrentStudioParitySession(),
+    });
+}
+
 function clearStudioParitySessionEvidence() {
     ledger.clear();
 }
@@ -97,6 +124,7 @@ function getStudioParitySessionState() {
 }
 
 export {
+    bindCurrentStudioParitySessionToBuild,
     buildCurrentStudioParityDiagnosticReport,
     buildStudioParityDiagnosticReport,
     clearStudioParitySessionEvidence,
