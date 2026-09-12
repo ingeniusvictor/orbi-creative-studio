@@ -278,3 +278,41 @@ test('ledger snapshot contains routing evidence only', async () => {
         'selectedProviderId',
     ].sort());
 });
+
+
+test('unknown provider identities are rejected from evidence and targets', async () => {
+    const { normalizeEvidence, normalizeTarget } = await certification();
+
+    assert.throws(
+        () => normalizeEvidence(report({
+            expectedProviderId: 'mystery-provider',
+            selectedProviderId: 'mystery-provider',
+        }), 1000),
+        (error) => error.code === 'INVALID_PARITY_EVIDENCE',
+    );
+
+    assert.throws(
+        () => normalizeTarget({
+            expectedProviderId: 'mystery-provider',
+            operation: 't2i',
+        }),
+        (error) => error.code === 'INVALID_CERTIFICATION_TARGET',
+    );
+});
+
+test('evidence too far in the future is rejected', async () => {
+    const { createParityCertificationLedger } = await certification();
+    const ledger = createParityCertificationLedger({
+        now: () => 10_000,
+        maxFutureSkewMs: 100,
+    });
+
+    assert.throws(
+        () => ledger.record(report(), { observedAt: 10_101 }),
+        (error) => error.code === 'INVALID_PARITY_EVIDENCE',
+    );
+
+    assert.doesNotThrow(
+        () => ledger.record(report(), { observedAt: 10_100 }),
+    );
+});
