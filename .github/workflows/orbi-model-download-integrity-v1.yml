@@ -1,0 +1,84 @@
+name: ORBI Model download integrity v1 validation
+
+on:
+  push:
+    branches:
+      - security/model-download-integrity-v1
+  pull_request:
+    branches:
+      - governance/model-provenance-manifest-v1
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout integrity branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Integrity boundary static gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('electron/lib/localInference.js', 'utf8');
+          if (!source.includes("'.pending-verification'")) {
+            throw new Error('Pending-verification staging boundary is missing');
+          }
+          if (!source.includes('verifyAndPromoteCatalogAsset')) {
+            throw new Error('Model integrity promotion gate is missing');
+          }
+          if (source.includes('downloadFile(model.downloadUrl, destPath')) {
+            throw new Error('Model download can bypass integrity staging');
+          }
+          if (source.includes('downloadFile(aux.downloadUrl, destPath')) {
+            throw new Error('Auxiliary download can bypass integrity staging');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Model integrity tests
+        run: node --test tests/modelProvenance.test.js tests/modelCatalogMetadata.test.js tests/modelDownloadIntegrity.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('MODEL_DOWNLOAD_INTEGRITY_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
