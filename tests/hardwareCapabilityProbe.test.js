@@ -229,6 +229,7 @@ test('cached hardware readiness probe coalesces concurrent collection', async ()
 
     const first = cached.probe();
     const second = cached.probe();
+    await Promise.resolve();
     assert.equal(calls, 1);
 
     const snapshot = Object.freeze({ schemaVersion: 1, platform: 'test' });
