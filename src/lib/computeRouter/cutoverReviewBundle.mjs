@@ -96,7 +96,12 @@ function buildStudioCutoverReviewBundle({
     });
 }
 
-function validateStudioCutoverReviewBundle(bundle, expectedSourceCommit) {
+function validateStudioCutoverReviewBundle(bundle, {
+    expectedSourceCommit,
+    parityBinding,
+    releaseManifest,
+    providers = [],
+} = {}) {
     const input = requireObject(bundle, 'bundle');
 
     if (input.schemaVersion !== CUTOVER_REVIEW_BUNDLE_SCHEMA_VERSION) {
@@ -123,53 +128,42 @@ function validateStudioCutoverReviewBundle(bundle, expectedSourceCommit) {
         throw bundleError('cutover review bundle must preserve legacy execution authority');
     }
 
-    if (!input.eligibilityAssessment || input.eligibilityAssessment.cutoverAuthorized !== false) {
-        throw bundleError('embedded eligibility assessment is authorizing or missing');
+    const rebuilt = buildStudioCutoverReviewBundle({
+        sourceCommit: expectedCommit,
+        parityBinding,
+        releaseManifest,
+        providers,
+        generatedAt: input.generatedAt,
+    });
+
+    const comparableFields = [
+        'sourceCommit',
+        'profileId',
+        'parityBindingId',
+        'releaseEvidenceStatus',
+        'releaseEvidenceComplete',
+        'readyForReview',
+        'reviewStatus',
+        'cutoverAuthorized',
+        'executionAuthority',
+    ];
+
+    for (const field of comparableFields) {
+        if (input[field] !== rebuilt[field]) {
+            throw bundleError(`cutover review bundle field mismatch: ${field}`);
+        }
     }
 
-    if (!input.reviewReport || input.reviewReport.cutoverAuthorized !== false) {
-        throw bundleError('embedded review report is authorizing or missing');
-    }
-
-    if (
-        input.eligibilityAssessment.executionAuthority !== CUTOVER_REVIEW_BUNDLE_EXECUTION_AUTHORITY
-        || input.reviewReport.executionAuthority !== CUTOVER_REVIEW_BUNDLE_EXECUTION_AUTHORITY
-    ) {
-        throw bundleError('embedded review evidence changed execution authority');
-    }
-
-    const releaseGates = input.releaseGates && typeof input.releaseGates === 'object'
-        ? input.releaseGates
-        : {};
-    const releaseEvidenceComplete = [
-        'ciGreen',
-        'platformMatrixGreen',
-        'securityReviewApproved',
-        'rollbackPlanApproved',
-    ].every((gate) => releaseGates[gate] === true);
-
-    const recomputedReady = (
-        releaseEvidenceComplete
-        && input.eligibilityAssessment.eligibleForCutoverReview === true
-        && input.reviewReport.readyForReview === true
-    );
-
-    if (input.releaseEvidenceComplete !== releaseEvidenceComplete) {
-        throw bundleError('release evidence completeness flag is inconsistent');
-    }
-
-    if (input.readyForReview !== recomputedReady) {
-        throw bundleError('cutover review readiness flag is inconsistent');
-    }
-
-    if (input.reviewStatus !== (recomputedReady ? 'READY_FOR_REVIEW' : 'BLOCKED')) {
-        throw bundleError('cutover review status is inconsistent');
+    for (const field of ['releaseGates', 'eligibilityAssessment', 'reviewReport']) {
+        if (JSON.stringify(input[field]) !== JSON.stringify(rebuilt[field])) {
+            throw bundleError(`cutover review bundle evidence mismatch: ${field}`);
+        }
     }
 
     return Object.freeze({
         valid: true,
         sourceCommit,
-        readyForReview: recomputedReady,
+        readyForReview: rebuilt.readyForReview,
         cutoverAuthorized: false,
         executionAuthority: CUTOVER_REVIEW_BUNDLE_EXECUTION_AUTHORITY,
     });
