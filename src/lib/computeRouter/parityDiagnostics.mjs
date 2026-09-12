@@ -8,12 +8,6 @@ function finiteTimestamp(value, label) {
     return number;
 }
 
-function freezeArray(values) {
-    return Object.freeze(values.map((value) => (
-        value && typeof value === 'object' ? Object.freeze({ ...value }) : value
-    )));
-}
-
 function summarizeEvidenceByRoute(evidence = []) {
     if (!Array.isArray(evidence)) {
         const error = new Error('evidence must be an array');
