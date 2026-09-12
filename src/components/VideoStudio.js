@@ -6,7 +6,7 @@ import { createUploadPicker } from './UploadPicker.js';
 import { savePendingJob, removePendingJob, getPendingJobs } from '../lib/pendingJobs.js';
 import { localAI, isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { isWan2gpModelId, getLocalModelById, localT2VModels, localI2VModels } from '../lib/localModels.js';
-import { getMuapiKey } from '../lib/providerCredentials.mjs';
+import { hasMuapiCredential } from '../lib/providerCredentials.mjs';
 
 // Promotes a wan2gp catalog entry (lib/localModels.js shape) into the
 // `inputs`-shaped descriptor the Video Studio dropdowns/controls expect.
@@ -299,7 +299,7 @@ export function VideoStudio() {
         const file = e.target.files[0];
         if (!file) return;
 
-        const apiKey = getMuapiKey();
+        const apiKey = (await hasMuapiCredential()) ? muapi.getKey() : null;
         if (!apiKey) {
             AuthModal(() => videoFileInput.click());
             return;
@@ -996,7 +996,7 @@ export function VideoStudio() {
         const pending = getPendingJobs('video');
         if (!pending.length) return;
 
-        const apiKey = getMuapiKey();
+        const apiKey = (await hasMuapiCredential()) ? muapi.getKey() : null;
         if (!apiKey) return; // can't poll without key; jobs remain for next time
 
         const banner = document.createElement('div');
@@ -1120,7 +1120,7 @@ export function VideoStudio() {
 
         // Local Wan2GP generations don't go through Muapi — skip the auth gate.
         if (!isLocal) {
-            const apiKey = getMuapiKey();
+            const apiKey = (await hasMuapiCredential()) ? muapi.getKey() : null;
             if (!apiKey) {
                 AuthModal(() => generateBtn.click());
                 return;
