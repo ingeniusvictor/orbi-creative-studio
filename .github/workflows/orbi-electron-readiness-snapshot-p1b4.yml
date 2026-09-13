@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - feature/electron-readiness-snapshot-p1b4
-  pull_request:
-    branches:
-      - feature/compute-router-readiness-p1b3-clean
-      - integration/orbi-foundation
   workflow_dispatch:
 
 permissions:
