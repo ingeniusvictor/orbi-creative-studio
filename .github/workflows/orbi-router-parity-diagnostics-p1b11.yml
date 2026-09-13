@@ -1,0 +1,120 @@
+name: ORBI Router parity diagnostics P1B11 validation
+
+on:
+  push:
+    branches:
+      - feature/router-parity-diagnostics-p1b11
+  pull_request:
+    branches:
+      - feature/router-parity-session-p1b10
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout parity diagnostics branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Diagnostic report static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const diagnostics = fs.readFileSync('src/lib/computeRouter/parityDiagnostics.mjs', 'utf8');
+          const session = fs.readFileSync('src/lib/computeRouter/paritySession.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          const forbidden = [
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localAI.generate',
+            'muapi.generate',
+            'window.',
+            'globalThis.',
+            'writeFile',
+            'createWriteStream',
+          ];
+          const hits = forbidden.filter((token) => diagnostics.includes(token));
+          if (hits.length) {
+            throw new Error('Parity diagnostics contains storage/execution/global coupling: ' + hits.join(', '));
+          }
+
+          if (!session.includes('buildStudioParityDiagnosticReport')) {
+            throw new Error('P1B.10 session integration for diagnostics is missing');
+          }
+          if (!session.includes('formatStudioParityDiagnosticReport')) {
+            throw new Error('Readable session diagnostic formatter is missing');
+          }
+
+          if (image.includes('parityDiagnostics') || video.includes('parityDiagnostics')) {
+            throw new Error('P1B.11 must not be wired into Studio execution components');
+          }
+
+          const required = [
+            "'certified'",
+            "'mismatch'",
+            "'blocked'",
+            "'insufficient-samples'",
+            "'insufficient-model-coverage'",
+            'ORBI Compute Router — Parity Diagnostic Report',
+            'Observed routes:',
+          ];
+          for (const token of required) {
+            if (!diagnostics.includes(token)) {
+              throw new Error('Diagnostic report invariant missing: ' + token);
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Parity diagnostics tests
+        run: node --test tests/routerParityDiagnostics.test.js tests/routerParitySession.test.js tests/routerParityCertification.test.js tests/studioShadowObserver.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('PARITY_DIAGNOSTICS_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
