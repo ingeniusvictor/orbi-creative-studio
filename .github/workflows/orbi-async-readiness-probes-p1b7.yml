@@ -1,0 +1,101 @@
+name: ORBI Async readiness probes P1B7 validation
+
+on:
+  push:
+    branches:
+      - feature/async-readiness-probes-p1b7
+  pull_request:
+    branches:
+      - feature/muapi-readiness-health-p1b6
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout async readiness branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Async readiness static gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const probe = fs.readFileSync('electron/lib/hardwareCapabilityProbe.js', 'utf8');
+          const bridge = fs.readFileSync('electron/lib/providerReadinessSnapshotBridge.js', 'utf8');
+
+          if (!probe.includes('async function probeHardwareCapabilitiesAsync')) {
+            throw new Error('Async hardware readiness probe missing');
+          }
+          if (!probe.includes('Promise.all([')) {
+            throw new Error('Hardware readiness commands are not parallelized');
+          }
+          if (!probe.includes('shell: false')) {
+            throw new Error('Async hardware probe must explicitly disable shell');
+          }
+          if (!probe.includes('function createCachedHardwareCapabilityProbe')) {
+            throw new Error('Cached hardware readiness wrapper missing');
+          }
+          if (!bridge.includes('createCachedHardwareCapabilityProbe')) {
+            throw new Error('Readiness bridge is not using cached async hardware evidence');
+          }
+          if (!bridge.includes('const hardwareSnapshot = await hardwareProbe.probe();')) {
+            throw new Error('Readiness bridge is not awaiting cached async hardware evidence');
+          }
+
+          const forbiddenBridge = [
+            'execFileSync',
+            'probeHardwareCapabilities();',
+          ];
+          const hits = forbiddenBridge.filter((token) => bridge.includes(token));
+          if (hits.length) {
+            throw new Error('Readiness bridge contains blocking hardware coupling: ' + hits.join(', '));
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Async readiness tests
+        run: node --test tests/hardwareCapabilityProbe.test.js tests/providerReadinessSnapshot.test.js tests/muapiHealthProbe.test.js tests/studioRouterShadow.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('ASYNC_READINESS_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE

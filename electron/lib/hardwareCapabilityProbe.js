@@ -1,10 +1,11 @@
 'use strict';
 
 const os = require('node:os');
-const { execFileSync } = require('node:child_process');
+const { execFile, execFileSync } = require('node:child_process');
 
 const COMMAND_TIMEOUT_MS = 2500;
 const COMMAND_MAX_BUFFER = 512 * 1024;
+const DEFAULT_READINESS_CACHE_TTL_MS = 5 * 60 * 1000;
 const ALLOWED_COMMANDS = new Set(['nvidia-smi', 'nvcc', 'vulkaninfo', 'rocminfo']);
 
 function safeNumber(value) {
@@ -46,6 +47,42 @@ function probeCommand(command, args = [], { execFileSyncImpl = execFileSync } = 
             error: error?.code || error?.name || 'probe-failed',
         };
     }
+}
+
+function probeCommandAsync(command, args = [], { execFileImpl = execFile } = {}) {
+    if (!ALLOWED_COMMANDS.has(command)) {
+        const error = new Error('Hardware probe command is not allowlisted');
+        error.code = 'PROBE_COMMAND_NOT_ALLOWED';
+        return Promise.reject(error);
+    }
+    if (!Array.isArray(args) || args.some((arg) => typeof arg !== 'string')) {
+        return Promise.reject(new TypeError('Hardware probe command arguments must be strings'));
+    }
+
+    return new Promise((resolve) => {
+        execFileImpl(command, args, {
+            encoding: 'utf8',
+            timeout: COMMAND_TIMEOUT_MS,
+            maxBuffer: COMMAND_MAX_BUFFER,
+            windowsHide: true,
+            shell: false,
+        }, (error, stdout) => {
+            if (error) {
+                resolve({
+                    available: false,
+                    stdout: '',
+                    error: error?.code || error?.name || 'probe-failed',
+                });
+                return;
+            }
+
+            resolve({
+                available: true,
+                stdout: String(stdout || '').slice(0, COMMAND_MAX_BUFFER),
+                error: null,
+            });
+        });
+    });
 }
 
 function parseNvidiaSmi(stdout) {
@@ -143,12 +180,119 @@ function probeHardwareCapabilities({
     });
 }
 
+async function probeHardwareCapabilitiesAsync({
+    osImpl = os,
+    execFileImpl = execFile,
+    platform = process.platform,
+    arch = process.arch,
+} = {}) {
+    const totalMemoryMiB = mib(osImpl.totalmem());
+    const freeMemoryMiB = mib(osImpl.freemem());
+
+    const [nvidiaResult, cudaResult, vulkanResult, rocmResult] = await Promise.all([
+        probeCommandAsync(
+            'nvidia-smi',
+            ['--query-gpu=name,memory.total,driver_version', '--format=csv,noheader,nounits'],
+            { execFileImpl },
+        ),
+        probeCommandAsync('nvcc', ['--version'], { execFileImpl }),
+        probeCommandAsync('vulkaninfo', ['--summary'], { execFileImpl }),
+        probeCommandAsync('rocminfo', [], { execFileImpl }),
+    ]);
+
+    const nvidiaGpus = nvidiaResult.available ? parseNvidiaSmi(nvidiaResult.stdout) : [];
+
+    return Object.freeze({
+        schemaVersion: 1,
+        platform,
+        arch,
+        cpu: Object.freeze(summarizeCpu(osImpl)),
+        memory: Object.freeze({
+            totalMiB: totalMemoryMiB,
+            freeMiB: freeMemoryMiB,
+        }),
+        accelerators: Object.freeze({
+            nvidia: Object.freeze({
+                available: nvidiaGpus.length > 0,
+                probeAvailable: nvidiaResult.available,
+                gpus: Object.freeze(nvidiaGpus.map((gpu) => Object.freeze(gpu))),
+            }),
+            cudaToolkit: Object.freeze({
+                available: cudaResult.available,
+                version: cudaResult.available ? parseCudaVersion(cudaResult.stdout) : null,
+            }),
+            vulkan: Object.freeze({
+                available: vulkanResult.available,
+                summaryObserved: vulkanResult.available,
+            }),
+            rocm: Object.freeze({
+                available: rocmResult.available,
+            }),
+        }),
+        probePolicy: Object.freeze({
+            commandTimeoutMs: COMMAND_TIMEOUT_MS,
+            commandMaxBufferBytes: COMMAND_MAX_BUFFER,
+            shellUsed: false,
+            execution: 'async-parallel',
+        }),
+    });
+}
+
+function createCachedHardwareCapabilityProbe({
+    probeImpl = probeHardwareCapabilitiesAsync,
+    cacheTtlMs = DEFAULT_READINESS_CACHE_TTL_MS,
+    now = Date.now,
+} = {}) {
+    if (typeof probeImpl !== 'function') {
+        throw new TypeError('hardware probe implementation is required');
+    }
+
+    let cached = null;
+    let cachedAt = 0;
+    let inFlight = null;
+
+    async function probe({ force = false } = {}) {
+        const current = now();
+        if (!force && cached && (current - cachedAt) < cacheTtlMs) {
+            return cached;
+        }
+        if (inFlight) return inFlight;
+
+        inFlight = Promise.resolve()
+            .then(() => probeImpl())
+            .then((result) => {
+                cached = result;
+                cachedAt = now();
+                return result;
+            })
+            .finally(() => {
+                inFlight = null;
+            });
+
+        return inFlight;
+    }
+
+    function invalidate() {
+        cached = null;
+        cachedAt = 0;
+    }
+
+    return Object.freeze({
+        probe,
+        invalidate,
+    });
+}
+
 module.exports = {
     ALLOWED_COMMANDS,
     COMMAND_TIMEOUT_MS,
     COMMAND_MAX_BUFFER,
+    DEFAULT_READINESS_CACHE_TTL_MS,
     probeCommand,
+    probeCommandAsync,
     parseNvidiaSmi,
     parseCudaVersion,
     probeHardwareCapabilities,
+    probeHardwareCapabilitiesAsync,
+    createCachedHardwareCapabilityProbe,
 };
