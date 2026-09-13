@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - feature/compute-router-contracts-p1b
-  pull_request:
-    branches:
-      - integration/orbi-foundation
   workflow_dispatch:
 
 permissions:
