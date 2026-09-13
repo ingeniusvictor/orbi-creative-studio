@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - feature/studio-parity-target-profile-p1b12
-  pull_request:
-    branches:
-      - feature/router-parity-diagnostics-p1b11
-      - integration/orbi-foundation
   workflow_dispatch:
 
 permissions:
