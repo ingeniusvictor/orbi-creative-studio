@@ -14,6 +14,7 @@ import { savePendingJob, removePendingJob, getPendingJobs } from '../lib/pending
 import { downloadImage } from '../../packages/studio/src/utils/downloadImage.js';
 import { appendGenerationRefundNotice } from '../../packages/studio/src/utils/generationLifecycle.js';
 import { hasMuapiCredential } from '../lib/providerCredentials.mjs';
+import { scheduleStudioShadowObservation } from '../lib/computeRouter/studioShadowObserver.mjs';
 
 function createInlineInstructions(type) {
     const el = document.createElement('div');
@@ -1150,6 +1151,14 @@ export function ImageStudio() {
                 alert('Please enter a prompt to generate an image.');
                 return;
             }
+        }
+
+        const shadowModelId = useLocalModel ? selectedLocalModel : selectedModel;
+        if (!useLocalModel || getLocalModelById(selectedLocalModel)) {
+            scheduleStudioShadowObservation({
+                operation: useLocalModel ? 't2i' : (imageMode ? 'i2i' : 't2i'),
+                modelId: shadowModelId,
+            });
         }
 
         // ── Local inference path ──────────────────────────────────────────────
