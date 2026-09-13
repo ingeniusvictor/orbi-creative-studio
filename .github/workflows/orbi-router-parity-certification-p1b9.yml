@@ -1,0 +1,112 @@
+name: ORBI Router parity certification P1B9 validation
+
+on:
+  push:
+    branches:
+      - feature/router-parity-certification-p1b9
+  pull_request:
+    branches:
+      - feature/studio-shadow-observer-p1b8
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout parity certification branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Certification static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const cert = fs.readFileSync('src/lib/computeRouter/parityCertification.mjs', 'utf8');
+          const observer = fs.readFileSync('src/lib/computeRouter/studioShadowObserver.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          const forbidden = [
+            'fetch(',
+            'window.',
+            'ipcRenderer',
+            'ipcMain',
+            'localAI.generate',
+            'muapi.generate',
+            'orbiMuapi',
+            'localStorage',
+          ];
+          const hits = forbidden.filter((token) => cert.includes(token));
+          if (hits.length) {
+            throw new Error('Parity certification contains execution/storage coupling: ' + hits.join(', '));
+          }
+
+          if (image.includes('parityCertification') || video.includes('parityCertification')) {
+            throw new Error('P1B.9 must not be wired into Studio execution');
+          }
+          if (observer.includes('parityCertification')) {
+            throw new Error('P1B.9 must not change P1B.8 observation behavior');
+          }
+
+          const required = [
+            'DEFAULT_MIN_SAMPLES_PER_ROUTE = 10',
+            'DEFAULT_MAX_EVIDENCE_AGE_MS = 7 * 24 * 60 * 60 * 1000',
+            'DEFAULT_MAX_FUTURE_SKEW_MS = 60 * 1000',
+            "new Set(['sdcpp-device', 'wan2gp-lan', 'muapi-cloud'])",
+            "reasons.push(`blocked:${summary.blocked}`)",
+            "reasons.push(`mismatch:${summary.mismatches}`)",
+            "reason: 'NO_CERTIFICATION_TARGETS'",
+          ];
+          for (const token of required) {
+            if (!cert.includes(token)) {
+              throw new Error('Parity certification invariant missing: ' + token);
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Parity certification tests
+        run: node --test tests/routerParityCertification.test.js tests/studioShadowObserver.test.js tests/studioRouterShadow.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('PARITY_CERTIFICATION_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
