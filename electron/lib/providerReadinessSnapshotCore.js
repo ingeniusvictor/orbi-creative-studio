@@ -78,6 +78,25 @@ function sanitizeCredentialReadiness(readiness) {
     });
 }
 
+function canProbeMuapiHealth(readiness) {
+    return Boolean(
+        readiness
+        && readiness.available === true
+        && readiness.secure === true
+        && readiness.hasSecret === true
+        && readiness.storeState !== 'corrupt'
+    );
+}
+
+function sanitizeTransportHealth(health) {
+    if (!health || typeof health !== 'object') return undefined;
+    const status = Number(health.status);
+    return Object.freeze({
+        ok: health.ok === true,
+        status: Number.isInteger(status) && status >= 0 ? status : 0,
+    });
+}
+
 function finiteNumber(value) {
     const number = Number(value);
     return Number.isFinite(number) ? number : undefined;
@@ -128,11 +147,13 @@ function buildProviderReadinessSnapshot({
     sdcppEvidence,
     wan2gpEvidence,
     muapiCredentialReadiness,
+    muapiTransportHealth,
     hardwareSnapshot,
 } = {}) {
     const sdcpp = sanitizeSdCppEvidence(sdcppEvidence);
     const hardware = sanitizeHardwareSnapshot(hardwareSnapshot);
     const credentials = sanitizeCredentialReadiness(muapiCredentialReadiness);
+    const transportHealth = sanitizeTransportHealth(muapiTransportHealth);
 
     return Object.freeze({
         schemaVersion: 1,
@@ -143,14 +164,17 @@ function buildProviderReadinessSnapshot({
         wan2gp: sanitizeWan2gpEvidence(wan2gpEvidence),
         muapi: Object.freeze({
             ...(credentials ? { credentialReadiness: credentials } : {}),
+            ...(transportHealth ? { transportHealth } : {}),
         }),
     });
 }
 
 module.exports = {
     buildProviderReadinessSnapshot,
+    canProbeMuapiHealth,
     sanitizeCredentialReadiness,
     sanitizeHardwareSnapshot,
     sanitizeSdCppEvidence,
+    sanitizeTransportHealth,
     sanitizeWan2gpEvidence,
 };

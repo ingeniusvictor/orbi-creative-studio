@@ -1,0 +1,105 @@
+name: ORBI MuAPI readiness health P1B6 validation
+
+on:
+  push:
+    branches:
+      - feature/muapi-readiness-health-p1b6
+  pull_request:
+    branches:
+      - feature/studio-router-shadow-parity-p1b5
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout MuAPI health branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: MuAPI readiness static security gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const health = fs.readFileSync('electron/lib/muapiHealthProbe.js', 'utf8');
+          const bridge = fs.readFileSync('electron/lib/providerReadinessSnapshotBridge.js', 'utf8');
+
+          const required = [
+            "HEALTH_PATH = '/api/v1/account/balance'",
+            "method: 'GET'",
+            "headers: { 'x-api-key': apiKey }",
+            "response?.body?.cancel?.()",
+            "DEFAULT_TIMEOUT_MS = 5000",
+            "DEFAULT_CACHE_TTL_MS = 30000",
+          ];
+          for (const token of required) {
+            if (!health.includes(token)) {
+              throw new Error('MuAPI health safety invariant missing: ' + token);
+            }
+          }
+
+          const banned = [
+            '/predictions/',
+            "method: 'POST'",
+            '.json()',
+            '.text()',
+            'localAI.generate',
+            'muapi.generate',
+          ];
+          const hits = banned.filter((token) => health.includes(token));
+          if (hits.length) {
+            throw new Error('MuAPI health probe contains forbidden behavior: ' + hits.join(', '));
+          }
+
+          const core = fs.readFileSync('electron/lib/providerReadinessSnapshotCore.js', 'utf8');
+          if (!bridge.includes('canProbeMuapiHealth') || !core.includes('function canProbeMuapiHealth')) {
+            throw new Error('Credential-gated health probing is missing');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: MuAPI readiness tests
+        run: node --test tests/muapiHealthProbe.test.js tests/computeRouterProviderReadiness.test.js tests/providerReadinessSnapshot.test.js tests/studioRouterShadow.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('MUAPI_HEALTH_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE

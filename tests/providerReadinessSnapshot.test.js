@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     buildProviderReadinessSnapshot,
+    canProbeMuapiHealth,
 } = require('../electron/lib/providerReadinessSnapshotCore');
 
 async function readiness() {
@@ -58,6 +59,12 @@ function sampleSnapshot() {
             storeState: 'ready',
             backend: 'os-protected',
             ciphertext: 'never-cross-ipc',
+        },
+        muapiTransportHealth: {
+            ok: true,
+            status: 200,
+            balance: 999999,
+            rawBody: 'never-cross-ipc',
         },
         hardwareSnapshot: {
             platform: 'win32',
@@ -128,6 +135,10 @@ test('readiness snapshot carries only routing-safe facts', () => {
         hasSecret: true,
         storeState: 'ready',
     });
+    assert.deepEqual(snapshot.muapi.transportHealth, {
+        ok: true,
+        status: 200,
+    });
 
     assert.equal(snapshot.sdcpp.hardwareSnapshot.accelerators.nvidia.gpus[0].memoryTotalMiB, 12288);
     assert.equal(serialized.includes('/private/'), false);
@@ -136,6 +147,8 @@ test('readiness snapshot carries only routing-safe facts', () => {
     assert.equal(serialized.includes('private-driver'), false);
     assert.equal(serialized.includes('secretRawProbeOutput'), false);
     assert.equal(serialized.includes('apiNames'), false);
+    assert.equal(serialized.includes('999999'), false);
+    assert.equal(serialized.includes('rawBody'), false);
 });
 
 test('snapshot plugs into P1B.3 readiness composition without generation wiring', async () => {
@@ -160,7 +173,7 @@ test('snapshot plugs into P1B.3 readiness composition without generation wiring'
     );
 
     assert.equal(muapi.credentials, 'available');
-    assert.equal(muapi.health, 'unknown');
+    assert.equal(muapi.health, 'ready');
 });
 
 test('explicitly unconfigured Wan2GP remains fail-closed', async () => {
@@ -183,4 +196,24 @@ test('readiness snapshot is immutable at its routing boundary', () => {
     assert.equal(Object.isFrozen(snapshot.sdcpp), true);
     assert.equal(Object.isFrozen(snapshot.wan2gp), true);
     assert.equal(Object.isFrozen(snapshot.muapi), true);
+});
+
+
+test('MuAPI health probe eligibility requires secure usable credential readiness', () => {
+    assert.equal(canProbeMuapiHealth({
+        available: true,
+        secure: true,
+        hasSecret: true,
+        storeState: 'ready',
+    }), true);
+
+    for (const readiness of [
+        undefined,
+        { available: false, secure: true, hasSecret: true, storeState: 'ready' },
+        { available: true, secure: false, hasSecret: true, storeState: 'ready' },
+        { available: true, secure: true, hasSecret: false, storeState: 'ready' },
+        { available: true, secure: true, hasSecret: true, storeState: 'corrupt' },
+    ]) {
+        assert.equal(canProbeMuapiHealth(readiness), false);
+    }
 });
