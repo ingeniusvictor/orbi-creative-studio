@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - fix/model-catalog-certified-sizes
-  pull_request:
-    branches:
-      - integration/orbi-foundation
   workflow_dispatch:
 
 permissions:
