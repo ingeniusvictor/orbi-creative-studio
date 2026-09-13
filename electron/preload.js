@@ -59,3 +59,11 @@ contextBridge.exposeInMainWorld('orbiMuapi', {
     request: (request) => ipcRenderer.invoke('muapi-transport:request', request),
     uploadFile: (payload) => ipcRenderer.invoke('muapi-transport:upload', payload),
 });
+
+
+// Compute Router receives only a narrow, sanitized readiness snapshot.
+// This bridge does not execute generation or expose provider secrets/paths.
+contextBridge.exposeInMainWorld('orbiComputeRouter', {
+    isElectron: true,
+    getReadinessSnapshot: () => ipcRenderer.invoke('compute-router:readiness-snapshot'),
+});

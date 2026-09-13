@@ -320,6 +320,27 @@ async function listModels() {
     }));
 }
 
+async function getReadinessEvidence() {
+    ensureLocalAiPaths();
+    const [binaryStatus, models] = await Promise.all([
+        getBinaryStatus(),
+        listModels(),
+    ]);
+
+    return Object.freeze({
+        binaryStatus: Object.freeze({ exists: binaryStatus.exists === true }),
+        models: Object.freeze(models.map((model) => Object.freeze({
+            id: model.id,
+            provider: 'sdcpp',
+            state: model.state,
+            requiresAuxiliary: model.requiresAuxiliary === true,
+            ...(model.requiresAuxiliary && model.auxiliaryStatus
+                ? { auxiliaryStatus: Object.freeze({ ...model.auxiliaryStatus }) }
+                : {}),
+        }))),
+    });
+}
+
 async function downloadModel(modelId, mainWindow) {
     const { LOCAL_MODEL_CATALOG } = require('./modelCatalog');
     const model = LOCAL_MODEL_CATALOG.find(m => m.id === modelId);
@@ -567,5 +588,6 @@ function register() {
 }
 
 module.exports = {
+    getReadinessEvidence,
     register,
 };
