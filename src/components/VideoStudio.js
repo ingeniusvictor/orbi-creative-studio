@@ -7,6 +7,7 @@ import { savePendingJob, removePendingJob, getPendingJobs } from '../lib/pending
 import { localAI, isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { isWan2gpModelId, getLocalModelById, localT2VModels, localI2VModels } from '../lib/localModels.js';
 import { hasMuapiCredential } from '../lib/providerCredentials.mjs';
+import { scheduleStudioShadowObservation } from '../lib/computeRouter/studioShadowObserver.mjs';
 
 // Promotes a wan2gp catalog entry (lib/localModels.js shape) into the
 // `inputs`-shaped descriptor the Video Studio dropdowns/controls expect.
@@ -1117,6 +1118,10 @@ export function VideoStudio() {
         }
 
         const isLocal = isWan2gpModelId(selectedModel);
+        scheduleStudioShadowObservation({
+            operation: v2vMode ? 'v2v' : (imageMode ? 'i2v' : 't2v'),
+            modelId: selectedModel,
+        });
 
         // Local Wan2GP generations don't go through Muapi — skip the auth gate.
         if (!isLocal) {

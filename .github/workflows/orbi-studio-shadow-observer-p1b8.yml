@@ -1,0 +1,119 @@
+name: ORBI Studio shadow observer P1B8 validation
+
+on:
+  push:
+    branches:
+      - feature/studio-shadow-observer-p1b8
+  pull_request:
+    branches:
+      - feature/async-readiness-probes-p1b7
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Studio shadow observer branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Shadow observer static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const observer = fs.readFileSync('src/lib/computeRouter/studioShadowObserver.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          const forbiddenObserver = [
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localAI.generate',
+            'muapi.generate',
+            'orbiMuapi',
+          ];
+          const observerHits = forbiddenObserver.filter((token) => observer.includes(token));
+          if (observerHits.length) {
+            throw new Error('Shadow observer contains execution/network coupling: ' + observerHits.join(', '));
+          }
+
+          if (image.includes('await scheduleStudioShadowObservation')) {
+            throw new Error('ImageStudio is blocking on shadow observation');
+          }
+          if (video.includes('await scheduleStudioShadowObservation')) {
+            throw new Error('VideoStudio is blocking on shadow observation');
+          }
+
+          const requiredImageDispatch = [
+            'localAI.generate({',
+            'muapi.generateI2I(genParams)',
+            'muapi.generateImage(genParams)',
+          ];
+          const requiredVideoDispatch = [
+            'localAI.generate(localParams)',
+            'muapi.processV2V(v2vParams)',
+            'muapi.generateI2V(i2vParams)',
+            'muapi.generateVideo(params)',
+          ];
+
+          for (const token of requiredImageDispatch) {
+            if (!image.includes(token)) throw new Error('ImageStudio legacy dispatch missing: ' + token);
+          }
+          for (const token of requiredVideoDispatch) {
+            if (!video.includes(token)) throw new Error('VideoStudio legacy dispatch missing: ' + token);
+          }
+
+          const imageObservations = (image.match(/scheduleStudioShadowObservation\(\{/g) || []).length;
+          const videoObservations = (video.match(/scheduleStudioShadowObservation\(\{/g) || []).length;
+          if (imageObservations !== 1 || videoObservations !== 1) {
+            throw new Error('Expected exactly one shadow observation hook per Studio');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Shadow observer tests
+        run: node --test tests/studioShadowObserver.test.js tests/studioRouterShadow.test.js tests/providerReadinessSnapshot.test.js tests/muapiHealthProbe.test.js tests/hardwareCapabilityProbe.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('STUDIO_SHADOW_OBSERVER_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
