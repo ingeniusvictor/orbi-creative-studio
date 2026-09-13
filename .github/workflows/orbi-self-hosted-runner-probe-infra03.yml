@@ -1,0 +1,20 @@
+name: ORBI Self-hosted Runner Probe INFRA-03
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-self-hosted-probe:
+    runs-on: [self-hosted, windows, x64, orbi-cert]
+    timeout-minutes: 5
+    steps:
+      - name: Self-hosted allocation sentinel
+        shell: pwsh
+        run: |
+          Write-Host 'ORBI_INFRA_03_SELF_HOSTED_ALLOCATED'
+          Write-Host "runner_os=$env:RUNNER_OS"
+          Write-Host "runner_name=$env:RUNNER_NAME"
+          Write-Host "sha=$env:GITHUB_SHA"
