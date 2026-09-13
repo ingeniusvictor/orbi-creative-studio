@@ -1,0 +1,22 @@
+name: ORBI Actions Runner Probe INFRA-01
+
+on:
+  push:
+    branches:
+      - infra/actions-runner-recovery
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  github-hosted-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Runner allocation sentinel
+        shell: bash
+        run: |
+          echo "ORBI_INFRA_01_RUNNER_ALLOCATED"
+          echo "runner_os=$RUNNER_OS"
+          echo "sha=$GITHUB_SHA"
