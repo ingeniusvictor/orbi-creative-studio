@@ -1,0 +1,70 @@
+name: ORBI Pull Request integrated gate
+
+on:
+  pull_request:
+    branches:
+      - integration/orbi-foundation
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orbi-pr-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrated-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install exact dependency graph
+        run: npm ci
+
+      - name: Electron source syntax gate
+        run: find electron -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Deterministic lint gate
+        run: npm run lint -- --max-warnings 10
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production dependency security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a=require('/tmp/prod-audit.json');
+          const v=a.metadata?.vulnerabilities || {};
+          console.log('PR_GATE_PROD_AUDIT',JSON.stringify(v));
+          if ((v.critical||0)>0 || (v.high||0)>0) {
+            throw new Error('PR contains critical/high production dependency findings');
+          }
+          NODE
