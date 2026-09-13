@@ -1,6 +1,7 @@
 import { SHADOW_EVENT } from './studioShadowObserver.mjs';
 import { createParityCertificationLedger } from './parityCertification.mjs';
 import { buildParityDiagnosticReport, formatParityDiagnosticText } from './parityDiagnostics.mjs';
+import { STUDIO_PARITY_TARGETS } from './studioParityTargets.mjs';
 
 const ledger = createParityCertificationLedger();
 
@@ -56,6 +57,10 @@ function evaluateStudioParitySession(targets) {
     return ledger.evaluate(targets);
 }
 
+function evaluateCurrentStudioParitySession() {
+    return ledger.evaluate(STUDIO_PARITY_TARGETS);
+}
+
 function buildStudioParityDiagnosticReport(targets, { generatedAt = Date.now() } = {}) {
     const evidence = ledger.snapshot();
     const certification = ledger.evaluate(targets);
@@ -72,6 +77,14 @@ function formatStudioParityDiagnosticReport(targets, options) {
     );
 }
 
+function buildCurrentStudioParityDiagnosticReport(options) {
+    return buildStudioParityDiagnosticReport(STUDIO_PARITY_TARGETS, options);
+}
+
+function formatCurrentStudioParityDiagnosticReport(options) {
+    return formatStudioParityDiagnosticReport(STUDIO_PARITY_TARGETS, options);
+}
+
 function clearStudioParitySessionEvidence() {
     ledger.clear();
 }
@@ -84,9 +97,12 @@ function getStudioParitySessionState() {
 }
 
 export {
+    buildCurrentStudioParityDiagnosticReport,
     buildStudioParityDiagnosticReport,
     clearStudioParitySessionEvidence,
+    formatCurrentStudioParityDiagnosticReport,
     formatStudioParityDiagnosticReport,
+    evaluateCurrentStudioParitySession,
     evaluateStudioParitySession,
     getStudioParitySessionEvidence,
     getStudioParitySessionState,
