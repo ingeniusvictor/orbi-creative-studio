@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - feature/desktop-hardware-capability-probe-p1c
-  pull_request:
-    branches:
-      - integration/orbi-foundation
   workflow_dispatch:
 
 permissions:
