@@ -190,6 +190,10 @@ function secureMuapiCredentialAvailable(readiness) {
 
 function mapTransportHealth(transportHealth) {
     if (transportHealth === true || transportHealth?.ok === true) return 'ready';
+
+    const status = Number(transportHealth?.status);
+    if (status === 401 || status === 403) return 'misconfigured';
+
     if (transportHealth === false || transportHealth?.ok === false) return 'offline';
     return 'unknown';
 }

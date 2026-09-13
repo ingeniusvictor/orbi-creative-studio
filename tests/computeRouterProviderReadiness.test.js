@@ -150,6 +150,29 @@ test('MuAPI secure credential readiness and cloud health remain separate facts',
     });
     assert.equal(secureButUnprobed.health, 'unknown');
     assert.equal(secureButUnprobed.credentials, 'available');
+
+    const rejectedCredential = composeMuapiReadiness({
+        credentialReadiness: {
+            available: true,
+            secure: true,
+            hasSecret: true,
+            storeState: 'ready',
+        },
+        transportHealth: { ok: false, status: 401 },
+    });
+    assert.equal(rejectedCredential.health, 'misconfigured');
+    assert.equal(rejectedCredential.credentials, 'available');
+
+    const unreachable = composeMuapiReadiness({
+        credentialReadiness: {
+            available: true,
+            secure: true,
+            hasSecret: true,
+            storeState: 'ready',
+        },
+        transportHealth: { ok: false, status: 0 },
+    });
+    assert.equal(unreachable.health, 'offline');
 });
 
 test('router cannot select unavailable local models or silently fall back to cloud', async () => {

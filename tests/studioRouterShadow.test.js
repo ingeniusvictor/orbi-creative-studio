@@ -134,14 +134,17 @@ test('MuAPI shadow parity matches only after explicit transport health is suppli
     const { evaluateStudioShadowRoute } = await shadow();
     const { MUAPI_CAPABILITIES } = await adapters();
     const capability = MUAPI_CAPABILITIES[0];
-    const base = muapiCredentialSnapshot();
-
-    const snapshotWithHealth = Object.freeze({
-        ...base,
-        muapi: Object.freeze({
-            ...base.muapi,
-            transportHealth: Object.freeze({ ok: true }),
-        }),
+    const snapshotWithHealth = buildProviderReadinessSnapshot({
+        muapiCredentialReadiness: {
+            available: true,
+            secure: true,
+            hasSecret: true,
+            storeState: 'ready',
+        },
+        muapiTransportHealth: {
+            ok: true,
+            status: 200,
+        },
     });
 
     const report = evaluateStudioShadowRoute({
