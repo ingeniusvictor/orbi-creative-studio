@@ -279,6 +279,39 @@ async function listModels() {
     return WAN2GP_CATALOG.map(m => withWan2gpAvailability(m, probeRes, cached));
 }
 
+async function getReadinessEvidence() {
+    const { url } = readConfig();
+    if (!url) {
+        return Object.freeze({
+            config: Object.freeze({ configured: false }),
+        });
+    }
+
+    try {
+        const base = normalizeUrl(url);
+        const probeResult = await probe(url);
+        const cached = fnResolutionCache.get(base);
+        const models = WAN2GP_CATALOG.map((model) =>
+            withWan2gpAvailability(model, probeResult, cached)
+        );
+
+        return Object.freeze({
+            config: Object.freeze({ configured: true }),
+            probe: Object.freeze({ ok: probeResult.ok === true }),
+            models: Object.freeze(models.map((model) => Object.freeze({
+                id: model.id,
+                provider: 'wan2gp',
+                ready: model.ready === true,
+            }))),
+        });
+    } catch {
+        return Object.freeze({
+            config: Object.freeze({ configured: true }),
+            probe: Object.freeze({ ok: false }),
+        });
+    }
+}
+
 // ─── Generate ─────────────────────────────────────────────────────────────────
 function arToDimensions(ar) {
     const base = 1024;
@@ -454,4 +487,4 @@ function register() {
     ipcMain.handle('wan2gp:upload-file', (_, payload) => uploadFile(payload));
 }
 
-module.exports = { register, WAN2GP_CATALOG };
+module.exports = { getReadinessEvidence, register, WAN2GP_CATALOG };
