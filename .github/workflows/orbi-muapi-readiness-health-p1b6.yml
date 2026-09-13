@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - feature/muapi-readiness-health-p1b6
-  pull_request:
-    branches:
-      - feature/studio-router-shadow-parity-p1b5
-      - integration/orbi-foundation
   workflow_dispatch:
 
 permissions:
