@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - feature/router-parity-certification-p1b9
-  pull_request:
-    branches:
-      - feature/studio-shadow-observer-p1b8
-      - integration/orbi-foundation
   workflow_dispatch:
 
 permissions:
