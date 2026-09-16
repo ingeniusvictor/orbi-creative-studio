@@ -1,0 +1,122 @@
+name: ORBI Benchmark session evidence P1C7 validation
+
+on:
+  push:
+    branches:
+      - feature/benchmark-session-evidence-p1c7
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C7
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C7 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const session = fs.readFileSync('src/lib/computeRouter/benchmarkSessionEvidence.mjs', 'utf8');
+          const runEvidence = fs.readFileSync('electron/lib/benchmarkRunEvidence.js', 'utf8');
+          const readiness = fs.readFileSync('src/lib/computeRouter/providerReadiness.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+          const localInference = fs.readFileSync('electron/lib/localInference.js', 'utf8');
+
+          for (const token of [
+            'fetch(',
+            'ipcMain.handle',
+            'ipcRenderer',
+            'contextBridge',
+            'localStorage',
+            'sessionStorage',
+            'routeGenerationRequest(',
+          ]) {
+            if (session.includes(token)) throw new Error('P1C7 session has forbidden side effect: ' + token);
+            if (runEvidence.includes(token)) throw new Error('P1C7 run evidence has forbidden coupling: ' + token);
+          }
+
+          for (const token of [
+            'buildResourceCertificationCandidate',
+            "'p1c7-benchmark-session-evidence'",
+            "'review-only'",
+            'requiresHumanCertification: true',
+            'productionProfilePromoted: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+            "['z-image-turbo'",
+            "['z-image-base'",
+          ]) {
+            if (!session.includes(token)) throw new Error('P1C7 invariant missing: ' + token);
+          }
+
+          for (const token of [
+            "'p1c7-benchmark-run-evidence'",
+            "{ role: 'llm', sha256: llmSha256 }",
+            "{ role: 'vae', sha256: vaeSha256 }",
+            'productionProfilePromoted: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+          ]) {
+            if (!runEvidence.includes(token)) throw new Error('P1C7 run binding invariant missing: ' + token);
+          }
+
+          if (readiness.includes('benchmarkSessionEvidence') || readiness.includes('benchmarkRunEvidence')) {
+            throw new Error('P1C7 must not influence provider readiness');
+          }
+          if (image.includes('benchmarkSessionEvidence') || video.includes('benchmarkSessionEvidence')) {
+            throw new Error('P1C7 must not be imported into Studio execution');
+          }
+          if (localInference.includes("require('./benchmarkRunEvidence')")) {
+            throw new Error('P1C7 must remain off normal local generation path');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C7 focused tests
+        run: node --test tests/benchmarkSessionEvidence.test.js tests/localBenchmarkHarness.test.js tests/controlledBenchmark.test.js tests/modelResourceProfiles.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C7_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
