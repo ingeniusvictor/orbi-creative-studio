@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - feature/parity-build-binding-p1b17
-  pull_request:
-    branches:
-      - feature/release-evidence-manifest-p1b16
-      - integration/orbi-foundation
   workflow_dispatch:
 
 permissions:
