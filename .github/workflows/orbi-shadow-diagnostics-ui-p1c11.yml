@@ -46,7 +46,7 @@ jobs:
             'localAI.generate',
             'muapi.generate',
             'certificationRecord',
-            'reviewNote',
+            '.reviewNote',
             'auxiliaryArtifacts',
             'runtimeBinarySha256',
             'modelArtifactSha256',
