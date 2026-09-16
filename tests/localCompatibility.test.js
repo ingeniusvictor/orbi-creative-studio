@@ -27,7 +27,7 @@ function baseRuntime(overrides = {}) {
         exists: true,
         backend: 'cpu',
         manifestPinned: true,
-        installedProvenanceVerified: true,
+        installedIntegrityVerified: true,
         ...overrides,
     };
 }
@@ -126,17 +126,17 @@ test('required auxiliary assets must be present', async () => {
     assert.ok(result.reasons.includes('MODEL_AUXILIARY_ASSETS_MISSING'));
 });
 
-test('missing installed provenance or resource profile remains unknown rather than ready', async () => {
+test('missing installed integrity or resource profile remains unknown rather than ready', async () => {
     const { evaluateLocalCompatibility } = await compatibility();
 
-    const provenanceUnknown = evaluateLocalCompatibility({
-        runtime: baseRuntime({ installedProvenanceVerified: false }),
+    const integrityUnknown = evaluateLocalCompatibility({
+        runtime: baseRuntime({ installedIntegrityVerified: false }),
         model: baseModel(),
         hardware: baseHardware(),
         requirements: { minSystemRamMiB: 16384 },
     });
-    assert.equal(provenanceUnknown.status, 'COMPATIBILITY_UNKNOWN');
-    assert.ok(provenanceUnknown.reasons.includes('INSTALLED_RUNTIME_PROVENANCE_UNVERIFIED'));
+    assert.equal(integrityUnknown.status, 'COMPATIBILITY_UNKNOWN');
+    assert.ok(integrityUnknown.reasons.includes('INSTALLED_RUNTIME_INTEGRITY_UNVERIFIED'));
 
     const requirementsUnknown = evaluateLocalCompatibility({
         runtime: baseRuntime(),

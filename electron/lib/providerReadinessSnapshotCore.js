@@ -14,8 +14,21 @@ function sanitizeSdCppEvidence(evidence) {
         return Object.freeze({});
     }
 
+    const runtime = evidence.binaryStatus?.runtime && typeof evidence.binaryStatus.runtime === 'object'
+        ? Object.freeze({
+            backend: typeof evidence.binaryStatus.runtime.backend === 'string'
+                ? evidence.binaryStatus.runtime.backend
+                : undefined,
+            manifestPinned: evidence.binaryStatus.runtime.manifestPinned === true,
+            installationIntegrityVerified: evidence.binaryStatus.runtime.installationIntegrityVerified === true,
+        })
+        : undefined;
+
     const binaryStatus = evidence.binaryStatus && typeof evidence.binaryStatus === 'object'
-        ? Object.freeze({ exists: evidence.binaryStatus.exists === true })
+        ? Object.freeze({
+            exists: evidence.binaryStatus.exists === true,
+            ...(runtime ? { runtime } : {}),
+        })
         : undefined;
 
     const models = Array.isArray(evidence.models)

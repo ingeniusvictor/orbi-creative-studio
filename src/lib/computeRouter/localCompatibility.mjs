@@ -143,7 +143,7 @@ export function evaluateLocalCompatibility({
     const runtimeExists = runtime?.exists === true;
     const backend = stringValue(runtime?.backend);
     const manifestPinned = runtime?.manifestPinned === true;
-    const installedProvenanceVerified = runtime?.installedProvenanceVerified === true;
+    const installedIntegrityVerified = runtime?.installedIntegrityVerified === true;
     const modelId = stringValue(model?.id);
     const modelInstalled = model?.state === 'downloaded';
     const modelAuxiliaryReady = auxiliaryReady(model);
@@ -160,8 +160,8 @@ export function evaluateLocalCompatibility({
         reasons.push('RUNTIME_MANIFEST_NOT_PINNED');
     }
 
-    if (!installedProvenanceVerified) {
-        reasons.push('INSTALLED_RUNTIME_PROVENANCE_UNVERIFIED');
+    if (!installedIntegrityVerified) {
+        reasons.push('INSTALLED_RUNTIME_INTEGRITY_UNVERIFIED');
     }
 
     if (!modelId) {
@@ -202,7 +202,7 @@ export function evaluateLocalCompatibility({
         && Boolean(backend)
         && SUPPORTED_BACKENDS.has(backend)
         && manifestPinned
-        && installedProvenanceVerified
+        && installedIntegrityVerified
         && Boolean(modelId)
         && modelInstalled
         && modelAuxiliaryReady
@@ -224,7 +224,7 @@ export function evaluateLocalCompatibility({
             exists: runtimeExists,
             backend,
             manifestPinned,
-            installedProvenanceVerified,
+            installedIntegrityVerified,
         }),
         model: Object.freeze({
             id: modelId,
