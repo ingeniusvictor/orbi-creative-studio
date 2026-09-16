@@ -3,6 +3,7 @@ import { isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { t } from '../lib/i18n.js';
 import { getMuapiKey, setMuapiCredential } from '../lib/providerCredentials.mjs';
 import { RouterDiagnosticsPanel } from './RouterDiagnosticsPanel.js';
+import { readShadowCompatibilitySnapshot } from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -75,7 +76,11 @@ export function SettingsModal(onClose) {
 
     // ── Tab: Local Models ─────────────────────────────────────────────────────
     const localPanel = LocalModelManager();
-    const diagnosticsPanel = isLocalAIAvailable() ? RouterDiagnosticsPanel() : null;
+    const diagnosticsPanel = isLocalAIAvailable()
+        ? RouterDiagnosticsPanel({
+            shadowCompatibilitySnapshotProvider: readShadowCompatibilitySnapshot,
+        })
+        : null;
 
     // ── Tab switching ─────────────────────────────────────────────────────────
     const switchTab = (id) => {

@@ -45,12 +45,15 @@ test('Settings exposes diagnostics exactly once and only inside the Electron-onl
         (settings.match(/import \{ RouterDiagnosticsPanel \} from '\.\/RouterDiagnosticsPanel\.js';/g) || []).length,
         1,
     );
-    assert.equal((settings.match(/RouterDiagnosticsPanel\(\)/g) || []).length, 1);
+    assert.equal((settings.match(/RouterDiagnosticsPanel\(/g) || []).length, 1);
     assert.equal((settings.match(/id: 'diagnostics'/g) || []).length, 1);
     assert.equal((settings.match(/diagnosticsPanel/g) || []).length, 3);
     assert.ok(settings.includes("...(isLocalAIAvailable() ? ["));
     assert.ok(settings.includes("{ id: 'diagnostics', label: t('settings.routerDiagnostics') }"));
-    assert.ok(settings.includes("const diagnosticsPanel = isLocalAIAvailable() ? RouterDiagnosticsPanel() : null;"));
+    assert.ok(settings.includes('const diagnosticsPanel = isLocalAIAvailable()'));
+    assert.ok(settings.includes('shadowCompatibilitySnapshotProvider: readShadowCompatibilitySnapshot'));
+    assert.ok(settings.includes("from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs'"));
+    assert.equal(settings.includes('publishShadowCompatibilitySnapshot'), false);
     assert.ok(settings.includes("if (id === 'diagnostics' && diagnosticsPanel) body.appendChild(diagnosticsPanel);"));
 });
 

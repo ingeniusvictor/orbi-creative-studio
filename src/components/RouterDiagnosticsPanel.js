@@ -103,6 +103,15 @@ function formatResourcePair(observedMiB, requiredMiB) {
     return `${observed} / ${required} MiB`;
 }
 
+function resolveShadowCompatibilitySnapshot(snapshot, provider) {
+    if (typeof provider !== 'function') return snapshot;
+    try {
+        return provider();
+    } catch {
+        return null;
+    }
+}
+
 function renderShadowCompatibilitySection(snapshot) {
     const section = document.createElement('div');
     section.dataset.orbiShadowCompatibility = 'read-only';
@@ -181,7 +190,10 @@ function renderShadowCompatibilitySection(snapshot) {
     return section;
 }
 
-export function RouterDiagnosticsPanel({ shadowCompatibilitySnapshot = null } = {}) {
+export function RouterDiagnosticsPanel({
+    shadowCompatibilitySnapshot = null,
+    shadowCompatibilitySnapshotProvider = null,
+} = {}) {
     const panel = document.createElement('div');
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
@@ -254,7 +266,11 @@ export function RouterDiagnosticsPanel({ shadowCompatibilitySnapshot = null } = 
                 buildBinding?.executionAuthority || 'legacy-dispatcher-only',
             ));
             panel.appendChild(buildMetrics);
-            panel.appendChild(renderShadowCompatibilitySection(shadowCompatibilitySnapshot));
+            const resolvedShadowSnapshot = resolveShadowCompatibilitySnapshot(
+                shadowCompatibilitySnapshot,
+                shadowCompatibilitySnapshotProvider,
+            );
+            panel.appendChild(renderShadowCompatibilitySection(resolvedShadowSnapshot));
 
             panel.appendChild(makeText(
                 'div',
