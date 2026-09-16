@@ -37,7 +37,6 @@ function validateIdentity(input) {
 function loadBuildIdentity() {
     try {
         // Generated before Vite/Electron packaging by scripts/write-build-identity.js.
-        // eslint-disable-next-line global-require, import/no-dynamic-require
         const generated = require('../generated/buildIdentity.js');
         return validateIdentity(generated);
     } catch {
