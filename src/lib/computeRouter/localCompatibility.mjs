@@ -1,3 +1,4 @@
+import { resolveCertifiedResourceRequirements } from './modelResourceProfiles.mjs';
 export const LOCAL_COMPATIBILITY_EXECUTION_AUTHORITY = 'legacy-dispatcher-only';
 
 export const LOCAL_COMPATIBILITY_STATUS = Object.freeze({
@@ -236,5 +237,44 @@ export function evaluateLocalCompatibility({
         reasons: uniqueReasons,
         cutoverAuthorized: false,
         executionAuthority: LOCAL_COMPATIBILITY_EXECUTION_AUTHORITY,
+    });
+}
+
+
+export function evaluateCertifiedLocalCompatibility({
+    runtime,
+    model,
+    hardware,
+    resourceProfile,
+    width,
+    height,
+} = {}) {
+    const resolvedProfile = resolveCertifiedResourceRequirements({
+        profile: resourceProfile,
+        modelId: model?.id,
+        backend: runtime?.backend,
+        width,
+        height,
+    });
+
+    const base = evaluateLocalCompatibility({
+        runtime,
+        model,
+        hardware,
+        requirements: resolvedProfile.requirements,
+    });
+
+    const reasons = resolvedProfile.status === 'RESOURCE_PROFILE_CERTIFIED'
+        ? base.reasons
+        : Object.freeze([...new Set([...base.reasons, resolvedProfile.reason])]);
+
+    return Object.freeze({
+        ...base,
+        resourceProfile: Object.freeze({
+            status: resolvedProfile.status,
+            certified: resolvedProfile.status === 'RESOURCE_PROFILE_CERTIFIED',
+            reason: resolvedProfile.reason,
+        }),
+        reasons,
     });
 }

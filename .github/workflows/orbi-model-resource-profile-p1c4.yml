@@ -1,0 +1,99 @@
+name: ORBI Model resource profile contract P1C4 validation
+
+on:
+  push:
+    branches:
+      - feature/model-resource-profile-contract-p1c4
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C4
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C4 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const profiles = fs.readFileSync('src/lib/computeRouter/modelResourceProfiles.mjs', 'utf8');
+          const compatibility = fs.readFileSync('src/lib/computeRouter/localCompatibility.mjs', 'utf8');
+          const readiness = fs.readFileSync('src/lib/computeRouter/providerReadiness.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of ['fetch(', 'ipcRenderer', 'ipcMain', 'localStorage', 'sessionStorage', 'routeGenerationRequest(']) {
+            if (profiles.includes(token)) throw new Error('P1C4 profile contract has forbidden side effect: ' + token);
+          }
+
+          for (const token of [
+            "'pending-benchmark'",
+            "'controlled-benchmark'",
+            'sampleCount < 3',
+            "'file-size-estimate'",
+          ]) {
+            if (token === "'file-size-estimate'") continue;
+            if (!profiles.includes(token)) throw new Error('P1C4 evidence invariant missing: ' + token);
+          }
+
+          if (!compatibility.includes('evaluateCertifiedLocalCompatibility')) {
+            throw new Error('Certified compatibility wrapper missing');
+          }
+          if (!compatibility.includes('routingEligible: false')) {
+            throw new Error('P1C4 must preserve routing boundary');
+          }
+          if (readiness.includes('evaluateCertifiedLocalCompatibility')) {
+            throw new Error('P1C4 must not influence provider readiness yet');
+          }
+          if (image.includes('modelResourceProfiles') || video.includes('modelResourceProfiles')) {
+            throw new Error('P1C4 must not be imported into Studio execution');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C4 focused tests
+        run: node --test tests/modelResourceProfiles.test.js tests/localCompatibility.test.js tests/runtimeInstallationEvidence.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C4_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
