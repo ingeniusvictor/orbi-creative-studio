@@ -1,0 +1,116 @@
+name: ORBI Shadow compatibility diagnostics P1C10 validation
+
+on:
+  push:
+    branches:
+      - feature/shadow-compatibility-diagnostics-p1c10
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C10
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C10 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const diagnostics = fs.readFileSync('src/lib/computeRouter/shadowCompatibilityDiagnostics.mjs', 'utf8');
+          const registry = fs.readFileSync('src/lib/computeRouter/certifiedResourceProfileRegistry.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+          const readiness = fs.readFileSync('src/lib/computeRouter/providerReadiness.mjs', 'utf8');
+
+          for (const token of [
+            'fetch(',
+            'ipcMain',
+            'ipcRenderer',
+            'localStorage',
+            'sessionStorage',
+            'writeFile',
+            'readFile',
+            'routeGenerationRequest(',
+          ]) {
+            if (diagnostics.includes(token)) throw new Error('P1C10 diagnostics has forbidden side effect: ' + token);
+          }
+
+          for (const token of [
+            'DIAGNOSTIC_CONTEXT_MISMATCH',
+            'DIAGNOSTIC_REASON_SET_INVALID',
+            'DIAGNOSTIC_DETAIL_SET_INVALID',
+            "snapshotType: 'p1c10-shadow-compatibility-diagnostics'",
+            'ALLOWED_REASON_CODES',
+            'ALLOWED_PROFILE_STATUSES',
+            'diagnosticOnly: true',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!diagnostics.includes(token)) throw new Error('P1C10 invariant missing: ' + token);
+          }
+
+          for (const token of [
+            "mode: 'shadow-diagnostic-only'",
+            'context,',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+          ]) {
+            if (!registry.includes(token)) throw new Error('P1C9/P1C10 context binding missing: ' + token);
+          }
+
+          if (image.includes('shadowCompatibilityDiagnostics') || video.includes('shadowCompatibilityDiagnostics')) {
+            throw new Error('P1C10 must not be imported into Studio execution');
+          }
+          if (readiness.includes('shadowCompatibilityDiagnostics')) {
+            throw new Error('P1C10 must not alter provider readiness');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C10 focused tests
+        run: node --test tests/shadowCompatibilityDiagnostics.test.js tests/certifiedResourceProfileRegistry.test.js tests/localCompatibility.test.js tests/modelResourceProfiles.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C10_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
