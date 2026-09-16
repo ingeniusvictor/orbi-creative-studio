@@ -8,6 +8,11 @@ on:
     branches:
       - feature/cutover-eligibility-contract-p1b14
       - integration/orbi-foundation
+    paths:
+      - '.github/workflows/orbi-cutover-review-report-p1b15.yml'
+      - 'docs/PHASE-1B15-CUTOVER-REVIEW-REPORT.md'
+      - 'src/lib/computeRouter/cutoverReviewReport.mjs'
+      - 'tests/cutoverReviewReport.test.js'
   workflow_dispatch:
 
 permissions:

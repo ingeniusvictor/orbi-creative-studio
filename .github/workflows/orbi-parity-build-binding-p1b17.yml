@@ -8,6 +8,11 @@ on:
     branches:
       - feature/release-evidence-manifest-p1b16
       - integration/orbi-foundation
+    paths:
+      - '.github/workflows/orbi-parity-build-binding-p1b17.yml'
+      - 'docs/PHASE-1B17-PARITY-BUILD-BINDING.md'
+      - 'src/lib/computeRouter/parityBuildBinding.mjs'
+      - 'tests/parityBuildBinding.test.js'
   workflow_dispatch:
 
 permissions:

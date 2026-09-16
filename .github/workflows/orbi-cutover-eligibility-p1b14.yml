@@ -8,6 +8,11 @@ on:
     branches:
       - feature/router-diagnostics-panel-p1b13
       - integration/orbi-foundation
+    paths:
+      - '.github/workflows/orbi-cutover-eligibility-p1b14.yml'
+      - 'docs/PHASE-1B14-CUTOVER-ELIGIBILITY.md'
+      - 'src/lib/computeRouter/cutoverEligibility.mjs'
+      - 'tests/cutoverEligibility.test.js'
   workflow_dispatch:
 
 permissions:

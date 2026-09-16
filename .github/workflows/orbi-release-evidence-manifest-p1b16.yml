@@ -8,6 +8,11 @@ on:
     branches:
       - feature/cutover-review-report-p1b15
       - integration/orbi-foundation
+    paths:
+      - '.github/workflows/orbi-release-evidence-manifest-p1b16.yml'
+      - 'docs/PHASE-1B16-RELEASE-EVIDENCE-MANIFEST.md'
+      - 'src/lib/computeRouter/releaseEvidenceManifest.mjs'
+      - 'tests/releaseEvidenceManifest.test.js'
   workflow_dispatch:
 
 permissions:
