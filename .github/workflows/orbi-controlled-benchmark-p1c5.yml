@@ -1,0 +1,112 @@
+name: ORBI Controlled benchmark protocol P1C5 validation
+
+on:
+  push:
+    branches:
+      - feature/controlled-benchmark-protocol-p1c5
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C5
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C5 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const benchmark = fs.readFileSync('src/lib/computeRouter/controlledBenchmark.mjs', 'utf8');
+          const profiles = fs.readFileSync('src/lib/computeRouter/modelResourceProfiles.mjs', 'utf8');
+          const readiness = fs.readFileSync('src/lib/computeRouter/providerReadiness.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'child_process',
+            'spawn(',
+            'exec(',
+            'writeFile',
+            'routeGenerationRequest(',
+          ]) {
+            if (benchmark.includes(token)) throw new Error('P1C5 protocol has forbidden side effect: ' + token);
+          }
+
+          for (const token of [
+            "'p1c5-v1'",
+            "'benchmark-candidate'",
+            'requiresHumanCertification: true',
+            'productionProfilePromoted: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+            'samples.length < 3',
+            'runtimeBinarySha256',
+            'modelArtifactSha256',
+          ]) {
+            if (!benchmark.includes(token)) throw new Error('P1C5 invariant missing: ' + token);
+          }
+
+          if (profiles.includes('controlledBenchmark')) {
+            throw new Error('P1C5 must not auto-promote benchmark candidates into P1C4 profiles');
+          }
+          if (readiness.includes('controlledBenchmark')) {
+            throw new Error('P1C5 must not influence provider readiness');
+          }
+          if (image.includes('controlledBenchmark') || video.includes('controlledBenchmark')) {
+            throw new Error('P1C5 must not be imported into Studio execution');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C5 focused tests
+        run: node --test tests/controlledBenchmark.test.js tests/modelResourceProfiles.test.js tests/localCompatibility.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C5_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
