@@ -1,0 +1,104 @@
+name: ORBI Resource profile certification P1C8 validation
+
+on:
+  push:
+    branches:
+      - feature/resource-profile-certification-p1c8
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C8
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C8 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const certification = fs.readFileSync('src/lib/computeRouter/resourceProfileCertification.mjs', 'utf8');
+          const readiness = fs.readFileSync('src/lib/computeRouter/providerReadiness.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'fetch(',
+            'ipcMain',
+            'ipcRenderer',
+            'localStorage',
+            'sessionStorage',
+            'writeFile',
+            'routeGenerationRequest(',
+          ]) {
+            if (certification.includes(token)) throw new Error('P1C8 has forbidden side effect: ' + token);
+          }
+
+          for (const token of [
+            'validateCertifiedResourceProfile',
+            "decision !== 'approve'",
+            "evidenceType: 'p1c8-human-certification-record'",
+            'reviewerIdentityVerified: false',
+            'authenticityVerified: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+            "method: 'controlled-benchmark'",
+          ]) {
+            if (!certification.includes(token)) throw new Error('P1C8 invariant missing: ' + token);
+          }
+
+          if (readiness.includes('resourceProfileCertification')) {
+            throw new Error('P1C8 must not automatically alter provider readiness');
+          }
+          if (image.includes('resourceProfileCertification') || video.includes('resourceProfileCertification')) {
+            throw new Error('P1C8 must not be imported into Studio execution');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C8 focused tests
+        run: node --test tests/resourceProfileCertification.test.js tests/benchmarkSessionEvidence.test.js tests/modelResourceProfiles.test.js tests/localCompatibility.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C8_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
