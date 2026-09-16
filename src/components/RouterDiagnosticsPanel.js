@@ -1,9 +1,11 @@
 import { t } from '../lib/i18n.js';
 import {
+    bindCurrentStudioParitySessionToBuild,
     buildCurrentStudioParityDiagnosticReport,
     formatCurrentStudioParityDiagnosticReport,
     getStudioParitySessionState,
 } from '../lib/computeRouter/paritySession.mjs';
+import { getRendererBuildIdentity } from '../lib/computeRouter/buildIdentityClient.mjs';
 
 function makeText(tag, text, style = '') {
     const node = document.createElement(tag);
@@ -120,6 +122,49 @@ export function RouterDiagnosticsPanel() {
         try {
             const state = getStudioParitySessionState();
             const report = buildCurrentStudioParityDiagnosticReport();
+            const buildIdentity = getRendererBuildIdentity();
+            const buildBinding = buildIdentity.available
+                ? bindCurrentStudioParitySessionToBuild({
+                    buildIdentity,
+                    bindingId: `diagnostic-preview:${buildIdentity.sourceCommit}:${report.generatedAt}`,
+                    boundAt: report.generatedAt,
+                })
+                : null;
+
+            const buildHeading = makeText(
+                'div',
+                t('routerDiagnostics.buildIdentity'),
+                'font-size:0.72rem;color:rgba(255,255,255,0.62);font-weight:800;margin-top:0.15rem;',
+            );
+            panel.appendChild(buildHeading);
+
+            const buildMetrics = document.createElement('div');
+            buildMetrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+            buildMetrics.appendChild(makeMetric(
+                t('routerDiagnostics.buildVersion'),
+                buildIdentity.available ? buildIdentity.appVersion : t('routerDiagnostics.unavailableValue'),
+            ));
+            buildMetrics.appendChild(makeMetric(
+                t('routerDiagnostics.buildCommit'),
+                buildIdentity.available ? buildIdentity.sourceCommit : t('routerDiagnostics.unavailableValue'),
+            ));
+            buildMetrics.appendChild(makeMetric(
+                t('routerDiagnostics.sessionBinding'),
+                buildBinding?.bindingValid
+                    ? t('routerDiagnostics.bindingBound')
+                    : t('routerDiagnostics.bindingRejected'),
+            ));
+            buildMetrics.appendChild(makeMetric(
+                t('routerDiagnostics.executionAuthority'),
+                buildBinding?.executionAuthority || 'legacy-dispatcher-only',
+            ));
+            panel.appendChild(buildMetrics);
+
+            panel.appendChild(makeText(
+                'div',
+                t('routerDiagnostics.bindingPreviewNote'),
+                'font-size:0.62rem;color:rgba(255,255,255,0.26);line-height:1.4;',
+            ));
 
             const metrics = document.createElement('div');
             metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
