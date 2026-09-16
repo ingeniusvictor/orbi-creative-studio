@@ -1,0 +1,111 @@
+name: ORBI Parity build binding P1B17 validation
+
+on:
+  push:
+    branches:
+      - feature/parity-build-binding-p1b17
+  pull_request:
+    branches:
+      - feature/release-evidence-manifest-p1b16
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout parity build binding branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Parity build binding static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('src/lib/computeRouter/parityBuildBinding.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          const forbidden = [
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localAI.generate',
+            'muapi.generate',
+            'routeGenerationRequest(',
+            'localStorage',
+            'sessionStorage',
+            'window.',
+            'globalThis.',
+          ];
+          const hits = forbidden.filter((token) => source.includes(token));
+          if (hits.length) {
+            throw new Error('Parity build binding contains execution/storage coupling: ' + hits.join(', '));
+          }
+
+          const required = [
+            "PARITY_BUILD_EXECUTION_AUTHORITY = 'legacy-dispatcher-only'",
+            'cutoverAuthorized: false',
+            '/^[0-9a-f]{40}$/i',
+            'certificationIntegrity(binding.certification)',
+            'DEFAULT_MAX_EVIDENCE_AGE_MS',
+            'DEFAULT_MAX_FUTURE_SKEW_MS',
+            'PARITY_CERTIFICATION_BOUND',
+            'PARITY_CERTIFICATION_REJECTED',
+          ];
+          for (const token of required) {
+            if (!source.includes(token)) {
+              throw new Error('Parity build binding invariant missing: ' + token);
+            }
+          }
+
+          if (image.includes('parityBuildBinding') || video.includes('parityBuildBinding')) {
+            throw new Error('Parity build binding must not be imported into Studio execution');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Parity build binding tests
+        run: node --test tests/parityBuildBinding.test.js tests/releaseEvidenceManifest.test.js tests/cutoverEligibility.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('PARITY_BUILD_BINDING_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
