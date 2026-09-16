@@ -148,7 +148,9 @@ test('P1C11 does not source shadow evidence from generation components or main s
     const video = read('src/components/VideoStudio.js');
     const main = read('src/main.js');
 
-    assert.ok(settings.includes('RouterDiagnosticsPanel()'));
+    assert.ok(settings.includes('RouterDiagnosticsPanel({'));
+    assert.ok(settings.includes('shadowCompatibilitySnapshotProvider: readShadowCompatibilitySnapshot'));
+    assert.equal(settings.includes('publishShadowCompatibilitySnapshot'), false);
     assert.equal(image.includes('shadowCompatibilityDiagnostics'), false);
     assert.equal(video.includes('shadowCompatibilityDiagnostics'), false);
     assert.equal(main.includes('shadowCompatibilityDiagnostics'), false);
