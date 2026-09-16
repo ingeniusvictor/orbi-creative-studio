@@ -58,6 +58,10 @@ function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function hasOnlyKeys(value, allowedKeys) {
+    return isPlainObject(value) && Object.keys(value).every((key) => allowedKeys.has(key));
+}
+
 function finitePositiveOrNull(value) {
     return Number.isFinite(value) && value > 0 ? value : null;
 }
@@ -96,6 +100,96 @@ function sanitizeReasons(reasons) {
         if (!sanitized.includes(reason)) sanitized.push(reason);
     }
     return Object.freeze(sanitized);
+}
+
+export function validateShadowCompatibilitySnapshot(snapshot) {
+    if (!hasOnlyKeys(snapshot, new Set([
+        'schemaVersion',
+        'snapshotType',
+        'capturedAt',
+        'mode',
+        'context',
+        'registry',
+        'compatibility',
+        'hardware',
+        'resources',
+        'boundaries',
+    ]))) {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_SHAPE_INVALID' });
+    }
+    if (snapshot.schemaVersion !== 1
+        || snapshot.snapshotType !== 'p1c10-shadow-compatibility-diagnostics'
+        || snapshot.mode !== 'shadow-diagnostic-only') {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_IDENTITY_INVALID' });
+    }
+
+    const parsedTime = Date.parse(snapshot.capturedAt);
+    if (typeof snapshot.capturedAt !== 'string'
+        || !Number.isFinite(parsedTime)
+        || new Date(parsedTime).toISOString() !== snapshot.capturedAt) {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_TIMESTAMP_INVALID' });
+    }
+
+    if (!hasOnlyKeys(snapshot.context, new Set(['modelId', 'backend', 'width', 'height']))
+        || !safeString(snapshot.context.modelId)
+        || !safeString(snapshot.context.backend)
+        || !Number.isInteger(snapshot.context.width)
+        || snapshot.context.width <= 0
+        || !Number.isInteger(snapshot.context.height)
+        || snapshot.context.height <= 0) {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_CONTEXT_INVALID' });
+    }
+
+    if (!hasOnlyKeys(snapshot.registry, new Set(['match', 'certifiedProfile', 'profileStatus']))
+        || typeof snapshot.registry.match !== 'boolean'
+        || typeof snapshot.registry.certifiedProfile !== 'boolean'
+        || snapshot.registry.match !== snapshot.registry.certifiedProfile
+        || !ALLOWED_PROFILE_STATUSES.has(snapshot.registry.profileStatus)
+        || snapshot.registry.certifiedProfile !== (snapshot.registry.profileStatus === 'RESOURCE_PROFILE_CERTIFIED')) {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_REGISTRY_INVALID' });
+    }
+
+    const sanitizedReasons = sanitizeReasons(snapshot.compatibility?.reasons);
+    if (!hasOnlyKeys(snapshot.compatibility, new Set(['status', 'candidate', 'reasons']))
+        || !ALLOWED_COMPATIBILITY_STATUSES.has(snapshot.compatibility.status)
+        || snapshot.compatibility.candidate !== (snapshot.compatibility.status === 'COMPATIBILITY_CANDIDATE')
+        || !sanitizedReasons
+        || sanitizedReasons.length !== snapshot.compatibility.reasons.length
+        || sanitizedReasons.some((reason, index) => reason !== snapshot.compatibility.reasons[index])) {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_COMPATIBILITY_INVALID' });
+    }
+
+    if (!hasOnlyKeys(snapshot.hardware, new Set(['backendState']))
+        || !ALLOWED_BACKEND_STATES.has(snapshot.hardware.backendState)) {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_HARDWARE_INVALID' });
+    }
+
+    if (!hasOnlyKeys(snapshot.resources, new Set(['systemRam', 'vram']))
+        || !hasOnlyKeys(snapshot.resources.systemRam, new Set(['state', 'requiredMiB', 'observedMiB']))
+        || !hasOnlyKeys(snapshot.resources.vram, new Set(['state', 'requiredMiB', 'observedMiB']))
+        || !ALLOWED_SYSTEM_RAM_STATES.has(snapshot.resources.systemRam.state)
+        || !ALLOWED_VRAM_STATES.has(snapshot.resources.vram.state)
+        || !validOptionalPositive(snapshot.resources.systemRam.requiredMiB)
+        || !validOptionalPositive(snapshot.resources.systemRam.observedMiB)
+        || !validOptionalPositive(snapshot.resources.vram.requiredMiB)
+        || !validOptionalPositive(snapshot.resources.vram.observedMiB)) {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_RESOURCES_INVALID' });
+    }
+
+    if (!hasOnlyKeys(snapshot.boundaries, new Set([
+        'diagnosticOnly',
+        'routingEligible',
+        'cutoverAuthorized',
+        'executionAuthority',
+    ]))
+        || snapshot.boundaries.diagnosticOnly !== true
+        || snapshot.boundaries.routingEligible !== false
+        || snapshot.boundaries.cutoverAuthorized !== false
+        || snapshot.boundaries.executionAuthority !== 'legacy-dispatcher-only') {
+        return Object.freeze({ ok: false, reason: 'SNAPSHOT_AUTHORITY_INVALID' });
+    }
+
+    return Object.freeze({ ok: true, reason: null });
 }
 
 export function createShadowCompatibilityDiagnostics({

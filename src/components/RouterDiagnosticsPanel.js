@@ -6,6 +6,7 @@ import {
     getStudioParitySessionState,
 } from '../lib/computeRouter/paritySession.mjs';
 import { getRendererBuildIdentity } from '../lib/computeRouter/buildIdentityClient.mjs';
+import { validateShadowCompatibilitySnapshot } from '../lib/computeRouter/shadowCompatibilityDiagnostics.mjs';
 
 function makeText(tag, text, style = '') {
     const node = document.createElement(tag);
@@ -86,7 +87,101 @@ function renderTarget(route) {
     return row;
 }
 
-export function RouterDiagnosticsPanel() {
+
+function shadowCompatibilityLabel(status) {
+    const key = {
+        COMPATIBILITY_CANDIDATE: 'routerDiagnostics.shadowCandidate',
+        COMPATIBILITY_BLOCKED: 'routerDiagnostics.shadowBlocked',
+        COMPATIBILITY_UNKNOWN: 'routerDiagnostics.shadowUnknown',
+    }[status] || 'routerDiagnostics.shadowUnknown';
+    return t(key);
+}
+
+function formatResourcePair(observedMiB, requiredMiB) {
+    const observed = Number.isFinite(observedMiB) ? Math.round(observedMiB) : '—';
+    const required = Number.isFinite(requiredMiB) ? Math.round(requiredMiB) : '—';
+    return `${observed} / ${required} MiB`;
+}
+
+function renderShadowCompatibilitySection(snapshot) {
+    const section = document.createElement('div');
+    section.dataset.orbiShadowCompatibility = 'read-only';
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(103,232,249,0.12);border-radius:0.75rem;background:rgba(34,211,238,0.025);';
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.shadowTitle'),
+        'font-size:0.72rem;color:rgba(255,255,255,0.68);font-weight:800;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.shadowSubtitle'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+
+    const validation = validateShadowCompatibilitySnapshot(snapshot);
+    if (!validation.ok) {
+        section.appendChild(makeText(
+            'div',
+            t('routerDiagnostics.shadowUnavailable'),
+            'padding:0.65rem;border-radius:0.6rem;background:rgba(255,255,255,0.025);color:rgba(255,255,255,0.4);font-size:0.68rem;',
+        ));
+        return section;
+    }
+
+    const metrics = document.createElement('div');
+    metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.shadowContext'),
+        `${snapshot.context.modelId} · ${snapshot.context.backend} · ${snapshot.context.width}×${snapshot.context.height}`,
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.shadowCompatibility'),
+        shadowCompatibilityLabel(snapshot.compatibility.status),
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.shadowProfile'),
+        snapshot.registry.certifiedProfile
+            ? t('routerDiagnostics.shadowCertified')
+            : t('routerDiagnostics.shadowNotCertified'),
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.shadowSystemRam'),
+        formatResourcePair(
+            snapshot.resources.systemRam.observedMiB,
+            snapshot.resources.systemRam.requiredMiB,
+        ),
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.shadowVram'),
+        formatResourcePair(
+            snapshot.resources.vram.observedMiB,
+            snapshot.resources.vram.requiredMiB,
+        ),
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.executionAuthority'),
+        snapshot.boundaries.executionAuthority,
+    ));
+    section.appendChild(metrics);
+
+    section.appendChild(makeText(
+        'div',
+        `${t('routerDiagnostics.shadowReasons')}: ${snapshot.compatibility.reasons.length
+            ? snapshot.compatibility.reasons.join(', ')
+            : t('routerDiagnostics.shadowNoReasons')}`,
+        'font-size:0.62rem;color:rgba(255,255,255,0.32);line-height:1.4;word-break:break-word;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.shadowBoundaryNote'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.24);line-height:1.4;',
+    ));
+
+    return section;
+}
+
+export function RouterDiagnosticsPanel({ shadowCompatibilitySnapshot = null } = {}) {
     const panel = document.createElement('div');
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
@@ -159,6 +254,7 @@ export function RouterDiagnosticsPanel() {
                 buildBinding?.executionAuthority || 'legacy-dispatcher-only',
             ));
             panel.appendChild(buildMetrics);
+            panel.appendChild(renderShadowCompatibilitySection(shadowCompatibilitySnapshot));
 
             panel.appendChild(makeText(
                 'div',
