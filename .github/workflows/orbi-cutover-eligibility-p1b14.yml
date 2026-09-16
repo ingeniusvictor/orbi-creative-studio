@@ -1,0 +1,112 @@
+name: ORBI Cutover eligibility P1B14 validation
+
+on:
+  push:
+    branches:
+      - feature/cutover-eligibility-contract-p1b14
+  pull_request:
+    branches:
+      - feature/router-diagnostics-panel-p1b13
+      - integration/orbi-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout cutover eligibility branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Cutover eligibility static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('src/lib/computeRouter/cutoverEligibility.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          const forbidden = [
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localAI.generate',
+            'muapi.generate',
+            'routeGenerationRequest(',
+            'window.',
+            'globalThis.',
+            'localStorage',
+            'sessionStorage',
+          ];
+          const hits = forbidden.filter((token) => source.includes(token));
+          if (hits.length) {
+            throw new Error('Cutover eligibility contains execution/storage coupling: ' + hits.join(', '));
+          }
+
+          const required = [
+            "CUTOVER_EXECUTION_AUTHORITY = 'legacy-dispatcher-only'",
+            'cutoverAuthorized: false',
+            "'ciGreen'",
+            "'platformMatrixGreen'",
+            "'securityReviewApproved'",
+            "'rollbackPlanApproved'",
+            "provider.health !== 'ready'",
+            'DEFAULT_MAX_EVIDENCE_AGE_MS',
+            'DEFAULT_MAX_FUTURE_SKEW_MS',
+          ];
+          for (const token of required) {
+            if (!source.includes(token)) {
+              throw new Error('Cutover eligibility invariant missing: ' + token);
+            }
+          }
+
+          if (image.includes('cutoverEligibility') || video.includes('cutoverEligibility')) {
+            throw new Error('Eligibility contract must not be imported into Studio execution');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cutover eligibility tests
+        run: node --test tests/cutoverEligibility.test.js tests/studioParityTargets.test.js tests/routerParityCertification.test.js tests/routerParityDiagnostics.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('CUTOVER_ELIGIBILITY_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
