@@ -2,6 +2,7 @@ import { LocalModelManager } from './LocalModelManager.js';
 import { isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { t } from '../lib/i18n.js';
 import { getMuapiKey, setMuapiCredential } from '../lib/providerCredentials.mjs';
+import { RouterDiagnosticsPanel } from './RouterDiagnosticsPanel.js';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -24,7 +25,10 @@ export function SettingsModal(onClose) {
     // ── Tabs ──────────────────────────────────────────────────────────────────
     const TABS = [
         { id: 'api', label: t('settings.apiKey') },
-        ...(isLocalAIAvailable() ? [{ id: 'local', label: t('settings.localModels') }] : []),
+        ...(isLocalAIAvailable() ? [
+            { id: 'local', label: t('settings.localModels') },
+            { id: 'diagnostics', label: t('settings.routerDiagnostics') },
+        ] : []),
     ];
 
     let activeTab = 'api';
@@ -71,6 +75,7 @@ export function SettingsModal(onClose) {
 
     // ── Tab: Local Models ─────────────────────────────────────────────────────
     const localPanel = LocalModelManager();
+    const diagnosticsPanel = isLocalAIAvailable() ? RouterDiagnosticsPanel() : null;
 
     // ── Tab switching ─────────────────────────────────────────────────────────
     const switchTab = (id) => {
@@ -90,6 +95,7 @@ export function SettingsModal(onClose) {
 
         if (id === 'api') body.appendChild(apiPanel);
         if (id === 'local') body.appendChild(localPanel);
+        if (id === 'diagnostics' && diagnosticsPanel) body.appendChild(diagnosticsPanel);
     };
 
     switchTab('api');
