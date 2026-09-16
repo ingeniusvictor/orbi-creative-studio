@@ -10,6 +10,10 @@ const {
 const { resolvePinnedRuntime, SD_BACKEND_ENV } = require('./runtimeManifest');
 const { verifyFileSha256 } = require('./fileIntegrity');
 const {
+    inspectPinnedRuntimeInstallation,
+    recordPinnedRuntimeInstallation,
+} = require('./runtimeInstallationEvidence');
+const {
     formatStartupProgressMessage,
     parseGenerationProgressChunk,
     resolveGenerationSteps,
@@ -205,6 +209,23 @@ async function getBinaryStatus() {
         // Unsupported platforms can still use a manually supplied/bundled binary.
     }
 
+    let installationIntegrity = null;
+    if (exists && runtime) {
+        try {
+            installationIntegrity = await inspectPinnedRuntimeInstallation({
+                binDir: BIN_DIR,
+                binaryPath: BINARY_PATH,
+                runtime,
+            });
+        } catch {
+            installationIntegrity = Object.freeze({
+                integrityVerified: false,
+                authenticityVerified: false,
+                reason: 'INSTALLATION_EVIDENCE_INSPECTION_FAILED',
+            });
+        }
+    }
+
     return {
         exists,
         path: BINARY_PATH,
@@ -218,7 +239,9 @@ async function getBinaryStatus() {
             upstreamCommit: runtime.upstreamCommit,
             assetName: runtime.assetName,
             sha256: runtime.sha256,
+            manifestPinned: true,
         } : null,
+        installationIntegrity,
     };
 }
 
@@ -276,6 +299,21 @@ async function downloadBinary(mainWindow) {
             await new Promise((res) => execFile('xattr', ['-cr', BIN_DIR], () => res()));
         }
 
+        await recordPinnedRuntimeInstallation({
+            binDir: BIN_DIR,
+            binaryPath: BINARY_PATH,
+            runtime,
+            archiveSha256: integrity.actual,
+        });
+        const installationIntegrity = await inspectPinnedRuntimeInstallation({
+            binDir: BIN_DIR,
+            binaryPath: BINARY_PATH,
+            runtime,
+        });
+        if (installationIntegrity.integrityVerified !== true) {
+            throw new Error('Installed runtime integrity could not be verified after pinned archive installation');
+        }
+
         send({ phase: 'done', progress: 1 });
         return {
             ok: true,
@@ -285,6 +323,7 @@ async function downloadBinary(mainWindow) {
             upstreamCommit: runtime.upstreamCommit,
             assetName: runtime.assetName,
             sha256: runtime.sha256,
+            installationIntegrityVerified: true,
         };
     } catch (err) {
         send({ phase: 'error', error: err.message });
@@ -327,8 +366,19 @@ async function getReadinessEvidence() {
         listModels(),
     ]);
 
+    const readinessRuntime = binaryStatus.runtime
+        ? Object.freeze({
+            backend: binaryStatus.runtime.backend,
+            manifestPinned: binaryStatus.runtime.manifestPinned === true,
+            installationIntegrityVerified: binaryStatus.installationIntegrity?.integrityVerified === true,
+        })
+        : undefined;
+
     return Object.freeze({
-        binaryStatus: Object.freeze({ exists: binaryStatus.exists === true }),
+        binaryStatus: Object.freeze({
+            exists: binaryStatus.exists === true,
+            ...(readinessRuntime ? { runtime: readinessRuntime } : {}),
+        }),
         models: Object.freeze(models.map((model) => Object.freeze({
             id: model.id,
             provider: 'sdcpp',

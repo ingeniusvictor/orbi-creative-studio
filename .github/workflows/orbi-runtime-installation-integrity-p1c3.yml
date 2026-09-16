@@ -1,0 +1,92 @@
+name: ORBI Runtime installation integrity P1C3 validation
+
+on:
+  push:
+    branches:
+      - feature/runtime-installation-integrity-p1c3
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C3
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C3 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const evidence = fs.readFileSync('electron/lib/runtimeInstallationEvidence.js', 'utf8');
+          const inference = fs.readFileSync('electron/lib/localInference.js', 'utf8');
+          const compatibility = fs.readFileSync('src/lib/computeRouter/localCompatibility.mjs', 'utf8');
+
+          for (const token of ['http', 'https', 'fetch(', 'child_process', 'exec(', 'spawn(']) {
+            if (evidence.includes(token)) throw new Error('Runtime evidence helper contains forbidden external execution/network token: ' + token);
+          }
+
+          for (const token of [
+            "authenticityVerified: false",
+            "tamperResistance: 'local-receipt-not-tamper-proof'",
+            'RUNTIME_BINARY_CHANGED_AFTER_INSTALL',
+            'INSTALLATION_RECEIPT_MANIFEST_MISMATCH',
+          ]) {
+            if (!evidence.includes(token)) throw new Error('P1C3 evidence invariant missing: ' + token);
+          }
+
+          const verify = inference.indexOf('await verifyFileSha256(zipPath, runtime.sha256)');
+          const record = inference.indexOf('await recordPinnedRuntimeInstallation({');
+          if (verify < 0 || record <= verify) throw new Error('Installation receipt must be created only after pinned archive verification');
+
+          if (!compatibility.includes('installedIntegrityVerified')) throw new Error('P1C2 compatibility must use installation integrity semantics');
+          if (compatibility.includes('installedProvenanceVerified')) throw new Error('Ambiguous provenance field must not remain');
+          if (!compatibility.includes('routingEligible: false')) throw new Error('P1C2 routing boundary changed');
+          if (!compatibility.includes('cutoverAuthorized: false')) throw new Error('P1C2 cutover boundary changed');
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C3 focused tests
+        run: node --test tests/runtimeInstallationEvidence.test.js tests/localCompatibility.test.js tests/runtimeProvenance.test.js tests/providerReadinessSnapshot.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C3_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
