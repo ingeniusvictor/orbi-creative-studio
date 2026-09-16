@@ -4,16 +4,6 @@ on:
   push:
     branches:
       - feature/router-diagnostics-panel-p1b13
-  pull_request:
-    branches:
-      - integration/orbi-foundation
-    paths:
-      - '.github/workflows/orbi-router-diagnostics-panel-p1b13.yml'
-      - 'docs/PHASE-1B13-ROUTER-DIAGNOSTICS-PANEL.md'
-      - 'src/components/RouterDiagnosticsPanel.js'
-      - 'src/components/SettingsModal.js'
-      - 'src/lib/i18n.js'
-      - 'tests/routerDiagnosticsPanel.test.js'
   workflow_dispatch:
 
 permissions:
