@@ -73,6 +73,46 @@ function validateCertificationEntry(entry) {
     return Object.freeze({ ok: true, reason: null, profile, record });
 }
 
+function snapshotValidatedEntry(profile, record) {
+    const profileSnapshot = Object.freeze({
+        schemaVersion: profile.schemaVersion,
+        modelId: profile.modelId,
+        backend: profile.backend,
+        resolution: Object.freeze({ ...profile.resolution }),
+        status: profile.status,
+        requirements: Object.freeze({ ...profile.requirements }),
+        evidence: Object.freeze({ ...profile.evidence }),
+    });
+
+    const sessionSnapshot = Object.freeze({
+        ...record.session,
+        resolution: Object.freeze({ ...record.session.resolution }),
+        runIndexes: Object.freeze([...(record.session.runIndexes || [])]),
+        auxiliaryArtifacts: Object.freeze((record.session.auxiliaryArtifacts || []).map((artifact) => (
+            Object.freeze({ ...artifact })
+        ))),
+    });
+    const recordSnapshot = Object.freeze({
+        schemaVersion: record.schemaVersion,
+        evidenceType: record.evidenceType,
+        decision: record.decision,
+        session: sessionSnapshot,
+        approvedRequirements: Object.freeze({ ...record.approvedRequirements }),
+        reviewer: Object.freeze({ ...record.reviewer }),
+        certifiedAt: record.certifiedAt,
+        reviewNote: record.reviewNote,
+        authenticityVerified: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+    });
+
+    return Object.freeze({
+        profile: profileSnapshot,
+        certificationRecord: recordSnapshot,
+    });
+}
+
 export function createCertifiedResourceProfileRegistry({ certifications = [] } = {}) {
     if (!Array.isArray(certifications)) return invalid('REGISTRY_CERTIFICATIONS_NOT_ARRAY');
 
@@ -82,10 +122,7 @@ export function createCertifiedResourceProfileRegistry({ certifications = [] } =
         if (!validation.ok) return invalid(validation.reason);
         const key = profileKey(validation.profile);
         if (entries.has(key)) return invalid('REGISTRY_DUPLICATE_PROFILE_CONTEXT');
-        entries.set(key, Object.freeze({
-            profile: validation.profile,
-            certificationRecord: validation.record,
-        }));
+        entries.set(key, snapshotValidatedEntry(validation.profile, validation.record));
     }
 
     const get = ({ modelId, backend, width, height } = {}) => {
@@ -150,4 +187,4 @@ export function createCertifiedResourceProfileRegistry({ certifications = [] } =
     });
 }
 
-export { profileKey, validateCertificationEntry };
+export { profileKey, snapshotValidatedEntry, validateCertificationEntry };
