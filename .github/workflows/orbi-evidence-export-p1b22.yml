@@ -3,7 +3,7 @@ name: ORBI Evidence export P1B22 validation
 on:
   push:
     branches:
-      - feature/evidence-export-p1b22
+      - feature/evidence-export-p1b22-canonical
   workflow_dispatch:
 
 permissions:
