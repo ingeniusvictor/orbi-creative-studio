@@ -1,0 +1,122 @@
+name: ORBI Shadow diagnostics UI P1C11 validation
+
+on:
+  push:
+    branches:
+      - feature/shadow-diagnostics-ui-p1c11
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C11
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C11 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const diagnostics = fs.readFileSync('src/lib/computeRouter/shadowCompatibilityDiagnostics.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+
+          for (const token of [
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'routeGenerationRequest',
+            'localAI.generate',
+            'muapi.generate',
+            'certificationRecord',
+            'reviewNote',
+            'auxiliaryArtifacts',
+            'runtimeBinarySha256',
+            'modelArtifactSha256',
+          ]) {
+            if (panel.includes(token)) throw new Error('P1C11 panel has forbidden capability: ' + token);
+          }
+
+          for (const token of [
+            'validateShadowCompatibilitySnapshot',
+            'renderShadowCompatibilitySection',
+            'shadowCompatibilitySnapshot = null',
+            "section.dataset.orbiShadowCompatibility = 'read-only'",
+            'refresh.onclick = render',
+          ]) {
+            if (!panel.includes(token)) throw new Error('P1C11 panel invariant missing: ' + token);
+          }
+
+          if ((panel.match(/\.onclick\s*=/g) || []).length !== 1) {
+            throw new Error('Refresh must remain the only RouterDiagnosticsPanel onclick action');
+          }
+
+          for (const token of [
+            'validateShadowCompatibilitySnapshot',
+            'SNAPSHOT_SHAPE_INVALID',
+            'SNAPSHOT_COMPATIBILITY_INVALID',
+            'SNAPSHOT_AUTHORITY_INVALID',
+            'hasOnlyKeys',
+          ]) {
+            if (!diagnostics.includes(token)) throw new Error('P1C11 snapshot validator invariant missing: ' + token);
+          }
+
+          if (image.includes('shadowCompatibilityDiagnostics')
+              || video.includes('shadowCompatibilityDiagnostics')
+              || main.includes('shadowCompatibilityDiagnostics')
+              || main.includes('shadowCompatibilitySnapshot')) {
+            throw new Error('P1C11 must not connect shadow diagnostics to normal generation/startup');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C11 focused tests
+        run: node --test tests/shadowDiagnosticsUi.test.js tests/shadowCompatibilityDiagnostics.test.js tests/buildBoundDiagnostics.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C11_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
