@@ -45,7 +45,7 @@ test('Settings exposes diagnostics exactly once and only inside the Electron-onl
         (settings.match(/import \{ RouterDiagnosticsPanel \} from '\.\/RouterDiagnosticsPanel\.js';/g) || []).length,
         1,
     );
-    assert.equal((settings.match(/RouterDiagnosticsPanel\(\)/g) || []).length, 1);
+    assert.equal((settings.match(/RouterDiagnosticsPanel\(/g) || []).length, 1);
     assert.equal((settings.match(/id: 'diagnostics'/g) || []).length, 1);
     assert.equal((settings.match(/diagnosticsPanel/g) || []).length, 3);
     assert.ok(settings.includes("...(isLocalAIAvailable() ? ["));
