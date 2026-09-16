@@ -1,0 +1,107 @@
+name: ORBI Cutover review bundle P1B18 validation
+
+on:
+  push:
+    branches:
+      - feature/cutover-review-bundle-p1b18
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout cutover review bundle branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Cutover review bundle static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('src/lib/computeRouter/cutoverReviewBundle.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          const forbidden = [
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localAI.generate',
+            'muapi.generate',
+            'routeGenerationRequest(',
+            'localStorage',
+            'sessionStorage',
+            'window.',
+            'globalThis.',
+          ];
+          const hits = forbidden.filter((token) => source.includes(token));
+          if (hits.length) {
+            throw new Error('Cutover review bundle contains execution/storage coupling: ' + hits.join(', '));
+          }
+
+          const required = [
+            "CUTOVER_REVIEW_BUNDLE_EXECUTION_AUTHORITY = 'legacy-dispatcher-only'",
+            'cutoverAuthorized: false',
+            'extractBoundCertification',
+            'extractReleaseGates',
+            'assessStudioCutoverEligibility',
+            'buildCutoverReviewReport',
+            'buildStudioCutoverReviewBundle({',
+            '/^[0-9a-f]{40}$/i',
+          ];
+          for (const token of required) {
+            if (!source.includes(token)) {
+              throw new Error('Cutover review bundle invariant missing: ' + token);
+            }
+          }
+
+          if (image.includes('cutoverReviewBundle') || video.includes('cutoverReviewBundle')) {
+            throw new Error('Cutover review bundle must not be imported into Studio execution');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cutover review bundle tests
+        run: node --test tests/cutoverReviewBundle.test.js tests/parityBuildBinding.test.js tests/releaseEvidenceManifest.test.js tests/cutoverEligibility.test.js tests/cutoverReviewReport.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('CUTOVER_REVIEW_BUNDLE_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
