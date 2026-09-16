@@ -26,6 +26,7 @@ dist-ssr
 # Electron build output
 release/
 .webpack/
+electron/generated/buildIdentity.js
 
 # Next.js
 .next/
