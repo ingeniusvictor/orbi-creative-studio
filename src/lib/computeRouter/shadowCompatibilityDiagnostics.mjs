@@ -39,9 +39,20 @@ const ALLOWED_REASON_CODES = new Set([
     'MODEL_AUXILIARY_ASSETS_MISSING',
     'RESOURCE_PROFILE_NOT_PROVIDED',
     'RESOURCE_PROFILE_NOT_CERTIFIED',
+    'RESOURCE_PROFILE_CONTEXT_MISMATCH',
+]);
+
+const ALLOWED_PROFILE_STATUSES = new Set([
+    'RESOURCE_PROFILE_CERTIFIED',
+    'RESOURCE_PROFILE_NOT_FOUND',
+    'RESOURCE_PROFILE_NOT_CERTIFIED',
     'RESOURCE_PROFILE_INVALID',
     'RESOURCE_PROFILE_CONTEXT_MISMATCH',
 ]);
+
+const ALLOWED_BACKEND_STATES = new Set(['supported', 'blocked', 'unknown']);
+const ALLOWED_SYSTEM_RAM_STATES = new Set(['sufficient', 'insufficient', 'unknown']);
+const ALLOWED_VRAM_STATES = new Set(['sufficient', 'insufficient', 'unknown', 'not-applicable']);
 
 function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -49,6 +60,10 @@ function isPlainObject(value) {
 
 function finitePositiveOrNull(value) {
     return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function validOptionalPositive(value) {
+    return value === undefined || value === null || (Number.isFinite(value) && value > 0);
 }
 
 function safeString(value, maxLength = 120) {
@@ -97,23 +112,34 @@ export function createShadowCompatibilityDiagnostics({
         return invalid('DIAGNOSTIC_SHADOW_AUTHORITY_INVALID');
     }
 
-    const compatibility = shadowEvaluation.compatibility;
-    if (!isPlainObject(compatibility)
-        || compatibility.schemaVersion !== 1
-        || !ALLOWED_COMPATIBILITY_STATUSES.has(compatibility.status)
-        || compatibility.routingEligible !== false
-        || compatibility.cutoverAuthorized !== false
-        || compatibility.executionAuthority !== 'legacy-dispatcher-only') {
-        return invalid('DIAGNOSTIC_COMPATIBILITY_INVALID');
+    if (!isPlainObject(requestedContext) || !isPlainObject(shadowEvaluation.context)) {
+        return invalid('DIAGNOSTIC_CONTEXT_INVALID');
     }
-
-    if (!isPlainObject(requestedContext)) return invalid('DIAGNOSTIC_CONTEXT_INVALID');
     const modelId = safeString(requestedContext.modelId);
     const backend = safeString(requestedContext.backend);
     const width = requestedContext.width;
     const height = requestedContext.height;
     if (!modelId || !backend || !Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
         return invalid('DIAGNOSTIC_CONTEXT_INVALID');
+    }
+    if (shadowEvaluation.context.modelId !== modelId
+        || shadowEvaluation.context.backend !== backend
+        || shadowEvaluation.context.width !== width
+        || shadowEvaluation.context.height !== height) {
+        return invalid('DIAGNOSTIC_CONTEXT_MISMATCH');
+    }
+
+    const compatibility = shadowEvaluation.compatibility;
+    if (!isPlainObject(compatibility)
+        || compatibility.schemaVersion !== 1
+        || !ALLOWED_COMPATIBILITY_STATUSES.has(compatibility.status)
+        || compatibility.compatibilityCandidate !== (compatibility.status === 'COMPATIBILITY_CANDIDATE')
+        || compatibility.routingEligible !== false
+        || compatibility.cutoverAuthorized !== false
+        || compatibility.executionAuthority !== 'legacy-dispatcher-only'
+        || compatibility.model?.id !== modelId
+        || compatibility.runtime?.backend !== backend) {
+        return invalid('DIAGNOSTIC_COMPATIBILITY_INVALID');
     }
 
     if (typeof capturedAt !== 'string' || !capturedAt.trim()) return invalid('DIAGNOSTIC_TIMESTAMP_INVALID');
@@ -125,9 +151,25 @@ export function createShadowCompatibilityDiagnostics({
     const reasons = sanitizeReasons(compatibility.reasons);
     if (!reasons) return invalid('DIAGNOSTIC_REASON_SET_INVALID');
 
-    const resourceFit = isPlainObject(compatibility.resourceFit) ? compatibility.resourceFit : {};
-    const resourceProfile = isPlainObject(compatibility.resourceProfile) ? compatibility.resourceProfile : {};
-    const backendHardware = isPlainObject(compatibility.backendHardware) ? compatibility.backendHardware : {};
+    const resourceFit = compatibility.resourceFit;
+    const resourceProfile = compatibility.resourceProfile;
+    const backendHardware = compatibility.backendHardware;
+    if (!isPlainObject(resourceFit)
+        || !isPlainObject(resourceProfile)
+        || !isPlainObject(backendHardware)
+        || !ALLOWED_PROFILE_STATUSES.has(resourceProfile.status)
+        || typeof resourceProfile.certified !== 'boolean'
+        || resourceProfile.certified !== (resourceProfile.status === 'RESOURCE_PROFILE_CERTIFIED')
+        || shadowEvaluation.registryMatch !== resourceProfile.certified
+        || !ALLOWED_BACKEND_STATES.has(backendHardware.state)
+        || !ALLOWED_SYSTEM_RAM_STATES.has(resourceFit.systemRam)
+        || !ALLOWED_VRAM_STATES.has(resourceFit.vram)
+        || !validOptionalPositive(resourceFit.minSystemRamMiB)
+        || !validOptionalPositive(resourceFit.observedSystemRamMiB)
+        || !validOptionalPositive(resourceFit.minVramMiB)
+        || !validOptionalPositive(resourceFit.observedVramMiB)) {
+        return invalid('DIAGNOSTIC_DETAIL_SET_INVALID');
+    }
 
     const snapshot = Object.freeze({
         schemaVersion: 1,
@@ -137,25 +179,25 @@ export function createShadowCompatibilityDiagnostics({
         context: Object.freeze({ modelId, backend, width, height }),
         registry: Object.freeze({
             match: shadowEvaluation.registryMatch,
-            certifiedProfile: resourceProfile.certified === true,
-            profileStatus: safeString(resourceProfile.status) || 'RESOURCE_PROFILE_STATUS_UNAVAILABLE',
+            certifiedProfile: resourceProfile.certified,
+            profileStatus: resourceProfile.status,
         }),
         compatibility: Object.freeze({
             status: compatibility.status,
-            candidate: compatibility.compatibilityCandidate === true,
+            candidate: compatibility.compatibilityCandidate,
             reasons,
         }),
         hardware: Object.freeze({
-            backendState: safeString(backendHardware.state) || 'unknown',
+            backendState: backendHardware.state,
         }),
         resources: Object.freeze({
             systemRam: Object.freeze({
-                state: safeString(resourceFit.systemRam) || 'unknown',
+                state: resourceFit.systemRam,
                 requiredMiB: finitePositiveOrNull(resourceFit.minSystemRamMiB),
                 observedMiB: finitePositiveOrNull(resourceFit.observedSystemRamMiB),
             }),
             vram: Object.freeze({
-                state: safeString(resourceFit.vram) || 'unknown',
+                state: resourceFit.vram,
                 requiredMiB: finitePositiveOrNull(resourceFit.minVramMiB),
                 observedMiB: finitePositiveOrNull(resourceFit.observedVramMiB),
             }),
@@ -179,4 +221,12 @@ export function createShadowCompatibilityDiagnostics({
     });
 }
 
-export { ALLOWED_COMPATIBILITY_STATUSES, ALLOWED_REASON_CODES, sanitizeReasons };
+export {
+    ALLOWED_BACKEND_STATES,
+    ALLOWED_COMPATIBILITY_STATUSES,
+    ALLOWED_PROFILE_STATUSES,
+    ALLOWED_REASON_CODES,
+    ALLOWED_SYSTEM_RAM_STATES,
+    ALLOWED_VRAM_STATES,
+    sanitizeReasons,
+};
