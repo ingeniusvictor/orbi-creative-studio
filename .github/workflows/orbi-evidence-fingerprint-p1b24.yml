@@ -1,0 +1,116 @@
+name: ORBI Evidence fingerprint P1B24 validation
+
+on:
+  push:
+    branches:
+      - feature/evidence-fingerprint-p1b24-canonical
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout evidence fingerprint branch
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Evidence fingerprint static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('src/lib/computeRouter/evidenceFingerprint.mjs', 'utf8');
+          const diagnostics = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          const required = [
+            "EVIDENCE_FINGERPRINT_ALGORITHM = 'SHA-256'",
+            "EVIDENCE_FINGERPRINT_AUTHORITY = 'legacy-dispatcher-only'",
+            'authenticityVerified: false',
+            'cutoverAuthorized: false',
+            'validateCertificationReleaseEvidenceExport',
+            'parseCertificationReleaseEvidenceExport',
+            "crypto.subtle.digest('SHA-256'",
+            'Object.keys(value).sort()',
+            '/^[0-9a-f]{64}$/',
+          ];
+          for (const token of required) {
+            if (!source.includes(token)) {
+              throw new Error('Evidence fingerprint invariant missing: ' + token);
+            }
+          }
+
+          const forbidden = [
+            "from 'node:crypto'",
+            "require('node:crypto')",
+            "from 'node:fs'",
+            'writeFile',
+            'download',
+            'Blob(',
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'routeGenerationRequest(',
+            'localAI.generate',
+            'muapi.generate',
+          ];
+          const hits = forbidden.filter((token) => source.includes(token));
+          if (hits.length) {
+            throw new Error('Evidence fingerprint side effect coupling: ' + hits.join(', '));
+          }
+
+          if (diagnostics.includes('evidenceFingerprint')) {
+            throw new Error('P1B.24 must not add fingerprint actions to diagnostics UI');
+          }
+          if (image.includes('evidenceFingerprint') || video.includes('evidenceFingerprint')) {
+            throw new Error('Evidence fingerprint entered a generation component');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Evidence fingerprint tests
+        run: node --test tests/evidenceFingerprint.test.js tests/evidenceExportValidator.test.js tests/evidenceExport.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer with identity
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('EVIDENCE_FINGERPRINT_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
