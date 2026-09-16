@@ -107,7 +107,7 @@ test('Router diagnostics renders only validated shadow snapshots and keeps Refre
         'localAI.generate',
         'muapi.generate',
         'certificationRecord',
-        'reviewNote',
+        '.reviewNote',
         'auxiliaryArtifacts',
         'runtimeBinarySha256',
         'modelArtifactSha256',
