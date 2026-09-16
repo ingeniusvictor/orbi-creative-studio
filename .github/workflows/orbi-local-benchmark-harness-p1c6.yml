@@ -1,0 +1,112 @@
+name: ORBI Local benchmark harness P1C6 validation
+
+on:
+  push:
+    branches:
+      - feature/local-benchmark-harness-p1c6
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C6
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C6 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const harness = fs.readFileSync('electron/lib/localBenchmarkHarness.js', 'utf8');
+          const readiness = fs.readFileSync('src/lib/computeRouter/providerReadiness.mjs', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+          const localInference = fs.readFileSync('electron/lib/localInference.js', 'utf8');
+
+          for (const token of [
+            'ipcMain.handle',
+            'ipcRenderer',
+            'contextBridge',
+            'localStorage',
+            'sessionStorage',
+            'fetch(',
+            'shell: true',
+            'routeGenerationRequest(',
+            'modelResourceProfiles',
+          ]) {
+            if (harness.includes(token)) throw new Error('P1C6 harness has forbidden coupling: ' + token);
+          }
+
+          for (const token of [
+            "new Set(['sd-cli', 'sd-cli.exe'])",
+            "'nvidia-smi'",
+            "shell: false",
+            "'p1c5-v1'",
+            'benchmarkOnly: true',
+            'productionProfilePromoted: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+            'MAX_TIMEOUT_MS',
+            'sha256File',
+          ]) {
+            if (!harness.includes(token)) throw new Error('P1C6 safety invariant missing: ' + token);
+          }
+
+          if (readiness.includes('localBenchmarkHarness')) {
+            throw new Error('P1C6 must not influence provider readiness');
+          }
+          if (image.includes('localBenchmarkHarness') || video.includes('localBenchmarkHarness')) {
+            throw new Error('P1C6 must not be imported into Studio execution');
+          }
+          if (localInference.includes("require('./localBenchmarkHarness')")) {
+            throw new Error('P1C6 must remain off the normal local generation path');
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C6 focused tests
+        run: node --test tests/localBenchmarkHarness.test.js tests/controlledBenchmark.test.js tests/modelResourceProfiles.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C6_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
