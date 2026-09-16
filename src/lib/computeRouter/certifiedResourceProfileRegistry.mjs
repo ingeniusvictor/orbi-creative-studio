@@ -140,12 +140,13 @@ export function createCertifiedResourceProfileRegistry({ certifications = [] } =
     })));
 
     const evaluateShadowCompatibility = ({ runtime, model, hardware, width, height } = {}) => {
-        const entry = get({
+        const context = Object.freeze({
             modelId: model?.id,
             backend: runtime?.backend,
             width,
             height,
         });
+        const entry = get(context);
         const compatibility = evaluateCertifiedLocalCompatibility({
             runtime,
             model,
@@ -157,6 +158,7 @@ export function createCertifiedResourceProfileRegistry({ certifications = [] } =
 
         return Object.freeze({
             mode: 'shadow-diagnostic-only',
+            context,
             registryMatch: Boolean(entry),
             compatibility,
             routingEligible: false,
