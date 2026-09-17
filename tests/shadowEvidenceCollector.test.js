@@ -81,9 +81,9 @@ function readinessSnapshot({
 }
 
 async function collectorWith(snapshot, now = '2026-09-16T10:00:00.000Z') {
-    const module = await import('../src/lib/computeRouter/shadowCompatibilityEvidenceCollector.mjs');
+    const collectorModule = await import('../src/lib/computeRouter/shadowCompatibilityEvidenceCollector.mjs');
     const calls = [];
-    const collector = module.createShadowCompatibilityEvidenceCollector({
+    const collector = collectorModule.createShadowCompatibilityEvidenceCollector({
         getBridge: () => ({
             isElectron: true,
             getReadinessSnapshot: async () => {
@@ -93,7 +93,7 @@ async function collectorWith(snapshot, now = '2026-09-16T10:00:00.000Z') {
         }),
         now: () => new Date(now),
     });
-    return { module, collector, calls };
+    return { collectorModule, collector, calls };
 }
 
 test('P1C14 collects only target sd.cpp runtime/model/hardware evidence from the existing bridge', async () => {
@@ -216,14 +216,14 @@ test('P1C14 rejects missing, duplicated, or malformed target model evidence', as
 });
 
 test('P1C14 rejects unavailable bridge, readiness failures, malformed snapshots and invalid clock without reflecting errors', async () => {
-    const module = await import('../src/lib/computeRouter/shadowCompatibilityEvidenceCollector.mjs');
+    const collectorModule = await import('../src/lib/computeRouter/shadowCompatibilityEvidenceCollector.mjs');
 
-    const unavailable = module.createShadowCompatibilityEvidenceCollector({ getBridge: () => null });
+    const unavailable = collectorModule.createShadowCompatibilityEvidenceCollector({ getBridge: () => null });
     assert.equal((await unavailable.collect({
         modelId: 'z-image-turbo', backend: 'cuda12', width: 1024, height: 1024,
     })).reason, 'COLLECTOR_BRIDGE_UNAVAILABLE');
 
-    const throws = module.createShadowCompatibilityEvidenceCollector({
+    const throws = collectorModule.createShadowCompatibilityEvidenceCollector({
         getBridge: () => ({
             isElectron: true,
             getReadinessSnapshot: async () => { throw new Error('sensitive bridge failure'); },
@@ -240,7 +240,7 @@ test('P1C14 rejects unavailable bridge, readiness failures, malformed snapshots 
     });
     assert.equal(malformed.reason, 'COLLECTOR_SNAPSHOT_INVALID');
 
-    const badClock = module.createShadowCompatibilityEvidenceCollector({
+    const badClock = collectorModule.createShadowCompatibilityEvidenceCollector({
         getBridge: () => ({ isElectron: true, getReadinessSnapshot: async () => readinessSnapshot() }),
         now: () => ({ toISOString: () => 'not-a-date' }),
     });
