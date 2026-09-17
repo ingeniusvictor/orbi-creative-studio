@@ -66,9 +66,9 @@ function published() {
 }
 
 test('P1C15 composes P1C14 evidence into P1C13 producer with exact context', async () => {
-    const module = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
+    const orchestratorModule = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
     const calls = [];
-    const orchestrator = module.createShadowDiagnosticOrchestrator({
+    const orchestrator = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async (input) => {
             calls.push(['collect', input]);
             return readyCollected();
@@ -107,7 +107,7 @@ test('P1C15 composes P1C14 evidence into P1C13 producer with exact context', asy
 });
 
 test('P1C15 rejects manipulated collector context before producer invocation', async () => {
-    const module = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
+    const orchestratorModule = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
     let producerCalled = false;
     const collected = readyCollected();
     const forged = {
@@ -117,7 +117,7 @@ test('P1C15 rejects manipulated collector context before producer invocation', a
             context: { ...collected.evidence.context, width: 512 },
         },
     };
-    const orchestrator = module.createShadowDiagnosticOrchestrator({
+    const orchestrator = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async () => forged,
         produceSnapshot: () => {
             producerCalled = true;
@@ -134,9 +134,9 @@ test('P1C15 rejects manipulated collector context before producer invocation', a
 });
 
 test('P1C15 rejects forged collector or producer authority', async () => {
-    const module = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
+    const orchestratorModule = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
 
-    const forgedCollector = module.createShadowDiagnosticOrchestrator({
+    const forgedCollector = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async () => ({ ...readyCollected(), routingEligible: true }),
         produceSnapshot: () => published(),
     });
@@ -144,7 +144,7 @@ test('P1C15 rejects forged collector or producer authority', async () => {
         registry: {}, modelId: 'z-image-turbo', backend: 'cuda12', width: 1024, height: 1024,
     })).reason, 'ORCHESTRATOR_COLLECTOR_AUTHORITY_INVALID');
 
-    const forgedProducer = module.createShadowDiagnosticOrchestrator({
+    const forgedProducer = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async () => readyCollected(),
         produceSnapshot: () => ({ ...published(), cutoverAuthorized: true }),
     });
@@ -154,9 +154,9 @@ test('P1C15 rejects forged collector or producer authority', async () => {
 });
 
 test('P1C15 preserves allowlisted rejection reasons and suppresses arbitrary errors', async () => {
-    const module = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
+    const orchestratorModule = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
 
-    const rejectedCollector = module.createShadowDiagnosticOrchestrator({
+    const rejectedCollector = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async () => ({
             status: 'SHADOW_EVIDENCE_COLLECTOR_REJECTED',
             reason: 'COLLECTOR_BRIDGE_UNAVAILABLE',
@@ -172,7 +172,7 @@ test('P1C15 preserves allowlisted rejection reasons and suppresses arbitrary err
         registry: {}, modelId: 'z-image-turbo', backend: 'cuda12', width: 1024, height: 1024,
     })).reason, 'COLLECTOR_BRIDGE_UNAVAILABLE');
 
-    const arbitraryCollector = module.createShadowDiagnosticOrchestrator({
+    const arbitraryCollector = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async () => ({
             status: 'SHADOW_EVIDENCE_COLLECTOR_REJECTED',
             reason: '<script>secret</script>',
@@ -188,7 +188,7 @@ test('P1C15 preserves allowlisted rejection reasons and suppresses arbitrary err
         registry: {}, modelId: 'z-image-turbo', backend: 'cuda12', width: 1024, height: 1024,
     })).reason, 'ORCHESTRATOR_COLLECTOR_REJECTED');
 
-    const throws = module.createShadowDiagnosticOrchestrator({
+    const throws = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async () => { throw new Error('collector secret'); },
         produceSnapshot: () => published(),
     });
@@ -200,9 +200,9 @@ test('P1C15 preserves allowlisted rejection reasons and suppresses arbitrary err
 });
 
 test('P1C15 maps unchanged and producer rejection without adding authority', async () => {
-    const module = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
+    const orchestratorModule = await import('../src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs');
 
-    const unchanged = module.createShadowDiagnosticOrchestrator({
+    const unchanged = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async () => readyCollected(),
         produceSnapshot: () => ({ ...published(), status: 'SHADOW_SNAPSHOT_PRODUCER_UNCHANGED' }),
     });
@@ -210,7 +210,7 @@ test('P1C15 maps unchanged and producer rejection without adding authority', asy
         registry: {}, modelId: 'z-image-turbo', backend: 'cuda12', width: 1024, height: 1024,
     })).status, 'SHADOW_DIAGNOSTIC_ORCHESTRATOR_UNCHANGED');
 
-    const rejected = module.createShadowDiagnosticOrchestrator({
+    const rejected = orchestratorModule.createShadowDiagnosticOrchestrator({
         collectEvidence: async () => readyCollected(),
         produceSnapshot: () => ({
             ...published(),
