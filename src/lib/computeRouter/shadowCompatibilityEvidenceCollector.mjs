@@ -24,7 +24,7 @@ function safeModelId(value) {
     return typeof value === 'string'
         && value.length > 0
         && value.length <= 160
-        && /^[a-zA-Z0-9._:+/-]+$/.test(value);
+        && /^[a-zA-Z0-9._:+-]+$/.test(value);
 }
 
 function reject(reason) {
