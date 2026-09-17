@@ -1,0 +1,108 @@
+name: ORBI Shadow diagnostic orchestrator P1C15 validation
+
+on:
+  push:
+    branches:
+      - feature/shadow-diagnostic-orchestrator-p1c15
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C15
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C15 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const orchestrator = fs.readFileSync('src/lib/computeRouter/shadowDiagnosticOrchestrator.mjs', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'setInterval',
+            'setTimeout',
+            'routeGenerationRequest',
+            'generate(',
+          ]) {
+            if (orchestrator.includes(token)) throw new Error('P1C15 orchestrator has forbidden capability: ' + token);
+          }
+
+          for (const token of [
+            'collectShadowCompatibilityEvidence',
+            'produceAndPublishShadowCompatibilitySnapshot',
+            'ORCHESTRATOR_EVIDENCE_CONTEXT_INVALID',
+            'ORCHESTRATOR_COLLECTOR_AUTHORITY_INVALID',
+            'ORCHESTRATOR_PRODUCER_AUTHORITY_INVALID',
+            'diagnosticOnly: true',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!orchestrator.includes(token)) throw new Error('P1C15 invariant missing: ' + token);
+          }
+
+          for (const source of [main, settings, image, video]) {
+            if (source.includes('shadowDiagnosticOrchestrator')
+                || source.includes('runShadowCompatibilityDiagnostic')) {
+                throw new Error('P1C15 orchestrator entered startup/UI/generation surfaces');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C15 focused tests
+        run: node --test tests/shadowDiagnosticOrchestrator.test.js tests/shadowEvidenceCollector.test.js tests/shadowSnapshotProducer.test.js tests/shadowSnapshotHandoff.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C15_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
