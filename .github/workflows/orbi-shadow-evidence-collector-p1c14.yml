@@ -1,0 +1,115 @@
+name: ORBI Shadow evidence collector P1C14 validation
+
+on:
+  push:
+    branches:
+      - feature/shadow-evidence-collector-p1c14
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C14
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C14 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const collector = fs.readFileSync('src/lib/computeRouter/shadowCompatibilityEvidenceCollector.mjs', 'utf8');
+          const preload = fs.readFileSync('electron/preload.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'window.localAI',
+            'ipcRenderer',
+            'ipcMain',
+            'fetch(',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'publishShadowCompatibilitySnapshot',
+            'produceAndPublishShadowCompatibilitySnapshot',
+            'routeGenerationRequest',
+            'setInterval',
+            'setTimeout',
+          ]) {
+            if (collector.includes(token)) throw new Error('P1C14 collector has forbidden capability: ' + token);
+          }
+
+          for (const token of [
+            'window.orbiComputeRouter',
+            'getReadinessSnapshot',
+            "evidenceType: 'p1c14-shadow-compatibility-evidence'",
+            'COLLECTOR_RUNTIME_BACKEND_MISMATCH',
+            'COLLECTOR_MODEL_EVIDENCE_DUPLICATE',
+            'diagnosticOnly: true',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!collector.includes(token)) throw new Error('P1C14 invariant missing: ' + token);
+          }
+
+          if (!preload.includes("getReadinessSnapshot: () => ipcRenderer.invoke('compute-router:readiness-snapshot')")) {
+            throw new Error('Existing sanitized Compute Router readiness bridge changed unexpectedly');
+          }
+
+          for (const source of [main, settings, image, video]) {
+            if (source.includes('shadowCompatibilityEvidenceCollector')
+                || source.includes('collectShadowCompatibilityEvidence')) {
+                throw new Error('P1C14 collector entered startup/UI/generation surfaces');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C14 focused tests
+        run: node --test tests/shadowEvidenceCollector.test.js tests/computeRouterProviderReadiness.test.js tests/localCompatibility.test.js tests/shadowSnapshotProducer.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C14_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
