@@ -5,6 +5,7 @@ const { register: registerWan2gp } = require('./lib/wan2gpProvider');
 const { register: registerProviderCredentials } = require('./lib/providerCredentials');
 const { register: registerMuapiTransport } = require('./lib/muapiTransport');
 const { register: registerReadinessSnapshot } = require('./lib/providerReadinessSnapshotBridge');
+const { register: registerControlledBenchmark } = require('./lib/controlledBenchmarkBridge');
 const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
 process.on('uncaughtException', (err) => {
@@ -99,6 +100,12 @@ app.whenReady().then(() => {
             'Local AI features unavailable',
             `Open Generative AI started, but local model support failed to initialize:\n\n${err.message}`
         );
+    }
+
+    try {
+        registerControlledBenchmark();
+    } catch (err) {
+        console.error('Failed to register controlled benchmark bridge:', err);
     }
 
     if (providerSecretStore) {
