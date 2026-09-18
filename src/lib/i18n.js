@@ -149,6 +149,9 @@ const translations = {
         'routerDiagnostics.shadowRefreshUpdated': 'Compatibility diagnostic updated.',
         'routerDiagnostics.shadowRefreshUnchanged': 'Compatibility diagnostic is unchanged.',
         'routerDiagnostics.shadowRefreshRejected': 'Compatibility diagnostic could not be refreshed.',
+        'routerDiagnostics.shadowTarget': 'Diagnostic target',
+        'routerDiagnostics.shadowTargetSelect': 'Select a local model to diagnose',
+        'routerDiagnostics.shadowSelectionRequired': 'Select a diagnostic target, then refresh again.',
 
         // Auth Modal
         'auth.title': 'Muapi API Key Required',
@@ -404,6 +407,9 @@ const translations = {
         'routerDiagnostics.shadowRefreshUpdated': '兼容性诊断已更新。',
         'routerDiagnostics.shadowRefreshUnchanged': '兼容性诊断没有变化。',
         'routerDiagnostics.shadowRefreshRejected': '无法刷新兼容性诊断。',
+        'routerDiagnostics.shadowTarget': '诊断目标',
+        'routerDiagnostics.shadowTargetSelect': '选择要诊断的本地模型',
+        'routerDiagnostics.shadowSelectionRequired': '请选择诊断目标，然后再次刷新。',
 
         // Auth Modal
         'auth.title': '需要 Muapi API 密钥',

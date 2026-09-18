@@ -4,7 +4,10 @@ import { t } from '../lib/i18n.js';
 import { getMuapiKey, setMuapiCredential } from '../lib/providerCredentials.mjs';
 import { RouterDiagnosticsPanel } from './RouterDiagnosticsPanel.js';
 import { readShadowCompatibilitySnapshot } from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs';
-import { runUserShadowDiagnosticRefresh } from '../lib/computeRouter/userShadowDiagnosticRefresh.mjs';
+import {
+    listUserShadowDiagnosticTargets,
+    runUserShadowDiagnosticRefresh,
+} from '../lib/computeRouter/userShadowDiagnosticRefresh.mjs';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -81,6 +84,7 @@ export function SettingsModal(onClose) {
         ? RouterDiagnosticsPanel({
             shadowCompatibilitySnapshotProvider: readShadowCompatibilitySnapshot,
             shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh,
+            shadowDiagnosticTargetsProvider: listUserShadowDiagnosticTargets,
         })
         : null;
 

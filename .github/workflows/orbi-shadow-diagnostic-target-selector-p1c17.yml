@@ -1,0 +1,120 @@
+name: ORBI Shadow diagnostic target selector P1C17 validation
+
+on:
+  push:
+    branches:
+      - feature/shadow-diagnostic-target-selector-p1c17
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C17
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C17 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const controller = fs.readFileSync('src/lib/computeRouter/userShadowDiagnosticRefresh.mjs', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'routeGenerationRequest',
+            'localAI.generate',
+            'muapi.generate',
+          ]) {
+            if (controller.includes(token) || panel.includes(token)) {
+              throw new Error('P1C17 selector has forbidden execution capability: ' + token);
+            }
+          }
+
+          for (const token of [
+            'listUserShadowDiagnosticTargets',
+            'REFRESH_SELECTED_CONTEXT_INVALID',
+            'REFRESH_SELECTED_CONTEXT_UNAVAILABLE',
+            'USER_SHADOW_DIAGNOSTIC_TARGETS_READY',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!controller.includes(token)) throw new Error('P1C17 controller invariant missing: ' + token);
+          }
+
+          if (!panel.includes("select.dataset.orbiShadowTargetSelector = 'diagnostic-only'")
+              || !panel.includes('select.onchange = () => onTargetChange(select.value)')
+              || !panel.includes('shadowDiagnosticTargetsProvider = null')
+              || !panel.includes('normalizeShadowDiagnosticTargets')) {
+            throw new Error('P1C17 selector UI contract missing');
+          }
+
+          if ((panel.match(/\.onclick\s*=/g) || []).length !== 2) {
+            throw new Error('P1C17 must not add a third Router Diagnostics onclick action');
+          }
+          if ((panel.match(/\.onchange\s*=/g) || []).length !== 1) {
+            throw new Error('P1C17 must expose exactly one diagnostic target selection handler');
+          }
+
+          if (!settings.includes('shadowDiagnosticTargetsProvider: listUserShadowDiagnosticTargets')) {
+            throw new Error('Settings is not wired to the governed target provider');
+          }
+
+          for (const source of [main, image, video]) {
+            if (source.includes('listUserShadowDiagnosticTargets')
+                || source.includes('shadowDiagnosticTargetsProvider')) {
+                throw new Error('P1C17 target selector entered startup/generation surfaces');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C17 focused tests
+        run: node --test tests/shadowDiagnosticTargetSelector.test.js tests/userShadowDiagnosticRefresh.test.js tests/shadowDiagnosticOrchestrator.test.js tests/routerDiagnosticsPanel.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C17_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE

@@ -118,13 +118,60 @@ function shadowRefreshStatusLabel(status) {
         updated: 'routerDiagnostics.shadowRefreshUpdated',
         unchanged: 'routerDiagnostics.shadowRefreshUnchanged',
         rejected: 'routerDiagnostics.shadowRefreshRejected',
+        'selection-required': 'routerDiagnostics.shadowSelectionRequired',
     }[status];
     return key ? t(key) : null;
+}
+
+function shadowTargetKey(target) {
+    return `${target.modelId}::${target.backend}::${target.width}x${target.height}`;
+}
+
+function normalizeShadowDiagnosticTargets(result) {
+    if (!result
+        || result.status !== 'USER_SHADOW_DIAGNOSTIC_TARGETS_READY'
+        || result.diagnosticOnly !== true
+        || result.routingEligible !== false
+        || result.cutoverAuthorized !== false
+        || result.executionAuthority !== 'legacy-dispatcher-only'
+        || !Array.isArray(result.targets)) {
+        return null;
+    }
+
+    const targets = [];
+    const keys = new Set();
+    for (const target of result.targets) {
+        if (!target
+            || typeof target !== 'object'
+            || typeof target.modelId !== 'string'
+            || !target.modelId
+            || !['cpu', 'cuda12'].includes(target.backend)
+            || !Number.isInteger(target.width)
+            || target.width <= 0
+            || !Number.isInteger(target.height)
+            || target.height <= 0) {
+            return null;
+        }
+        const normalized = Object.freeze({
+            modelId: target.modelId,
+            backend: target.backend,
+            width: target.width,
+            height: target.height,
+        });
+        const key = shadowTargetKey(normalized);
+        if (keys.has(key)) return null;
+        keys.add(key);
+        targets.push(normalized);
+    }
+    return Object.freeze(targets);
 }
 
 function renderShadowCompatibilitySection(snapshot, {
     onRefresh = null,
     refreshStatus = 'idle',
+    targets = [],
+    selectedTargetKey = null,
+    onTargetChange = null,
 } = {}) {
     const section = document.createElement('div');
     section.dataset.orbiShadowCompatibility = 'read-only';
@@ -140,6 +187,37 @@ function renderShadowCompatibilitySection(snapshot, {
         t('routerDiagnostics.shadowSubtitle'),
         'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
     ));
+
+    if (targets.length > 1 && typeof onTargetChange === 'function') {
+        const targetWrap = document.createElement('div');
+        targetWrap.style.cssText = 'display:flex;flex-direction:column;gap:0.35rem;';
+        targetWrap.appendChild(makeText(
+            'div',
+            t('routerDiagnostics.shadowTarget'),
+            'font-size:0.62rem;color:rgba(255,255,255,0.42);font-weight:700;',
+        ));
+
+        const select = document.createElement('select');
+        select.dataset.orbiShadowTargetSelector = 'diagnostic-only';
+        select.style.cssText = 'width:100%;padding:0.45rem 0.6rem;border-radius:0.5rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.68rem;';
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = t('routerDiagnostics.shadowTargetSelect');
+        select.appendChild(placeholder);
+
+        for (const target of targets) {
+            const option = document.createElement('option');
+            option.value = shadowTargetKey(target);
+            option.textContent = `${target.modelId} · ${target.backend} · ${target.width}×${target.height}`;
+            select.appendChild(option);
+        }
+
+        select.value = selectedTargetKey || '';
+        select.onchange = () => onTargetChange(select.value);
+        targetWrap.appendChild(select);
+        section.appendChild(targetWrap);
+    }
 
     if (typeof onRefresh === 'function') {
         const refreshWrap = document.createElement('div');
@@ -231,9 +309,12 @@ export function RouterDiagnosticsPanel({
     shadowCompatibilitySnapshot = null,
     shadowCompatibilitySnapshotProvider = null,
     shadowDiagnosticRefresh = null,
+    shadowDiagnosticTargetsProvider = null,
 } = {}) {
     const panel = document.createElement('div');
     let shadowRefreshStatus = 'idle';
+    let shadowDiagnosticTargets = [];
+    let selectedShadowTargetKey = null;
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
 
@@ -311,13 +392,58 @@ export function RouterDiagnosticsPanel({
             );
             panel.appendChild(renderShadowCompatibilitySection(resolvedShadowSnapshot, {
                 refreshStatus: shadowRefreshStatus,
+                targets: shadowDiagnosticTargets,
+                selectedTargetKey: selectedShadowTargetKey,
+                onTargetChange: (targetKey) => {
+                    selectedShadowTargetKey = shadowDiagnosticTargets
+                        .some((target) => shadowTargetKey(target) === targetKey)
+                        ? targetKey
+                        : null;
+                    shadowRefreshStatus = 'idle';
+                    render();
+                },
                 onRefresh: typeof shadowDiagnosticRefresh === 'function'
                     ? async () => {
                         if (shadowRefreshStatus === 'running') return;
                         shadowRefreshStatus = 'running';
                         render();
                         try {
-                            const result = await shadowDiagnosticRefresh();
+                            let selectedTarget = null;
+
+                            if (typeof shadowDiagnosticTargetsProvider === 'function') {
+                                const listed = await shadowDiagnosticTargetsProvider();
+                                const normalizedTargets = normalizeShadowDiagnosticTargets(listed);
+                                if (!normalizedTargets) {
+                                    shadowRefreshStatus = 'rejected';
+                                    render();
+                                    return;
+                                }
+
+                                shadowDiagnosticTargets = [...normalizedTargets];
+                                if (shadowDiagnosticTargets.length === 0) {
+                                    selectedShadowTargetKey = null;
+                                    shadowRefreshStatus = 'rejected';
+                                    render();
+                                    return;
+                                }
+
+                                if (shadowDiagnosticTargets.length === 1) {
+                                    selectedTarget = shadowDiagnosticTargets[0];
+                                    selectedShadowTargetKey = shadowTargetKey(selectedTarget);
+                                } else {
+                                    selectedTarget = shadowDiagnosticTargets.find(
+                                        (target) => shadowTargetKey(target) === selectedShadowTargetKey,
+                                    ) || null;
+                                    if (!selectedTarget) {
+                                        selectedShadowTargetKey = null;
+                                        shadowRefreshStatus = 'selection-required';
+                                        render();
+                                        return;
+                                    }
+                                }
+                            }
+
+                            const result = await shadowDiagnosticRefresh(selectedTarget);
                             const authorityValid = result
                                 && result.diagnosticOnly === true
                                 && result.routingEligible === false
