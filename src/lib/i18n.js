@@ -144,6 +144,11 @@ const translations = {
         'routerDiagnostics.shadowBlocked': 'Blocked',
         'routerDiagnostics.shadowUnknown': 'Unknown',
         'routerDiagnostics.shadowBoundaryNote': 'Diagnostic only. This view cannot select providers, change profiles, route generation, or authorize cutover.',
+        'routerDiagnostics.shadowRefresh': 'Refresh local compatibility',
+        'routerDiagnostics.shadowRefreshRunning': 'Reading local evidence…',
+        'routerDiagnostics.shadowRefreshUpdated': 'Compatibility diagnostic updated.',
+        'routerDiagnostics.shadowRefreshUnchanged': 'Compatibility diagnostic is unchanged.',
+        'routerDiagnostics.shadowRefreshRejected': 'Compatibility diagnostic could not be refreshed.',
 
         // Auth Modal
         'auth.title': 'Muapi API Key Required',
@@ -394,6 +399,11 @@ const translations = {
         'routerDiagnostics.shadowBlocked': '已阻止',
         'routerDiagnostics.shadowUnknown': '未知',
         'routerDiagnostics.shadowBoundaryNote': '仅用于诊断。此视图不能选择提供商、更改资源配置、路由生成或授权切换。',
+        'routerDiagnostics.shadowRefresh': '刷新本地兼容性',
+        'routerDiagnostics.shadowRefreshRunning': '正在读取本地证据…',
+        'routerDiagnostics.shadowRefreshUpdated': '兼容性诊断已更新。',
+        'routerDiagnostics.shadowRefreshUnchanged': '兼容性诊断没有变化。',
+        'routerDiagnostics.shadowRefreshRejected': '无法刷新兼容性诊断。',
 
         // Auth Modal
         'auth.title': '需要 Muapi API 密钥',
