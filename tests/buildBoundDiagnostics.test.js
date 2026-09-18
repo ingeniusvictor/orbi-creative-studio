@@ -16,10 +16,13 @@ test('Router diagnostics displays exact build identity and ephemeral session bin
     assert.ok(panel.includes("buildBinding?.executionAuthority || 'legacy-dispatcher-only'"));
 });
 
-test('build-bound diagnostics remain read-only with Refresh as the only action', () => {
+test('build-bound diagnostics remain read-only with generic refresh plus one P1C16 diagnostic-only action', () => {
     const panel = read('src/components/RouterDiagnosticsPanel.js');
 
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 1);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 2);
+    assert.ok(panel.includes('refresh.onclick = render'));
+    assert.ok(panel.includes('refreshButton.onclick = onRefresh'));
+    assert.ok(panel.includes("refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only'"));
     assert.ok(panel.includes('refresh.onclick = render'));
 
     for (const token of [
