@@ -11,6 +11,10 @@ import {
     listUserShadowDiagnosticTargets,
     runUserShadowDiagnosticRefresh,
 } from '../lib/computeRouter/userShadowDiagnosticRefresh.mjs';
+import {
+    captureUserBenchmarkSample,
+    getUserBenchmarkSessionState,
+} from '../lib/computeRouter/userBenchmarkSession.mjs';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -89,6 +93,8 @@ export function SettingsModal(onClose) {
             shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh,
             shadowDiagnosticTargetsProvider: listUserShadowDiagnosticTargets,
             runtimeCertificationStatusProvider: getRuntimeCertifiedResourceProfileRegistryStatus,
+            benchmarkSampleCapture: captureUserBenchmarkSample,
+            benchmarkSessionStateProvider: getUserBenchmarkSessionState,
         })
         : null;
 
