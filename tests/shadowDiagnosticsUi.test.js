@@ -86,7 +86,7 @@ test('P1C11 snapshot validator rejects arbitrary reasons and forged authority', 
     );
 });
 
-test('Router diagnostics renders only validated shadow snapshots and keeps Refresh as the only action', () => {
+test('Router diagnostics keeps validated shadow rendering while P1C16 adds one diagnostic-only refresh action', () => {
     const panel = read('src/components/RouterDiagnosticsPanel.js');
 
     assert.ok(panel.includes('validateShadowCompatibilitySnapshot'));
@@ -94,7 +94,9 @@ test('Router diagnostics renders only validated shadow snapshots and keeps Refre
     assert.ok(panel.includes('shadowCompatibilitySnapshot = null'));
     assert.ok(panel.includes("section.dataset.orbiShadowCompatibility = 'read-only'"));
     assert.ok(panel.includes('refresh.onclick = render'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 1);
+    assert.ok(panel.includes("refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only'"));
+    assert.ok(panel.includes('refreshButton.onclick = onRefresh'));
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 2);
 
     for (const token of [
         'localStorage',
