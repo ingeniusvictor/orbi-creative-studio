@@ -53,7 +53,7 @@ test('P1C19 Router Diagnostics renders bounded certification metadata without ad
 
     for (const token of [
         'certificationRecord',
-        'reviewNote',
+        '.reviewNote',
         'approvedRequirements',
         'runtimeBinarySha256',
         'modelArtifactSha256',
