@@ -70,6 +70,15 @@ contextBridge.exposeInMainWorld('orbiComputeRouter', {
 });
 
 
+// Controlled benchmark is an explicit review-evidence capability. The renderer
+// may supply only an allowlisted model/backend/resolution/run index; filesystem
+// paths, runtime identity and source commit are resolved in the trusted main process.
+contextBridge.exposeInMainWorld('orbiBenchmark', {
+    isElectron: true,
+    runSample: (request) => ipcRenderer.invoke('compute-router:controlled-benchmark-sample', request),
+});
+
+
 // Build identity is generated before packaging and exposed as immutable,
  // non-sensitive metadata. It carries no execution or provider authority.
 contextBridge.exposeInMainWorld('orbiBuildIdentity', getBuildIdentity());
