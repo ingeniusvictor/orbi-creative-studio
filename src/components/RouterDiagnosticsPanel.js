@@ -112,7 +112,20 @@ function resolveShadowCompatibilitySnapshot(snapshot, provider) {
     }
 }
 
-function renderShadowCompatibilitySection(snapshot) {
+function shadowRefreshStatusLabel(status) {
+    const key = {
+        running: 'routerDiagnostics.shadowRefreshRunning',
+        updated: 'routerDiagnostics.shadowRefreshUpdated',
+        unchanged: 'routerDiagnostics.shadowRefreshUnchanged',
+        rejected: 'routerDiagnostics.shadowRefreshRejected',
+    }[status];
+    return key ? t(key) : null;
+}
+
+function renderShadowCompatibilitySection(snapshot, {
+    onRefresh = null,
+    refreshStatus = 'idle',
+} = {}) {
     const section = document.createElement('div');
     section.dataset.orbiShadowCompatibility = 'read-only';
     section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(103,232,249,0.12);border-radius:0.75rem;background:rgba(34,211,238,0.025);';
@@ -127,6 +140,30 @@ function renderShadowCompatibilitySection(snapshot) {
         t('routerDiagnostics.shadowSubtitle'),
         'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
     ));
+
+    if (typeof onRefresh === 'function') {
+        const refreshWrap = document.createElement('div');
+        refreshWrap.style.cssText = 'display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;';
+
+        const refreshButton = document.createElement('button');
+        refreshButton.type = 'button';
+        refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only';
+        refreshButton.textContent = t('routerDiagnostics.shadowRefresh');
+        refreshButton.disabled = refreshStatus === 'running';
+        refreshButton.style.cssText = 'padding:0.4rem 0.7rem;border-radius:0.5rem;background:rgba(34,211,238,0.08);border:1px solid rgba(103,232,249,0.2);color:#a5f3fc;font-size:0.68rem;font-weight:700;cursor:pointer;';
+        refreshButton.onclick = onRefresh;
+        refreshWrap.appendChild(refreshButton);
+
+        const statusText = shadowRefreshStatusLabel(refreshStatus);
+        if (statusText) {
+            refreshWrap.appendChild(makeText(
+                'span',
+                statusText,
+                'font-size:0.62rem;color:rgba(255,255,255,0.38);',
+            ));
+        }
+        section.appendChild(refreshWrap);
+    }
 
     const validation = validateShadowCompatibilitySnapshot(snapshot);
     if (!validation.ok) {
@@ -193,8 +230,10 @@ function renderShadowCompatibilitySection(snapshot) {
 export function RouterDiagnosticsPanel({
     shadowCompatibilitySnapshot = null,
     shadowCompatibilitySnapshotProvider = null,
+    shadowDiagnosticRefresh = null,
 } = {}) {
     const panel = document.createElement('div');
+    let shadowRefreshStatus = 'idle';
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
 
@@ -270,7 +309,37 @@ export function RouterDiagnosticsPanel({
                 shadowCompatibilitySnapshot,
                 shadowCompatibilitySnapshotProvider,
             );
-            panel.appendChild(renderShadowCompatibilitySection(resolvedShadowSnapshot));
+            panel.appendChild(renderShadowCompatibilitySection(resolvedShadowSnapshot, {
+                refreshStatus: shadowRefreshStatus,
+                onRefresh: typeof shadowDiagnosticRefresh === 'function'
+                    ? async () => {
+                        if (shadowRefreshStatus === 'running') return;
+                        shadowRefreshStatus = 'running';
+                        render();
+                        try {
+                            const result = await shadowDiagnosticRefresh();
+                            const authorityValid = result
+                                && result.diagnosticOnly === true
+                                && result.routingEligible === false
+                                && result.cutoverAuthorized === false
+                                && result.executionAuthority === 'legacy-dispatcher-only';
+
+                            if (!authorityValid) {
+                                shadowRefreshStatus = 'rejected';
+                            } else if (result.status === 'USER_SHADOW_DIAGNOSTIC_REFRESH_UPDATED') {
+                                shadowRefreshStatus = 'updated';
+                            } else if (result.status === 'USER_SHADOW_DIAGNOSTIC_REFRESH_UNCHANGED') {
+                                shadowRefreshStatus = 'unchanged';
+                            } else {
+                                shadowRefreshStatus = 'rejected';
+                            }
+                        } catch {
+                            shadowRefreshStatus = 'rejected';
+                        }
+                        render();
+                    }
+                    : null,
+            }));
 
             panel.appendChild(makeText(
                 'div',

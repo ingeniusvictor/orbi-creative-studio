@@ -1,0 +1,122 @@
+name: ORBI User shadow diagnostic refresh P1C16 validation
+
+on:
+  push:
+    branches:
+      - feature/user-shadow-diagnostic-refresh-p1c16
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C16
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C16 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const controller = fs.readFileSync('src/lib/computeRouter/userShadowDiagnosticRefresh.mjs', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'setInterval',
+            'setTimeout',
+            'routeGenerationRequest',
+            'generate(',
+          ]) {
+            if (controller.includes(token)) throw new Error('P1C16 controller has forbidden capability: ' + token);
+          }
+
+          for (const token of [
+            'createCertifiedResourceProfileRegistry',
+            'certifications: []',
+            'runShadowCompatibilityDiagnostic',
+            'REFRESH_DIAGNOSTIC_CONTEXT_AMBIGUOUS',
+            'REFRESH_DIAGNOSTIC_AUTHORITY_INVALID',
+            'diagnosticOnly: true',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!controller.includes(token)) throw new Error('P1C16 controller invariant missing: ' + token);
+          }
+
+          if (!panel.includes("refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only'")
+              || !panel.includes('refreshButton.onclick = onRefresh')
+              || !panel.includes('shadowDiagnosticRefresh = null')) {
+            throw new Error('P1C16 UI refresh contract missing');
+          }
+          if ((panel.match(/\.onclick\s*=/g) || []).length !== 2) {
+            throw new Error('Router Diagnostics must have exactly generic refresh + shadow diagnostic refresh');
+          }
+
+          if (!settings.includes('shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh')) {
+            throw new Error('Settings is not wired to the P1C16 diagnostic-only refresh');
+          }
+
+          for (const source of [main, image, video]) {
+            if (source.includes('userShadowDiagnosticRefresh')
+                || source.includes('runUserShadowDiagnosticRefresh')) {
+                throw new Error('P1C16 entered startup/generation execution');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C16 focused tests
+        run: node --test tests/userShadowDiagnosticRefresh.test.js tests/shadowDiagnosticOrchestrator.test.js tests/shadowEvidenceCollector.test.js tests/shadowDiagnosticsUi.test.js tests/shadowSnapshotHandoff.test.js tests/routerDiagnosticsPanel.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C16_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
