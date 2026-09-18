@@ -1,8 +1,8 @@
 import { DEFAULT_PROFILE_TARGETS } from './modelResourceProfiles.mjs';
+import { REGISTRY_STATUS } from './certifiedResourceProfileRegistry.mjs';
 import {
-    createCertifiedResourceProfileRegistry,
-    REGISTRY_STATUS,
-} from './certifiedResourceProfileRegistry.mjs';
+    loadRuntimeCertifiedResourceProfileRegistry,
+} from './runtimeCertifiedResourceProfileRegistry.mjs';
 import {
     runShadowCompatibilityDiagnostic,
     SHADOW_DIAGNOSTIC_ORCHESTRATOR_STATUS,
@@ -135,7 +135,7 @@ function resolveDiagnosticContext(snapshot, requestedContext = null) {
 export function createUserShadowDiagnosticRefresh({
     getBridge = defaultGetBridge,
     runDiagnostic = runShadowCompatibilityDiagnostic,
-    createRegistry = () => createCertifiedResourceProfileRegistry({ certifications: [] }),
+    createRegistry = loadRuntimeCertifiedResourceProfileRegistry,
 } = {}) {
     if (typeof getBridge !== 'function') throw new TypeError('readiness bridge resolver must be a function');
     if (typeof runDiagnostic !== 'function') throw new TypeError('shadow diagnostic runner must be a function');

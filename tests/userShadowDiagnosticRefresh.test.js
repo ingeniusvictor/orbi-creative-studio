@@ -241,7 +241,8 @@ test('P1C16 remains outside startup and generation execution', () => {
         assert.equal(source.includes('runUserShadowDiagnosticRefresh'), false);
     }
 
-    assert.ok(controller.includes('certifications: []'));
+    assert.ok(controller.includes('loadRuntimeCertifiedResourceProfileRegistry'));
+    assert.equal(controller.includes('createCertifiedResourceProfileRegistry'), false);
     assert.ok(controller.includes('routingEligible: false'));
     assert.ok(controller.includes('cutoverAuthorized: false'));
     assert.ok(controller.includes("executionAuthority: 'legacy-dispatcher-only'"));
