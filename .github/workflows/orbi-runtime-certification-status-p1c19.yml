@@ -1,0 +1,131 @@
+name: ORBI Runtime certification status P1C19 validation
+
+on:
+  push:
+    branches:
+      - feature/runtime-certification-status-p1c19
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C19
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C19 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const loader = fs.readFileSync('src/lib/computeRouter/runtimeCertifiedResourceProfileRegistry.mjs', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'getRuntimeCertifiedResourceProfileRegistryStatus',
+            "READY: 'RUNTIME_CERTIFICATION_STATUS_READY'",
+            "UNAVAILABLE: 'RUNTIME_CERTIFICATION_STATUS_UNAVAILABLE'",
+            'authenticityVerified: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!loader.includes(token)) throw new Error('P1C19 status invariant missing: ' + token);
+          }
+
+          for (const token of [
+            "section.dataset.orbiRuntimeCertificationStatus = 'read-only'",
+            'normalizeRuntimeCertificationStatus',
+            'resolveRuntimeCertificationStatus',
+            'renderRuntimeCertificationStatus',
+            'runtimeCertificationStatusProvider = null',
+          ]) {
+            if (!panel.includes(token)) throw new Error('P1C19 UI invariant missing: ' + token);
+          }
+
+          for (const token of [
+            'certificationRecord',
+            '.reviewNote',
+            'approvedRequirements',
+            'runtimeBinarySha256',
+            'modelArtifactSha256',
+            'auxiliaryArtifacts',
+            'reviewerIdentityVerified',
+          ]) {
+            if (panel.includes(token)) throw new Error('P1C19 panel exposes forbidden certification payload: ' + token);
+          }
+
+          if ((panel.match(/\.onclick\s*=/g) || []).length !== 2) {
+            throw new Error('P1C19 must not add Router Diagnostics actions');
+          }
+          if ((panel.match(/\.onchange\s*=/g) || []).length !== 1) {
+            throw new Error('P1C19 must not add Router Diagnostics selection handlers');
+          }
+
+          if (!settings.includes(
+            'runtimeCertificationStatusProvider: getRuntimeCertifiedResourceProfileRegistryStatus'
+          )) {
+            throw new Error('Settings is not wired to sanitized P1C19 status');
+          }
+          if (settings.includes('RUNTIME_RESOURCE_PROFILE_CERTIFICATION_SOURCE')
+              || settings.includes('loadRuntimeCertifiedResourceProfileRegistry')) {
+            throw new Error('Settings gained direct access to runtime certification source/registry');
+          }
+
+          for (const source of [main, image, video]) {
+            if (source.includes('getRuntimeCertifiedResourceProfileRegistryStatus')
+                || source.includes('runtimeCertificationStatusProvider')) {
+                throw new Error('P1C19 entered startup/generation execution');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C19 focused tests
+        run: node --test tests/runtimeCertificationStatus.test.js tests/runtimeCertifiedResourceProfileRegistry.test.js tests/shadowDiagnosticTargetSelector.test.js tests/routerDiagnosticsPanel.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C19_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE

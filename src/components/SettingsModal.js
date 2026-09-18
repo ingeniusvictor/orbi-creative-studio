@@ -5,6 +5,9 @@ import { getMuapiKey, setMuapiCredential } from '../lib/providerCredentials.mjs'
 import { RouterDiagnosticsPanel } from './RouterDiagnosticsPanel.js';
 import { readShadowCompatibilitySnapshot } from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs';
 import {
+    getRuntimeCertifiedResourceProfileRegistryStatus,
+} from '../lib/computeRouter/runtimeCertifiedResourceProfileRegistry.mjs';
+import {
     listUserShadowDiagnosticTargets,
     runUserShadowDiagnosticRefresh,
 } from '../lib/computeRouter/userShadowDiagnosticRefresh.mjs';
@@ -85,6 +88,7 @@ export function SettingsModal(onClose) {
             shadowCompatibilitySnapshotProvider: readShadowCompatibilitySnapshot,
             shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh,
             shadowDiagnosticTargetsProvider: listUserShadowDiagnosticTargets,
+            runtimeCertificationStatusProvider: getRuntimeCertifiedResourceProfileRegistryStatus,
         })
         : null;
 

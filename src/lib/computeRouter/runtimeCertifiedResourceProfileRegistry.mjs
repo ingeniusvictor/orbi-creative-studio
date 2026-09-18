@@ -106,6 +106,56 @@ export function loadRuntimeCertifiedResourceProfileRegistry() {
     });
 }
 
+export const RUNTIME_CERTIFICATION_STATUS = Object.freeze({
+    READY: 'RUNTIME_CERTIFICATION_STATUS_READY',
+    UNAVAILABLE: 'RUNTIME_CERTIFICATION_STATUS_UNAVAILABLE',
+});
+
+export function getRuntimeCertifiedResourceProfileRegistryStatus() {
+    let loaded;
+    try {
+        loaded = loadRuntimeCertifiedResourceProfileRegistry();
+    } catch {
+        loaded = null;
+    }
+
+    const available = loaded
+        && loaded.status === REGISTRY_STATUS.READY
+        && loaded.registry
+        && loaded.sourceType === 'source-controlled-static-bundle'
+        && Number.isInteger(loaded.certificationCount)
+        && loaded.certificationCount >= 0
+        && loaded.sourceContractValid === true
+        && loaded.authenticityVerified === false
+        && loaded.routingEligible === false
+        && loaded.cutoverAuthorized === false
+        && loaded.executionAuthority === 'legacy-dispatcher-only';
+
+    if (!available) {
+        return Object.freeze({
+            status: RUNTIME_CERTIFICATION_STATUS.UNAVAILABLE,
+            sourceType: 'source-controlled-static-bundle',
+            certificationCount: 0,
+            sourceContractValid: false,
+            authenticityVerified: false,
+            routingEligible: false,
+            cutoverAuthorized: false,
+            executionAuthority: 'legacy-dispatcher-only',
+        });
+    }
+
+    return Object.freeze({
+        status: RUNTIME_CERTIFICATION_STATUS.READY,
+        sourceType: loaded.sourceType,
+        certificationCount: loaded.certificationCount,
+        sourceContractValid: true,
+        authenticityVerified: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+    });
+}
+
 export {
     SOURCE_KEYS,
     hasExactKeys,
