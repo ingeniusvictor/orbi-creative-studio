@@ -112,6 +112,108 @@ function resolveShadowCompatibilitySnapshot(snapshot, provider) {
     }
 }
 
+function normalizeRuntimeCertificationStatus(status) {
+    if (!status
+        || typeof status !== 'object'
+        || !['RUNTIME_CERTIFICATION_STATUS_READY', 'RUNTIME_CERTIFICATION_STATUS_UNAVAILABLE'].includes(status.status)
+        || status.sourceType !== 'source-controlled-static-bundle'
+        || !Number.isInteger(status.certificationCount)
+        || status.certificationCount < 0
+        || typeof status.sourceContractValid !== 'boolean'
+        || status.authenticityVerified !== false
+        || status.routingEligible !== false
+        || status.cutoverAuthorized !== false
+        || status.executionAuthority !== 'legacy-dispatcher-only') {
+        return null;
+    }
+
+    if (status.status === 'RUNTIME_CERTIFICATION_STATUS_READY'
+        && status.sourceContractValid !== true) {
+        return null;
+    }
+    if (status.status === 'RUNTIME_CERTIFICATION_STATUS_UNAVAILABLE'
+        && status.sourceContractValid !== false) {
+        return null;
+    }
+
+    return Object.freeze({
+        status: status.status,
+        sourceType: status.sourceType,
+        certificationCount: status.certificationCount,
+        sourceContractValid: status.sourceContractValid,
+        authenticityVerified: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+    });
+}
+
+function resolveRuntimeCertificationStatus(provider) {
+    if (typeof provider !== 'function') return null;
+    try {
+        return normalizeRuntimeCertificationStatus(provider());
+    } catch {
+        return null;
+    }
+}
+
+function renderRuntimeCertificationStatus(status) {
+    const section = document.createElement('div');
+    section.dataset.orbiRuntimeCertificationStatus = 'read-only';
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(167,139,250,0.12);border-radius:0.75rem;background:rgba(139,92,246,0.025);';
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.runtimeCertificationTitle'),
+        'font-size:0.72rem;color:rgba(255,255,255,0.68);font-weight:800;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.runtimeCertificationSubtitle'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+
+    if (!status) {
+        section.appendChild(makeText(
+            'div',
+            t('routerDiagnostics.runtimeCertificationUnavailable'),
+            'padding:0.65rem;border-radius:0.6rem;background:rgba(255,255,255,0.025);color:rgba(255,255,255,0.4);font-size:0.68rem;',
+        ));
+        return section;
+    }
+
+    const metrics = document.createElement('div');
+    metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.runtimeCertificationSource'),
+        t('routerDiagnostics.runtimeCertificationSourceControlled'),
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.runtimeCertificationCount'),
+        status.certificationCount,
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.runtimeCertificationContract'),
+        status.sourceContractValid
+            ? t('routerDiagnostics.runtimeCertificationValid')
+            : t('routerDiagnostics.runtimeCertificationInvalid'),
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.runtimeCertificationAuthenticity'),
+        t('routerDiagnostics.runtimeCertificationNotVerified'),
+    ));
+    section.appendChild(metrics);
+
+    section.appendChild(makeText(
+        'div',
+        status.certificationCount === 0
+            ? t('routerDiagnostics.runtimeCertificationEmptyNote')
+            : t('routerDiagnostics.runtimeCertificationLoadedNote'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.28);line-height:1.4;',
+    ));
+    return section;
+}
+
 function shadowRefreshStatusLabel(status) {
     const key = {
         running: 'routerDiagnostics.shadowRefreshRunning',
@@ -310,6 +412,7 @@ export function RouterDiagnosticsPanel({
     shadowCompatibilitySnapshotProvider = null,
     shadowDiagnosticRefresh = null,
     shadowDiagnosticTargetsProvider = null,
+    runtimeCertificationStatusProvider = null,
 } = {}) {
     const panel = document.createElement('div');
     let shadowRefreshStatus = 'idle';
@@ -386,6 +489,11 @@ export function RouterDiagnosticsPanel({
                 buildBinding?.executionAuthority || 'legacy-dispatcher-only',
             ));
             panel.appendChild(buildMetrics);
+            const runtimeCertificationStatus = resolveRuntimeCertificationStatus(
+                runtimeCertificationStatusProvider,
+            );
+            panel.appendChild(renderRuntimeCertificationStatus(runtimeCertificationStatus));
+
             const resolvedShadowSnapshot = resolveShadowCompatibilitySnapshot(
                 shadowCompatibilitySnapshot,
                 shadowCompatibilitySnapshotProvider,
