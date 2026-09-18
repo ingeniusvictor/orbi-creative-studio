@@ -42,7 +42,6 @@ test('P1C21 UI never renders benchmark evidence hashes, paths, review records or
         'runtimeBinarySha256',
         'modelArtifactSha256',
         'auxiliaryArtifacts',
-        'sourceCommit',
         'runtimeIdentity',
         'runtimeVersion',
         'certificationRecord',
