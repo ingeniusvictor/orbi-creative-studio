@@ -7,8 +7,8 @@ function read(path) {
 }
 
 test('P1C19 exposes sanitized runtime certification status without registry or evidence payloads', async () => {
-    const module = await import('../src/lib/computeRouter/runtimeCertifiedResourceProfileRegistry.mjs');
-    const status = module.getRuntimeCertifiedResourceProfileRegistryStatus();
+    const registryModule = await import('../src/lib/computeRouter/runtimeCertifiedResourceProfileRegistry.mjs');
+    const status = registryModule.getRuntimeCertifiedResourceProfileRegistryStatus();
 
     assert.deepEqual(status, {
         status: 'RUNTIME_CERTIFICATION_STATUS_READY',
