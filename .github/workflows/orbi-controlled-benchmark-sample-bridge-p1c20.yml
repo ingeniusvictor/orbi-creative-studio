@@ -1,0 +1,132 @@
+name: ORBI Controlled benchmark sample bridge P1C20 validation
+
+on:
+  push:
+    branches:
+      - feature/controlled-benchmark-sample-bridge-p1c20
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C20
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C20 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const core = fs.readFileSync('electron/lib/controlledBenchmarkSampleCore.js', 'utf8');
+          const bridge = fs.readFileSync('electron/lib/controlledBenchmarkBridge.js', 'utf8');
+          const preload = fs.readFileSync('electron/preload.js', 'utf8');
+          const main = fs.readFileSync('electron/main.js', 'utf8');
+          const localInference = fs.readFileSync('electron/lib/localInference.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            "const REQUEST_KEYS = new Set(['modelId', 'backend', 'width', 'height', 'runIndex'])",
+            'benchmarkOnly: true',
+            'productionProfilePromoted: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+            'BENCHMARK_ALREADY_RUNNING',
+            'runIndex > 3',
+          ]) {
+            if (!core.includes(token)) throw new Error('P1C20 core invariant missing: ' + token);
+          }
+
+          if (!bridge.includes("const CHANNEL = 'compute-router:controlled-benchmark-sample'")) {
+            throw new Error('P1C20 dedicated IPC channel missing');
+          }
+          if (!bridge.includes('assertTrustedSender(event)')) {
+            throw new Error('P1C20 trusted sender guard missing');
+          }
+          if (!preload.includes("exposeInMainWorld('orbiBenchmark'")) {
+            throw new Error('P1C20 preload capability missing');
+          }
+          if (!preload.includes("runSample: (request) => ipcRenderer.invoke('compute-router:controlled-benchmark-sample', request)")) {
+            throw new Error('P1C20 preload method mismatch');
+          }
+          if (!main.includes('registerControlledBenchmark();')) {
+            throw new Error('P1C20 bridge registration missing');
+          }
+
+          for (const token of [
+            'compute-router:controlled-benchmark-sample',
+            'runLocalBenchmark',
+          ]) {
+            if (localInference.includes(token)) {
+              throw new Error('P1C20 execution leaked into localInference IPC surface: ' + token);
+            }
+          }
+
+          for (const source of [settings, panel, image, video]) {
+            if (source.includes('orbiBenchmark')
+                || source.includes('controlledBenchmarkBridge')
+                || source.includes('CONTROLLED_BENCHMARK_SAMPLE_READY')) {
+                throw new Error('P1C20 benchmark execution entered UI/generation surface');
+            }
+          }
+
+          for (const forbidden of [
+            'productionProfilePromoted: true',
+            'routingEligible: true',
+            'cutoverAuthorized: true',
+          ]) {
+            if (core.includes(forbidden) || bridge.includes(forbidden)) {
+                throw new Error('P1C20 gained forbidden authority: ' + forbidden);
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C20 focused tests
+        run: node --test tests/controlledBenchmarkSampleCore.test.js tests/controlledBenchmarkBridge.test.js tests/localBenchmarkHarness.test.js tests/benchmarkSessionEvidence.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C20_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
