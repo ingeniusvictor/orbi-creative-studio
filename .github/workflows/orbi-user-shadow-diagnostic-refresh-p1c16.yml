@@ -52,8 +52,7 @@ jobs:
           }
 
           for (const token of [
-            'createCertifiedResourceProfileRegistry',
-            'certifications: []',
+            'loadRuntimeCertifiedResourceProfileRegistry',
             'runShadowCompatibilityDiagnostic',
             'REFRESH_DIAGNOSTIC_CONTEXT_AMBIGUOUS',
             'REFRESH_DIAGNOSTIC_AUTHORITY_INVALID',
