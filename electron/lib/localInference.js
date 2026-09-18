@@ -638,6 +638,8 @@ function register() {
 }
 
 module.exports = {
+    getBinaryStatus,
     getReadinessEvidence,
+    listModels,
     register,
 };
