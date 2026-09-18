@@ -1,0 +1,130 @@
+name: ORBI Runtime certified profile registry P1C18 validation
+
+on:
+  push:
+    branches:
+      - feature/runtime-certified-profile-registry-p1c18
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C18
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C18 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('src/lib/computeRouter/runtimeResourceProfileCertifications.mjs', 'utf8');
+          const loader = fs.readFileSync('src/lib/computeRouter/runtimeCertifiedResourceProfileRegistry.mjs', 'utf8');
+          const controller = fs.readFileSync('src/lib/computeRouter/userShadowDiagnosticRefresh.mjs', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'fetch(',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'ipcRenderer',
+            'ipcMain',
+            'node:fs',
+            "from 'fs'",
+            'readFile',
+            'writeFile',
+            'JSON.parse',
+            'URLSearchParams',
+          ]) {
+            if (source.includes(token) || loader.includes(token)) {
+              throw new Error('P1C18 runtime certification source has forbidden ingress: ' + token);
+            }
+          }
+
+          for (const token of [
+            'const certifications = [];',
+            "sourceType: 'source-controlled-static-bundle'",
+            'authenticityVerified: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+            'Do not insert synthetic/demo/fixture certifications here.',
+          ]) {
+            if (!source.includes(token)) throw new Error('P1C18 source invariant missing: ' + token);
+          }
+
+          for (const token of [
+            'export function loadRuntimeCertifiedResourceProfileRegistry()',
+            'createCertifiedResourceProfileRegistry',
+            'isDeepFrozen',
+            'RUNTIME_CERTIFICATION_SOURCE_MUTABLE',
+            'sourceContractValid: true',
+            'authenticityVerified: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!loader.includes(token)) throw new Error('P1C18 loader invariant missing: ' + token);
+          }
+
+          if (!controller.includes('createRegistry = loadRuntimeCertifiedResourceProfileRegistry')
+              || controller.includes('createCertifiedResourceProfileRegistry')) {
+            throw new Error('P1C18 is not the exclusive default diagnostic registry loader');
+          }
+
+          for (const executionSource of [main, image, video]) {
+            if (executionSource.includes('runtimeCertifiedResourceProfileRegistry')
+                || executionSource.includes('runtimeResourceProfileCertifications')) {
+                throw new Error('P1C18 entered startup/generation execution');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C18 focused tests
+        run: node --test tests/runtimeCertifiedResourceProfileRegistry.test.js tests/certifiedResourceProfileRegistry.test.js tests/userShadowDiagnosticRefresh.test.js tests/shadowDiagnosticTargetSelector.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C18_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
