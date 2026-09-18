@@ -1,0 +1,168 @@
+name: ORBI User benchmark session P1C21 validation
+
+on:
+  push:
+    branches:
+      - feature/user-benchmark-session-p1c21
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C21
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C21 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const session = fs.readFileSync('src/lib/computeRouter/userBenchmarkSession.mjs', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'USER_BENCHMARK_REQUIRED_SAMPLES = 3',
+            'window.orbiBenchmark',
+            'benchmarkOnly: true',
+            'productionProfilePromoted: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+            'USER_BENCHMARK_EVIDENCE_CONTEXT_DRIFT',
+          ]) {
+            if (!session.includes(token)) throw new Error('P1C21 session invariant missing: ' + token);
+          }
+
+          for (const forbidden of [
+            "from 'node:fs'",
+            "from 'fs'",
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'setInterval',
+            'routeGenerationRequest',
+            'certifyResourceProfile',
+            'recordResourceProfileCertification',
+            'buildBenchmarkSessionEvidence',
+            'productionProfilePromoted: true',
+            'routingEligible: true',
+            'cutoverAuthorized: true',
+          ]) {
+            if (session.includes(forbidden)) {
+              throw new Error('P1C21 session gained forbidden capability: ' + forbidden);
+            }
+          }
+
+          if (!panel.includes("section.dataset.orbiBenchmarkSession = 'review-evidence-only'")) {
+            throw new Error('P1C21 benchmark session UI missing');
+          }
+          if (!panel.includes("button.dataset.orbiBenchmarkCapture = 'benchmark-only'")) {
+            throw new Error('P1C21 benchmark action boundary missing');
+          }
+          if (!panel.includes('const result = await benchmarkSampleCapture(selectedTarget)')) {
+            throw new Error('P1C21 benchmark capture is not explicit');
+          }
+          if ((panel.match(/\.onclick\s*=/g) || []).length !== 3) {
+            throw new Error('P1C21 Router Diagnostics must have exactly three explicit actions');
+          }
+          if ((panel.match(/\.onchange\s*=/g) || []).length !== 1) {
+            throw new Error('P1C21 must reuse the single P1C17 target selector');
+          }
+
+          for (const forbidden of [
+            'readUserBenchmarkSessionEvidence',
+            'runEvidence',
+            'runtimeBinarySha256',
+            'modelArtifactSha256',
+            'auxiliaryArtifacts',
+            'runtimeIdentity',
+            'runtimeVersion',
+            'certificationRecord',
+            '.reviewNote',
+            'reviewerIdentityVerified',
+            'result.reason',
+          ]) {
+            if (panel.includes(forbidden)) {
+              throw new Error('P1C21 panel exposes forbidden evidence/review payload: ' + forbidden);
+            }
+          }
+
+          for (const token of [
+            'benchmarkSampleCapture: captureUserBenchmarkSample',
+            'benchmarkSessionStateProvider: getUserBenchmarkSessionState',
+          ]) {
+            if (!settings.includes(token)) throw new Error('P1C21 Settings wiring missing: ' + token);
+          }
+          for (const forbidden of [
+            'readUserBenchmarkSessionEvidence',
+            'buildBenchmarkSessionEvidence',
+            'recordResourceProfileCertification',
+            'certifyResourceProfile',
+          ]) {
+            if (settings.includes(forbidden)) {
+              throw new Error('P1C21 Settings gained review/certification authority: ' + forbidden);
+            }
+          }
+
+          for (const source of [main, image, video]) {
+            if (source.includes('userBenchmarkSession')
+                || source.includes('captureUserBenchmarkSample')
+                || source.includes('benchmarkSampleCapture')) {
+                throw new Error('P1C21 entered startup/generation execution');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C21 focused tests
+        run: node --test tests/userBenchmarkSession.test.js tests/userBenchmarkSessionUi.test.js tests/controlledBenchmarkSampleCore.test.js tests/benchmarkSessionEvidence.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C21_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
