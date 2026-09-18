@@ -60,7 +60,7 @@ jobs:
 
           for (const token of [
             'certificationRecord',
-            'reviewNote',
+            '.reviewNote',
             'approvedRequirements',
             'runtimeBinarySha256',
             'modelArtifactSha256',
