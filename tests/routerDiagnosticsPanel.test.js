@@ -34,8 +34,10 @@ test('Router diagnostics panel is read-only and consumes only session diagnostic
     ];
     assert.deepEqual(forbidden.filter((token) => panel.includes(token)), []);
 
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 1);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 2);
     assert.ok(panel.includes('refresh.onclick = render'));
+    assert.ok(panel.includes('refreshButton.onclick = onRefresh'));
+    assert.ok(panel.includes("refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only'"));
 });
 
 test('Settings exposes diagnostics exactly once and only inside the Electron-only tab set', () => {
@@ -52,6 +54,8 @@ test('Settings exposes diagnostics exactly once and only inside the Electron-onl
     assert.ok(settings.includes("{ id: 'diagnostics', label: t('settings.routerDiagnostics') }"));
     assert.ok(settings.includes('const diagnosticsPanel = isLocalAIAvailable()'));
     assert.ok(settings.includes('shadowCompatibilitySnapshotProvider: readShadowCompatibilitySnapshot'));
+    assert.ok(settings.includes('shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh'));
+    assert.ok(settings.includes("from '../lib/computeRouter/userShadowDiagnosticRefresh.mjs'"));
     assert.ok(settings.includes("from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs'"));
     assert.equal(settings.includes('publishShadowCompatibilitySnapshot'), false);
     assert.ok(settings.includes("if (id === 'diagnostics' && diagnosticsPanel) body.appendChild(diagnosticsPanel);"));
