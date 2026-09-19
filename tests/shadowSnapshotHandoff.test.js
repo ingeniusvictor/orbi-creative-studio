@@ -135,7 +135,7 @@ test('P1C12 Settings connects only the handoff reader to Router Diagnostics', ()
     assert.ok(panel.includes('refresh.onclick = render'));
     assert.ok(settings.includes('shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh'));
     assert.ok(panel.includes('refreshButton.onclick = onRefresh'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 2);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 3);
 });
 
 test('P1C12 writer is not connected to startup or generation surfaces', () => {

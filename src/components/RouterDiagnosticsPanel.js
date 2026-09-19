@@ -268,6 +268,162 @@ function normalizeShadowDiagnosticTargets(result) {
     return Object.freeze(targets);
 }
 
+function sameDiagnosticTarget(left, right) {
+    return Boolean(left)
+        && Boolean(right)
+        && left.modelId === right.modelId
+        && left.backend === right.backend
+        && left.width === right.width
+        && left.height === right.height;
+}
+
+function normalizeBenchmarkSessionState(state, target) {
+    if (!state
+        || typeof state !== 'object'
+        || !sameDiagnosticTarget(state.context, target)
+        || ![
+            'USER_BENCHMARK_SESSION_EMPTY',
+            'USER_BENCHMARK_SESSION_COLLECTING',
+            'USER_BENCHMARK_SESSION_READY_FOR_REVIEW',
+        ].includes(state.status)
+        || !Number.isInteger(state.sampleCount)
+        || state.sampleCount < 0
+        || state.sampleCount > 3
+        || state.requiredSamples !== 3
+        || state.readyForReview !== (state.sampleCount === 3)
+        || state.benchmarkOnly !== true
+        || state.productionProfilePromoted !== false
+        || state.routingEligible !== false
+        || state.cutoverAuthorized !== false
+        || state.executionAuthority !== 'legacy-dispatcher-only') {
+        return null;
+    }
+
+    return Object.freeze({
+        status: state.status,
+        context: Object.freeze({ ...target }),
+        sampleCount: state.sampleCount,
+        requiredSamples: 3,
+        readyForReview: state.readyForReview,
+        benchmarkOnly: true,
+        productionProfilePromoted: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+    });
+}
+
+function resolveBenchmarkSessionState(provider, target) {
+    if (typeof provider !== 'function' || !target) return null;
+    try {
+        return normalizeBenchmarkSessionState(provider(target), target);
+    } catch {
+        return null;
+    }
+}
+
+function benchmarkSessionStatusLabel(state) {
+    if (!state) return t('routerDiagnostics.benchmarkStatusUnavailable');
+    const key = {
+        USER_BENCHMARK_SESSION_EMPTY: 'routerDiagnostics.benchmarkStatusEmpty',
+        USER_BENCHMARK_SESSION_COLLECTING: 'routerDiagnostics.benchmarkStatusCollecting',
+        USER_BENCHMARK_SESSION_READY_FOR_REVIEW: 'routerDiagnostics.benchmarkStatusReady',
+    }[state.status] || 'routerDiagnostics.benchmarkStatusUnavailable';
+    return t(key);
+}
+
+function benchmarkActionStatusLabel(status) {
+    const key = {
+        running: 'routerDiagnostics.benchmarkRunning',
+        captured: 'routerDiagnostics.benchmarkCaptured',
+        ready: 'routerDiagnostics.benchmarkReady',
+        rejected: 'routerDiagnostics.benchmarkRejected',
+        'selection-required': 'routerDiagnostics.benchmarkSelectionRequired',
+    }[status];
+    return key ? t(key) : null;
+}
+
+function renderBenchmarkSessionSection(target, state, {
+    onCapture = null,
+    actionStatus = 'idle',
+} = {}) {
+    const section = document.createElement('div');
+    section.dataset.orbiBenchmarkSession = 'review-evidence-only';
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(251,191,36,0.14);border-radius:0.75rem;background:rgba(245,158,11,0.025);';
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkTitle'),
+        'font-size:0.72rem;color:rgba(255,255,255,0.68);font-weight:800;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkSubtitle'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+
+    const metrics = document.createElement('div');
+    metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.benchmarkTarget'),
+        target
+            ? `${target.modelId} · ${target.backend} · ${target.width}×${target.height}`
+            : t('routerDiagnostics.benchmarkNoTarget'),
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.benchmarkSamples'),
+        state ? `${state.sampleCount}/${state.requiredSamples}` : '0/3',
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.benchmarkStatus'),
+        benchmarkSessionStatusLabel(state),
+    ));
+    metrics.appendChild(makeMetric(
+        t('routerDiagnostics.executionAuthority'),
+        'legacy-dispatcher-only',
+    ));
+    section.appendChild(metrics);
+
+    if (typeof onCapture === 'function') {
+        const actionWrap = document.createElement('div');
+        actionWrap.style.cssText = 'display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.orbiBenchmarkCapture = 'benchmark-only';
+        button.textContent = t('routerDiagnostics.benchmarkRunSample');
+        button.disabled = actionStatus === 'running' || state?.readyForReview === true;
+        button.style.cssText = 'padding:0.4rem 0.7rem;border-radius:0.5rem;background:rgba(245,158,11,0.09);border:1px solid rgba(251,191,36,0.22);color:#fde68a;font-size:0.68rem;font-weight:700;cursor:pointer;';
+        button.onclick = onCapture;
+        actionWrap.appendChild(button);
+
+        const actionLabel = benchmarkActionStatusLabel(actionStatus);
+        if (actionLabel) {
+            actionWrap.appendChild(makeText(
+                'span',
+                actionLabel,
+                'font-size:0.62rem;color:rgba(255,255,255,0.38);',
+            ));
+        }
+        section.appendChild(actionWrap);
+    }
+
+    section.appendChild(makeText(
+        'div',
+        state?.readyForReview
+            ? t('routerDiagnostics.benchmarkReadyNote')
+            : t('routerDiagnostics.benchmarkResourceWarning'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkBoundaryNote'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.24);line-height:1.4;',
+    ));
+
+    return section;
+}
+
 function renderShadowCompatibilitySection(snapshot, {
     onRefresh = null,
     refreshStatus = 'idle',
@@ -413,11 +569,14 @@ export function RouterDiagnosticsPanel({
     shadowDiagnosticRefresh = null,
     shadowDiagnosticTargetsProvider = null,
     runtimeCertificationStatusProvider = null,
+    benchmarkSampleCapture = null,
+    benchmarkSessionStateProvider = null,
 } = {}) {
     const panel = document.createElement('div');
     let shadowRefreshStatus = 'idle';
     let shadowDiagnosticTargets = [];
     let selectedShadowTargetKey = null;
+    let benchmarkActionStatus = 'idle';
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
 
@@ -508,6 +667,7 @@ export function RouterDiagnosticsPanel({
                         ? targetKey
                         : null;
                     shadowRefreshStatus = 'idle';
+                    benchmarkActionStatus = 'idle';
                     render();
                 },
                 onRefresh: typeof shadowDiagnosticRefresh === 'function'
@@ -574,6 +734,97 @@ export function RouterDiagnosticsPanel({
                     }
                     : null,
             }));
+
+            const selectedBenchmarkTarget = shadowDiagnosticTargets.find(
+                (target) => shadowTargetKey(target) === selectedShadowTargetKey,
+            ) || (shadowDiagnosticTargets.length === 1 ? shadowDiagnosticTargets[0] : null);
+            const benchmarkSessionState = resolveBenchmarkSessionState(
+                benchmarkSessionStateProvider,
+                selectedBenchmarkTarget,
+            );
+
+            panel.appendChild(renderBenchmarkSessionSection(
+                selectedBenchmarkTarget,
+                benchmarkSessionState,
+                {
+                    actionStatus: benchmarkActionStatus,
+                    onCapture: typeof benchmarkSampleCapture === 'function'
+                        ? async () => {
+                            if (benchmarkActionStatus === 'running') return;
+                            benchmarkActionStatus = 'running';
+                            render();
+                            try {
+                                let selectedTarget = shadowDiagnosticTargets.find(
+                                    (target) => shadowTargetKey(target) === selectedShadowTargetKey,
+                                ) || null;
+
+                                if (typeof shadowDiagnosticTargetsProvider === 'function') {
+                                    const listed = await shadowDiagnosticTargetsProvider();
+                                    const normalizedTargets = normalizeShadowDiagnosticTargets(listed);
+                                    if (!normalizedTargets || normalizedTargets.length === 0) {
+                                        benchmarkActionStatus = 'rejected';
+                                        render();
+                                        return;
+                                    }
+
+                                    shadowDiagnosticTargets = [...normalizedTargets];
+                                    if (shadowDiagnosticTargets.length === 1) {
+                                        selectedTarget = shadowDiagnosticTargets[0];
+                                        selectedShadowTargetKey = shadowTargetKey(selectedTarget);
+                                    } else {
+                                        selectedTarget = shadowDiagnosticTargets.find(
+                                            (target) => shadowTargetKey(target) === selectedShadowTargetKey,
+                                        ) || null;
+                                        if (!selectedTarget) {
+                                            selectedShadowTargetKey = null;
+                                            benchmarkActionStatus = 'selection-required';
+                                            render();
+                                            return;
+                                        }
+                                    }
+                                }
+
+                                if (!selectedTarget) {
+                                    benchmarkActionStatus = 'selection-required';
+                                    render();
+                                    return;
+                                }
+
+                                const result = await benchmarkSampleCapture(selectedTarget);
+                                const authorityValid = result
+                                    && result.benchmarkOnly === true
+                                    && result.productionProfilePromoted === false
+                                    && result.routingEligible === false
+                                    && result.cutoverAuthorized === false
+                                    && result.executionAuthority === 'legacy-dispatcher-only';
+
+                                if (!authorityValid) {
+                                    benchmarkActionStatus = 'rejected';
+                                } else if (result.status === 'USER_BENCHMARK_SESSION_READY_FOR_REVIEW'
+                                    && sameDiagnosticTarget(result.context, selectedTarget)
+                                    && result.sampleCount === 3
+                                    && result.requiredSamples === 3
+                                    && result.readyForReview === true) {
+                                    benchmarkActionStatus = 'ready';
+                                } else if (result.status === 'USER_BENCHMARK_SESSION_COLLECTING'
+                                    && sameDiagnosticTarget(result.context, selectedTarget)
+                                    && Number.isInteger(result.sampleCount)
+                                    && result.sampleCount >= 1
+                                    && result.sampleCount < 3
+                                    && result.requiredSamples === 3
+                                    && result.readyForReview === false) {
+                                    benchmarkActionStatus = 'captured';
+                                } else {
+                                    benchmarkActionStatus = 'rejected';
+                                }
+                            } catch {
+                                benchmarkActionStatus = 'rejected';
+                            }
+                            render();
+                        }
+                        : null,
+                },
+            ));
 
             panel.appendChild(makeText(
                 'div',
