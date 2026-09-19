@@ -424,6 +424,210 @@ function renderBenchmarkSessionSection(target, state, {
     return section;
 }
 
+function normalizeBenchmarkReviewState(result, target) {
+    if (!result
+        || typeof result !== 'object'
+        || !sameDiagnosticTarget(result.context, target)
+        || !['USER_BENCHMARK_REVIEW_EMPTY', 'USER_BENCHMARK_REVIEW_READY'].includes(result.status)
+        || result.reviewOnly !== true
+        || result.requiresHumanCertification !== true
+        || result.productionProfilePromoted !== false
+        || result.routingEligible !== false
+        || result.cutoverAuthorized !== false
+        || result.executionAuthority !== 'legacy-dispatcher-only') {
+        return null;
+    }
+
+    if (result.status === 'USER_BENCHMARK_REVIEW_EMPTY') {
+        if (result.summary !== null) return null;
+        return Object.freeze({ status: result.status, summary: null });
+    }
+
+    const summary = result.summary;
+    if (!summary
+        || typeof summary !== 'object'
+        || summary.modelId !== target.modelId
+        || summary.backend !== target.backend
+        || summary.resolution?.width !== target.width
+        || summary.resolution?.height !== target.height
+        || summary.runCount !== 3
+        || !Array.isArray(summary.runIndexes)
+        || summary.runIndexes.length !== 3
+        || new Set(summary.runIndexes).size !== 3
+        || summary.runIndexes.some((value) => !Number.isInteger(value) || value < 1 || value > 3)
+        || !Number.isFinite(summary.safetyMarginPct)
+        || summary.safetyMarginPct < 0
+        || summary.safetyMarginPct > 100
+        || !Number.isFinite(summary.observedPeakSystemRamMiB)
+        || summary.observedPeakSystemRamMiB <= 0
+        || !Number.isFinite(summary.requirements?.minSystemRamMiB)
+        || summary.requirements.minSystemRamMiB <= 0
+        || summary.requiresHumanCertification !== true
+        || summary.productionProfilePromoted !== false
+        || summary.routingEligible !== false
+        || summary.cutoverAuthorized !== false
+        || summary.executionAuthority !== 'legacy-dispatcher-only') {
+        return null;
+    }
+
+    if (target.backend === 'cuda12'
+        && (!Number.isFinite(summary.observedPeakVramMiB)
+            || summary.observedPeakVramMiB <= 0
+            || !Number.isFinite(summary.requirements.minVramMiB)
+            || summary.requirements.minVramMiB <= 0)) {
+        return null;
+    }
+
+    return Object.freeze({
+        status: result.status,
+        summary: Object.freeze({
+            modelId: summary.modelId,
+            backend: summary.backend,
+            resolution: Object.freeze({ ...summary.resolution }),
+            runCount: 3,
+            safetyMarginPct: summary.safetyMarginPct,
+            observedPeakSystemRamMiB: summary.observedPeakSystemRamMiB,
+            observedPeakVramMiB: target.backend === 'cuda12' ? summary.observedPeakVramMiB : null,
+            minSystemRamMiB: summary.requirements.minSystemRamMiB,
+            minVramMiB: target.backend === 'cuda12' ? summary.requirements.minVramMiB : null,
+        }),
+    });
+}
+
+function resolveBenchmarkReviewState(provider, target) {
+    if (typeof provider !== 'function' || !target) return null;
+    try {
+        return normalizeBenchmarkReviewState(provider(target), target);
+    } catch {
+        return null;
+    }
+}
+
+function validReviewMarginInput(value) {
+    if (typeof value !== 'string' || !value.trim()) return false;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 && number <= 100;
+}
+
+function benchmarkReviewActionStatusLabel(status) {
+    const key = {
+        running: 'routerDiagnostics.benchmarkReviewPreparing',
+        ready: 'routerDiagnostics.benchmarkReviewPrepared',
+        rejected: 'routerDiagnostics.benchmarkReviewRejected',
+    }[status];
+    return key ? t(key) : null;
+}
+
+function renderBenchmarkReviewSection(target, benchmarkState, reviewState, {
+    marginValue = '',
+    onMarginChange = null,
+    onPrepare = null,
+    actionStatus = 'idle',
+} = {}) {
+    const section = document.createElement('div');
+    section.dataset.orbiBenchmarkReview = 'review-only';
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(167,139,250,0.16);border-radius:0.75rem;background:rgba(139,92,246,0.025);';
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkReviewTitle'),
+        'font-size:0.72rem;color:rgba(255,255,255,0.68);font-weight:800;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkReviewSubtitle'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+
+    if (reviewState?.summary) {
+        const summary = reviewState.summary;
+        const metrics = document.createElement('div');
+        metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkReviewMargin'),
+            `${summary.safetyMarginPct}%`,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkReviewSystemRam'),
+            `${Math.round(summary.observedPeakSystemRamMiB)} → ${Math.round(summary.minSystemRamMiB)} MiB`,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkReviewVram'),
+            target?.backend === 'cuda12'
+                ? `${Math.round(summary.observedPeakVramMiB)} → ${Math.round(summary.minVramMiB)} MiB`
+                : t('routerDiagnostics.benchmarkReviewNotApplicable'),
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkReviewStatus'),
+            t('routerDiagnostics.benchmarkReviewReady'),
+        ));
+        section.appendChild(metrics);
+    } else {
+        section.appendChild(makeText(
+            'div',
+            benchmarkState?.readyForReview
+                ? t('routerDiagnostics.benchmarkReviewAwaitingMargin')
+                : t('routerDiagnostics.benchmarkReviewNeedsSamples'),
+            'padding:0.65rem;border-radius:0.6rem;background:rgba(255,255,255,0.025);color:rgba(255,255,255,0.4);font-size:0.68rem;',
+        ));
+    }
+
+    if (benchmarkState?.readyForReview === true
+        && typeof onMarginChange === 'function'
+        && typeof onPrepare === 'function') {
+        const actionWrap = document.createElement('div');
+        actionWrap.style.cssText = 'display:flex;align-items:flex-end;gap:0.6rem;flex-wrap:wrap;';
+
+        const marginWrap = document.createElement('label');
+        marginWrap.style.cssText = 'display:flex;flex-direction:column;gap:0.3rem;font-size:0.62rem;color:rgba(255,255,255,0.42);font-weight:700;';
+        marginWrap.appendChild(makeText('span', t('routerDiagnostics.benchmarkReviewMarginInput')));
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.max = '100';
+        input.step = '1';
+        input.value = marginValue;
+        input.placeholder = t('routerDiagnostics.benchmarkReviewMarginPlaceholder');
+        input.dataset.orbiBenchmarkSafetyMargin = 'explicit-review-input';
+        input.style.cssText = 'width:7rem;padding:0.4rem 0.55rem;border-radius:0.5rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.68rem;';
+        marginWrap.appendChild(input);
+        actionWrap.appendChild(marginWrap);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.orbiBenchmarkReviewPrepare = 'review-only';
+        button.textContent = t('routerDiagnostics.benchmarkReviewPrepare');
+        button.disabled = actionStatus === 'running' || !validReviewMarginInput(marginValue);
+        button.style.cssText = 'padding:0.4rem 0.7rem;border-radius:0.5rem;background:rgba(139,92,246,0.1);border:1px solid rgba(167,139,250,0.24);color:#ddd6fe;font-size:0.68rem;font-weight:700;cursor:pointer;';
+        button.onclick = onPrepare;
+        actionWrap.appendChild(button);
+
+        input.oninput = () => {
+            onMarginChange(input.value);
+            button.disabled = actionStatus === 'running' || !validReviewMarginInput(input.value);
+        };
+
+        const actionLabel = benchmarkReviewActionStatusLabel(actionStatus);
+        if (actionLabel) {
+            actionWrap.appendChild(makeText(
+                'span',
+                actionLabel,
+                'font-size:0.62rem;color:rgba(255,255,255,0.38);',
+            ));
+        }
+        section.appendChild(actionWrap);
+    }
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkReviewBoundaryNote'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.24);line-height:1.4;',
+    ));
+
+    return section;
+}
+
 function renderShadowCompatibilitySection(snapshot, {
     onRefresh = null,
     refreshStatus = 'idle',
@@ -571,12 +775,16 @@ export function RouterDiagnosticsPanel({
     runtimeCertificationStatusProvider = null,
     benchmarkSampleCapture = null,
     benchmarkSessionStateProvider = null,
+    benchmarkReviewPrepare = null,
+    benchmarkReviewSummaryProvider = null,
 } = {}) {
     const panel = document.createElement('div');
     let shadowRefreshStatus = 'idle';
     let shadowDiagnosticTargets = [];
     let selectedShadowTargetKey = null;
     let benchmarkActionStatus = 'idle';
+    let benchmarkReviewActionStatus = 'idle';
+    let benchmarkSafetyMarginPct = '';
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
 
@@ -668,6 +876,8 @@ export function RouterDiagnosticsPanel({
                         : null;
                     shadowRefreshStatus = 'idle';
                     benchmarkActionStatus = 'idle';
+                    benchmarkReviewActionStatus = 'idle';
+                    benchmarkSafetyMarginPct = '';
                     render();
                 },
                 onRefresh: typeof shadowDiagnosticRefresh === 'function'
@@ -819,6 +1029,64 @@ export function RouterDiagnosticsPanel({
                                 }
                             } catch {
                                 benchmarkActionStatus = 'rejected';
+                            }
+                            render();
+                        }
+                        : null,
+                },
+            ));
+
+            const benchmarkReviewState = resolveBenchmarkReviewState(
+                benchmarkReviewSummaryProvider,
+                selectedBenchmarkTarget,
+            );
+            panel.appendChild(renderBenchmarkReviewSection(
+                selectedBenchmarkTarget,
+                benchmarkSessionState,
+                benchmarkReviewState,
+                {
+                    marginValue: benchmarkSafetyMarginPct,
+                    actionStatus: benchmarkReviewActionStatus,
+                    onMarginChange: (value) => {
+                        benchmarkSafetyMarginPct = value;
+                        benchmarkReviewActionStatus = 'idle';
+                    },
+                    onPrepare: typeof benchmarkReviewPrepare === 'function'
+                        ? () => {
+                            if (benchmarkReviewActionStatus === 'running'
+                                || !selectedBenchmarkTarget
+                                || benchmarkSessionState?.readyForReview !== true
+                                || !validReviewMarginInput(benchmarkSafetyMarginPct)) {
+                                benchmarkReviewActionStatus = 'rejected';
+                                render();
+                                return;
+                            }
+
+                            benchmarkReviewActionStatus = 'running';
+                            render();
+                            try {
+                                const result = benchmarkReviewPrepare({
+                                    target: selectedBenchmarkTarget,
+                                    safetyMarginPct: Number(benchmarkSafetyMarginPct),
+                                });
+                                const authorityValid = result
+                                    && result.reviewOnly === true
+                                    && result.requiresHumanCertification === true
+                                    && result.productionProfilePromoted === false
+                                    && result.routingEligible === false
+                                    && result.cutoverAuthorized === false
+                                    && result.executionAuthority === 'legacy-dispatcher-only';
+
+                                if (authorityValid
+                                    && result.status === 'USER_BENCHMARK_REVIEW_READY'
+                                    && sameDiagnosticTarget(result.context, selectedBenchmarkTarget)
+                                    && result.summary?.runCount === 3) {
+                                    benchmarkReviewActionStatus = 'ready';
+                                } else {
+                                    benchmarkReviewActionStatus = 'rejected';
+                                }
+                            } catch {
+                                benchmarkReviewActionStatus = 'rejected';
                             }
                             render();
                         }

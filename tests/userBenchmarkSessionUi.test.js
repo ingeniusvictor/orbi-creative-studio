@@ -16,7 +16,7 @@ test('P1C21 Router Diagnostics adds one explicit benchmark-only action and reuse
     assert.ok(panel.includes('benchmarkSessionStateProvider = null'));
     assert.ok(panel.includes('resolveBenchmarkSessionState'));
     assert.ok(panel.includes('renderBenchmarkSessionSection'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 3);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 4);
     assert.equal((panel.match(/\.onchange\s*=/g) || []).length, 1);
     assert.equal((panel.match(/orbiShadowTargetSelector/g) || []).length, 1);
 });
