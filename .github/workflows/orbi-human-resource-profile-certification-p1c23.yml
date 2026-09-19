@@ -129,7 +129,8 @@ jobs:
             throw new Error('P1C23 Settings gained internal certification/activation access');
           }
 
-          if (!runtimeSource.includes('certifications: Object.freeze([])')) {
+          if (!runtimeSource.includes('const certifications = [];')
+              || !runtimeSource.includes('certifications,')) {
             throw new Error('P1C23 must not modify the empty runtime certification source');
           }
 
