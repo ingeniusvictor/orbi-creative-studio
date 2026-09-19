@@ -19,6 +19,10 @@ import {
     getUserBenchmarkReviewSummary,
     prepareUserBenchmarkReview,
 } from '../lib/computeRouter/userBenchmarkReview.mjs';
+import {
+    getUserBenchmarkCertificationSummary,
+    recordUserBenchmarkCertification,
+} from '../lib/computeRouter/userBenchmarkCertification.mjs';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -101,6 +105,8 @@ export function SettingsModal(onClose) {
             benchmarkSessionStateProvider: getUserBenchmarkSessionState,
             benchmarkReviewPrepare: prepareUserBenchmarkReview,
             benchmarkReviewSummaryProvider: getUserBenchmarkReviewSummary,
+            benchmarkCertificationRecord: recordUserBenchmarkCertification,
+            benchmarkCertificationSummaryProvider: getUserBenchmarkCertificationSummary,
         })
         : null;
 
