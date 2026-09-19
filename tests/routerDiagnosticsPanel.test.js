@@ -34,7 +34,7 @@ test('Router diagnostics panel is read-only and consumes only session diagnostic
     ];
     assert.deepEqual(forbidden.filter((token) => panel.includes(token)), []);
 
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 3);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 4);
     assert.ok(panel.includes('refresh.onclick = render'));
     assert.ok(panel.includes('refreshButton.onclick = onRefresh'));
     assert.ok(panel.includes("refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only'"));
@@ -49,7 +49,7 @@ test('Settings exposes diagnostics exactly once and only inside the Electron-onl
     );
     assert.equal((settings.match(/RouterDiagnosticsPanel\(/g) || []).length, 1);
     assert.equal((settings.match(/id: 'diagnostics'/g) || []).length, 1);
-    assert.equal((settings.match(/diagnosticsPanel/g) || []).length, 3);
+    assert.equal((settings.match(/diagnosticsPanel/g) || []).length, 4);
     assert.ok(settings.includes("...(isLocalAIAvailable() ? ["));
     assert.ok(settings.includes("{ id: 'diagnostics', label: t('settings.routerDiagnostics') }"));
     assert.ok(settings.includes('const diagnosticsPanel = isLocalAIAvailable()'));
