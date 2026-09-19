@@ -66,8 +66,9 @@ test('P1C23 certification summary does not render reviewer id, review note, raw 
     assert.ok(panel.includes('summary.minSystemRamMiB'));
     assert.ok(panel.includes('summary.minVramMiB'));
 
+    assert.equal(/summary\.reviewerId(?!entityVerified)/.test(panel), false);
+
     for (const forbidden of [
-        'summary.reviewerId',
         'summary.reviewNote',
         'readUserBenchmarkCertification',
         'certificationRecord',
