@@ -1,0 +1,157 @@
+name: ORBI Benchmark review package P1C22 validation
+
+on:
+  push:
+    branches:
+      - feature/benchmark-review-package-p1c22
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C22
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C22 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const review = fs.readFileSync('src/lib/computeRouter/userBenchmarkReview.mjs', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'buildBenchmarkSessionEvidence',
+            'validateReviewableSession',
+            'requiresHumanCertification: true',
+            'productionProfilePromoted: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!review.includes(token)) throw new Error('P1C22 review invariant missing: ' + token);
+          }
+
+          for (const forbidden of [
+            "from 'node:fs'",
+            "from 'fs'",
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'certifyResourceProfile(',
+            'RUNTIME_RESOURCE_PROFILE_CERTIFICATION_SOURCE',
+            'productionProfilePromoted: true',
+            'routingEligible: true',
+            'cutoverAuthorized: true',
+          ]) {
+            if (review.includes(forbidden)) throw new Error('P1C22 review gained forbidden capability: ' + forbidden);
+          }
+
+          for (const token of [
+            "section.dataset.orbiBenchmarkReview = 'review-only'",
+            "button.dataset.orbiBenchmarkReviewPrepare = 'review-only'",
+            "input.dataset.orbiBenchmarkSafetyMargin = 'explicit-review-input'",
+            'benchmarkReviewPrepare = null',
+            'benchmarkReviewSummaryProvider = null',
+            'result.requiresHumanCertification === true',
+          ]) {
+            if (!panel.includes(token)) throw new Error('P1C22 UI invariant missing: ' + token);
+          }
+
+          if ((panel.match(/\.onclick\s*=/g) || []).length !== 4) {
+            throw new Error('P1C22 Router Diagnostics must expose exactly four explicit click actions');
+          }
+          if ((panel.match(/\.onchange\s*=/g) || []).length !== 1) {
+            throw new Error('P1C22 must preserve the single target selector onchange');
+          }
+          if ((panel.match(/\.oninput\s*=/g) || []).length !== 1) {
+            throw new Error('P1C22 must expose exactly one safety-margin input handler');
+          }
+
+          for (const forbidden of [
+            'readUserBenchmarkReviewSession',
+            'runtimeBinarySha256',
+            'modelArtifactSha256',
+            'auxiliaryArtifacts',
+            'runtimeIdentity',
+            'runtimeVersion',
+            'sourceCommit',
+            'harnessVersion',
+            'certificationRecord',
+            '.reviewNote',
+            'result.reason',
+          ]) {
+            if (panel.includes(forbidden)) throw new Error('P1C22 UI exposes forbidden review evidence: ' + forbidden);
+          }
+
+          if (!settings.includes('benchmarkReviewPrepare: prepareUserBenchmarkReview')
+              || !settings.includes('benchmarkReviewSummaryProvider: getUserBenchmarkReviewSummary')) {
+            throw new Error('P1C22 Settings wiring missing');
+          }
+          if (settings.includes('readUserBenchmarkReviewSession')
+              || settings.includes('certifyResourceProfile')) {
+            throw new Error('P1C22 Settings gained internal review/certification access');
+          }
+
+          for (const source of [main, image, video]) {
+            if (source.includes('userBenchmarkReview')
+                || source.includes('prepareUserBenchmarkReview')
+                || source.includes('benchmarkReviewPrepare')) {
+              throw new Error('P1C22 entered startup/generation execution');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C22 focused tests
+        run: node --test tests/userBenchmarkReview.test.js tests/userBenchmarkReviewUi.test.js tests/userBenchmarkSession.test.js tests/benchmarkSessionEvidence.test.js tests/resourceProfileCertification.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C22_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
