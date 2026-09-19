@@ -80,9 +80,9 @@ function buildSummary(sessionResult) {
         reviewedAt: evidenceBundle.reviewedAt,
         safetyMarginPct: candidate.recommendation.safetyMarginPct,
         requirements: cloneRequirements(candidate.recommendation.requirements, candidate.backend),
-        observedPeakSystemRamMiB: candidate.observations.peakSystemRamMiB,
+        observedPeakSystemRamMiB: candidate.observations.maxSystemRamMiB,
         ...(candidate.backend === 'cuda12'
-            ? { observedPeakVramMiB: candidate.observations.peakVramMiB }
+            ? { observedPeakVramMiB: candidate.observations.maxVramMiB }
             : {}),
         requiresHumanCertification: true,
         productionProfilePromoted: false,
