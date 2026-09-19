@@ -101,8 +101,11 @@ jobs:
             throw new Error('P1C23 must preserve the single safety-margin oninput handler');
           }
 
+          if (/summary\.reviewerId(?!entityVerified)/.test(panel)) {
+            throw new Error('P1C23 UI exposes forbidden reviewer id');
+          }
+
           for (const forbidden of [
-            'summary.reviewerId',
             'summary.reviewNote',
             'readUserBenchmarkCertification',
             'certificationRecord',
