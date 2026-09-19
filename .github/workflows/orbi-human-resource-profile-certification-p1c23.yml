@@ -1,0 +1,178 @@
+name: ORBI Human resource profile certification P1C23 validation
+
+on:
+  push:
+    branches:
+      - feature/human-resource-profile-certification-p1c23
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C23
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C23 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const certification = fs.readFileSync('src/lib/computeRouter/userBenchmarkCertification.mjs', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const runtimeSource = fs.readFileSync('src/lib/computeRouter/runtimeResourceProfileCertifications.mjs', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'certifyResourceProfile',
+            'certificationOnly: true',
+            'runtimeRegistryLoaded: false',
+            'reviewerIdentityVerified: false',
+            'authenticityVerified: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!certification.includes(token)) {
+              throw new Error('P1C23 certification invariant missing: ' + token);
+            }
+          }
+
+          for (const forbidden of [
+            "from 'node:fs'",
+            "from 'fs'",
+            'fetch(',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'runtimeResourceProfileCertifications',
+            'RUNTIME_RESOURCE_PROFILE_CERTIFICATION_SOURCE',
+            'loadRuntimeCertifiedResourceProfileRegistry',
+            'runtimeRegistryLoaded: true',
+            'reviewerIdentityVerified: true',
+            'authenticityVerified: true',
+            'routingEligible: true',
+            'cutoverAuthorized: true',
+          ]) {
+            if (certification.includes(forbidden)) {
+              throw new Error('P1C23 gained forbidden capability: ' + forbidden);
+            }
+          }
+
+          for (const token of [
+            "section.dataset.orbiBenchmarkCertification = 'certification-only'",
+            "button.dataset.orbiBenchmarkCertificationRecord = 'certification-only'",
+            "approvalInput.dataset.orbiCertificationApproval = 'explicit-human-approval'",
+            "idInput.dataset.orbiCertificationReviewerId = 'declared-metadata'",
+            "nameInput.dataset.orbiCertificationReviewerName = 'declared-metadata'",
+            "noteInput.dataset.orbiCertificationReviewNote = 'declared-metadata'",
+            'benchmarkCertificationRecord = null',
+            'benchmarkCertificationSummaryProvider = null',
+            'result.runtimeRegistryLoaded === false',
+            'result.reviewerIdentityVerified === false',
+            'result.authenticityVerified === false',
+          ]) {
+            if (!panel.includes(token)) throw new Error('P1C23 UI invariant missing: ' + token);
+          }
+
+          if ((panel.match(/\.onclick\s*=/g) || []).length !== 5) {
+            throw new Error('P1C23 Router Diagnostics must expose exactly five explicit click actions');
+          }
+          if ((panel.match(/\.onchange\s*=/g) || []).length !== 1) {
+            throw new Error('P1C23 must preserve the single diagnostic target onchange');
+          }
+          if ((panel.match(/\.oninput\s*=/g) || []).length !== 1) {
+            throw new Error('P1C23 must preserve the single safety-margin oninput handler');
+          }
+
+          for (const forbidden of [
+            'summary.reviewerId',
+            'summary.reviewNote',
+            'readUserBenchmarkCertification',
+            'certificationRecord',
+            'certifiedProfile',
+            'runtimeBinarySha256',
+            'modelArtifactSha256',
+            'auxiliaryArtifacts',
+            'summary.sourceCommit',
+            'summary.harnessVersion',
+            'result.reason',
+          ]) {
+            if (panel.includes(forbidden)) {
+              throw new Error('P1C23 UI exposes forbidden certification payload: ' + forbidden);
+            }
+          }
+
+          if (!settings.includes('benchmarkCertificationRecord: recordUserBenchmarkCertification')
+              || !settings.includes('benchmarkCertificationSummaryProvider: getUserBenchmarkCertificationSummary')) {
+            throw new Error('P1C23 Settings wiring missing');
+          }
+          if (settings.includes('readUserBenchmarkCertification')
+              || settings.includes('runtimeResourceProfileCertifications')
+              || settings.includes('RUNTIME_RESOURCE_PROFILE_CERTIFICATION_SOURCE')) {
+            throw new Error('P1C23 Settings gained internal certification/activation access');
+          }
+
+          if (!runtimeSource.includes('certifications: Object.freeze([])')) {
+            throw new Error('P1C23 must not modify the empty runtime certification source');
+          }
+
+          for (const source of [main, image, video]) {
+            if (source.includes('userBenchmarkCertification')
+                || source.includes('recordUserBenchmarkCertification')
+                || source.includes('benchmarkCertificationRecord')) {
+              throw new Error('P1C23 entered startup/generation execution');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C23 focused tests
+        run: node --test tests/userBenchmarkCertification.test.js tests/userBenchmarkCertificationUi.test.js tests/userBenchmarkReview.test.js tests/resourceProfileCertification.test.js tests/runtimeCertifiedResourceProfileRegistry.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C23_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
