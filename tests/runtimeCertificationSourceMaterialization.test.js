@@ -179,7 +179,7 @@ test('P1C25 summary is sanitized while the raw materialization remains internal'
         'reviewer-001',
         'reviewNote',
         'Controlled local benchmark',
-        'sourceCommit',
+        '"sourceCommit":',
         'auxiliaryArtifacts',
         'certificationRecord',
         'certifiedProfile',
