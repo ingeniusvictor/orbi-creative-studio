@@ -1,0 +1,139 @@
+name: ORBI Guarded external source apply executor P1C30 validation
+
+on:
+  push:
+    branches:
+      - feature/runtime-certification-source-apply-executor-p1c30
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C30
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C30 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const executor = fs.readFileSync(
+            'src/lib/computeRouter/runtimeCertificationSourceApplyExecutor.mjs',
+            'utf8',
+          );
+          const runtimeSource = fs.readFileSync(
+            'src/lib/computeRouter/runtimeResourceProfileCertifications.mjs',
+            'utf8',
+          );
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'validateRuntimeCertificationSourceApplyDryRun',
+            'validateRuntimeCertificationSourceApplyFinalState',
+            "'p1c30-external-source-control-update-request'",
+            "'replace-source-controlled-file'",
+            'applySourceUpdate = null',
+            'readCurrentState = null',
+            'expectedMutationCount: 1',
+            'sourceMutationAppliedByModule: false',
+            'runtimeRegistryLoaded: false',
+            'authenticityVerified: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+            "sourceControlAuthority: 'external-injected-writer-only'",
+          ]) {
+            if (!executor.includes(token)) {
+              throw new Error('P1C30 executor invariant missing: ' + token);
+            }
+          }
+
+          for (const forbidden of [
+            "from 'node:fs'",
+            "from 'fs'",
+            'writeFile',
+            'createWriteStream',
+            'fetch(',
+            'octokit',
+            'github',
+            'updateFile',
+            'createCommit',
+            'updateRef',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'loadRuntimeCertifiedResourceProfileRegistry',
+            'routingEligible: true',
+            'cutoverAuthorized: true',
+            "executionAuthority: 'compute-router'",
+          ]) {
+            if (executor.includes(forbidden)) {
+              throw new Error('P1C30 gained forbidden direct capability: ' + forbidden);
+            }
+          }
+
+          if (!runtimeSource.includes('const certifications = [];')
+              || !runtimeSource.includes('sourceRevision: 1')) {
+            throw new Error('P1C30 must leave real runtime certification source unchanged');
+          }
+
+          for (const source of [settings, panel, main, image, video]) {
+            if (source.includes('runtimeCertificationSourceApplyExecutor')
+                || source.includes('executeRuntimeCertificationSourceApply')) {
+              throw new Error('P1C30 entered UI/startup/generation surface');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C30 focused tests
+        run: node --test tests/runtimeCertificationSourceApplyExecutor.test.js tests/runtimeCertificationSourceApplyDryRun.test.js tests/runtimeCertificationSourceRevisionContract.test.js tests/runtimeCertificationSourceCommitHandoff.test.js tests/runtimeCertifiedResourceProfileRegistry.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C30_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
