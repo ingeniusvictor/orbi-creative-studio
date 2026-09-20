@@ -199,7 +199,7 @@ test('P1C16 UI exposes exactly one additional diagnostic-only action', () => {
     assert.ok(panel.includes("refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only'"));
     assert.ok(panel.includes('refreshButton.onclick = onRefresh'));
     assert.ok(panel.includes('shadowDiagnosticRefresh = null'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 5);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 6);
 
     assert.ok(settings.includes('runUserShadowDiagnosticRefresh'));
     assert.ok(settings.includes('shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh'));

@@ -16,7 +16,7 @@ test('P1C22 Router Diagnostics adds one review-only package action after the 3-s
     assert.ok(panel.includes('input.oninput = () =>'));
     assert.ok(panel.includes('benchmarkReviewPrepare = null'));
     assert.ok(panel.includes('benchmarkReviewSummaryProvider = null'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 5);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 6);
     assert.equal((panel.match(/\.onchange\s*=/g) || []).length, 1);
 });
 

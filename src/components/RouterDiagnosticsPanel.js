@@ -923,6 +923,164 @@ function renderBenchmarkCertificationSection(target, reviewState, certificationS
     return section;
 }
 
+function normalizeRuntimeCertificationPromotionState(result) {
+    if (!result
+        || !['RUNTIME_CERTIFICATION_PROMOTION_EMPTY', 'RUNTIME_CERTIFICATION_PROMOTION_READY'].includes(result.status)
+        || result.promotionOnly !== true
+        || result.sourceReviewRequired !== true
+        || result.sourceMutationApplied !== false
+        || result.runtimeRegistryLoaded !== false
+        || result.authenticityVerified !== false
+        || result.routingEligible !== false
+        || result.cutoverAuthorized !== false
+        || result.executionAuthority !== 'legacy-dispatcher-only') {
+        return null;
+    }
+
+    if (result.status === 'RUNTIME_CERTIFICATION_PROMOTION_READY') {
+        const summary = result.summary;
+        if (!summary
+            || typeof summary.modelId !== 'string'
+            || !summary.modelId
+            || !['cpu', 'cuda12'].includes(summary.backend)
+            || !Number.isInteger(summary.resolution?.width)
+            || !Number.isInteger(summary.resolution?.height)
+            || !Number.isFinite(summary.minSystemRamMiB)
+            || summary.minSystemRamMiB <= 0
+            || (summary.backend === 'cuda12'
+                && (!Number.isFinite(summary.minVramMiB) || summary.minVramMiB <= 0))
+            || summary.sourceType !== 'source-controlled-static-bundle'
+            || summary.baseSourceRevision !== 1
+            || summary.proposedSourceRevision !== 2
+            || summary.sourceReviewRequired !== true
+            || summary.sourceMutationApplied !== false
+            || summary.runtimeRegistryLoaded !== false
+            || summary.authenticityVerified !== false
+            || summary.routingEligible !== false
+            || summary.cutoverAuthorized !== false
+            || summary.executionAuthority !== 'legacy-dispatcher-only') {
+            return null;
+        }
+    } else if (result.summary !== null) {
+        return null;
+    }
+
+    return result;
+}
+
+function resolveRuntimeCertificationPromotionState(provider, target) {
+    if (typeof provider !== 'function' || !target) return null;
+    try {
+        return normalizeRuntimeCertificationPromotionState(provider(target));
+    } catch {
+        return null;
+    }
+}
+
+function runtimePromotionActionStatusLabel(status) {
+    const key = {
+        running: 'routerDiagnostics.runtimePromotionPreparing',
+        prepared: 'routerDiagnostics.runtimePromotionPrepared',
+        rejected: 'routerDiagnostics.runtimePromotionRejected',
+    }[status];
+    return key ? t(key) : null;
+}
+
+function renderRuntimeCertificationPromotionSection(target, certificationState, promotionState, {
+    onPrepare = null,
+    actionStatus = 'idle',
+} = {}) {
+    const section = document.createElement('div');
+    section.dataset.orbiRuntimeCertificationPromotion = 'promotion-only';
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(251,191,36,0.16);border-radius:0.75rem;background:rgba(245,158,11,0.025);';
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.runtimePromotionTitle'),
+        'font-size:0.72rem;color:rgba(255,255,255,0.68);font-weight:800;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.runtimePromotionSubtitle'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+
+    if (promotionState?.summary) {
+        const summary = promotionState.summary;
+        const metrics = document.createElement('div');
+        metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.runtimePromotionTarget'),
+            `${summary.modelId} · ${summary.backend} · ${summary.resolution.width}×${summary.resolution.height}`,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.runtimePromotionRevision'),
+            `${summary.baseSourceRevision} → ${summary.proposedSourceRevision}`,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.runtimePromotionSystemRam'),
+            `${Math.round(summary.minSystemRamMiB)} MiB`,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.runtimePromotionVram'),
+            summary.backend === 'cuda12'
+                ? `${Math.round(summary.minVramMiB)} MiB`
+                : t('routerDiagnostics.benchmarkReviewNotApplicable'),
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.runtimePromotionSourceReview'),
+            t('routerDiagnostics.runtimePromotionRequired'),
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.runtimePromotionRuntimeRegistry'),
+            t('routerDiagnostics.benchmarkCertificationNotLoaded'),
+        ));
+        section.appendChild(metrics);
+    } else {
+        section.appendChild(makeText(
+            'div',
+            certificationState?.summary
+                ? t('routerDiagnostics.runtimePromotionReady')
+                : t('routerDiagnostics.runtimePromotionNeedsCertification'),
+            'padding:0.65rem;border-radius:0.6rem;background:rgba(255,255,255,0.025);color:rgba(255,255,255,0.4);font-size:0.68rem;',
+        ));
+    }
+
+    if (certificationState?.summary
+        && !promotionState?.summary
+        && typeof onPrepare === 'function') {
+        const actionWrap = document.createElement('div');
+        actionWrap.style.cssText = 'display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.orbiRuntimeCertificationPromotionPrepare = 'promotion-only';
+        button.textContent = t('routerDiagnostics.runtimePromotionPrepare');
+        button.disabled = actionStatus === 'running';
+        button.style.cssText = 'padding:0.4rem 0.7rem;border-radius:0.5rem;background:rgba(245,158,11,0.1);border:1px solid rgba(251,191,36,0.24);color:#fde68a;font-size:0.68rem;font-weight:700;cursor:pointer;';
+        button.onclick = onPrepare;
+        actionWrap.appendChild(button);
+
+        const statusLabel = runtimePromotionActionStatusLabel(actionStatus);
+        if (statusLabel) {
+            actionWrap.appendChild(makeText(
+                'span',
+                statusLabel,
+                'font-size:0.62rem;color:rgba(255,255,255,0.38);',
+            ));
+        }
+        section.appendChild(actionWrap);
+    }
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.runtimePromotionBoundaryNote'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.24);line-height:1.4;',
+    ));
+
+    return section;
+}
+
 function renderShadowCompatibilitySection(snapshot, {
     onRefresh = null,
     refreshStatus = 'idle',
@@ -1074,6 +1232,8 @@ export function RouterDiagnosticsPanel({
     benchmarkReviewSummaryProvider = null,
     benchmarkCertificationRecord = null,
     benchmarkCertificationSummaryProvider = null,
+    runtimeCertificationPromotionPrepare = null,
+    runtimeCertificationPromotionSummaryProvider = null,
 } = {}) {
     const panel = document.createElement('div');
     let shadowRefreshStatus = 'idle';
@@ -1087,6 +1247,7 @@ export function RouterDiagnosticsPanel({
     let benchmarkCertificationReviewerName = '';
     let benchmarkCertificationReviewNote = '';
     let benchmarkCertificationApproved = false;
+    let runtimeCertificationPromotionActionStatus = 'idle';
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
 
@@ -1478,6 +1639,58 @@ export function RouterDiagnosticsPanel({
                                 }
                             } catch {
                                 benchmarkCertificationActionStatus = 'rejected';
+                            }
+                            render();
+                        }
+                        : null,
+                },
+            ));
+
+            const runtimeCertificationPromotionState = resolveRuntimeCertificationPromotionState(
+                runtimeCertificationPromotionSummaryProvider,
+                selectedBenchmarkTarget,
+            );
+            panel.appendChild(renderRuntimeCertificationPromotionSection(
+                selectedBenchmarkTarget,
+                benchmarkCertificationState,
+                runtimeCertificationPromotionState,
+                {
+                    actionStatus: runtimeCertificationPromotionActionStatus,
+                    onPrepare: typeof runtimeCertificationPromotionPrepare === 'function'
+                        ? () => {
+                            if (runtimeCertificationPromotionActionStatus === 'running'
+                                || !selectedBenchmarkTarget
+                                || !benchmarkCertificationState?.summary) {
+                                runtimeCertificationPromotionActionStatus = 'rejected';
+                                render();
+                                return;
+                            }
+
+                            runtimeCertificationPromotionActionStatus = 'running';
+                            render();
+                            try {
+                                const result = runtimeCertificationPromotionPrepare(selectedBenchmarkTarget);
+                                const authorityValid = result
+                                    && result.promotionOnly === true
+                                    && result.sourceReviewRequired === true
+                                    && result.sourceMutationApplied === false
+                                    && result.runtimeRegistryLoaded === false
+                                    && result.authenticityVerified === false
+                                    && result.routingEligible === false
+                                    && result.cutoverAuthorized === false
+                                    && result.executionAuthority === 'legacy-dispatcher-only';
+
+                                if (authorityValid
+                                    && result.status === 'RUNTIME_CERTIFICATION_PROMOTION_READY'
+                                    && sameDiagnosticTarget(result.context, selectedBenchmarkTarget)
+                                    && result.summary?.sourceMutationApplied === false
+                                    && result.summary?.runtimeRegistryLoaded === false) {
+                                    runtimeCertificationPromotionActionStatus = 'prepared';
+                                } else {
+                                    runtimeCertificationPromotionActionStatus = 'rejected';
+                                }
+                            } catch {
+                                runtimeCertificationPromotionActionStatus = 'rejected';
                             }
                             render();
                         }
