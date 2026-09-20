@@ -44,6 +44,12 @@ test('P1C22 UI renders only sanitized recommendation summary and no evidence pro
         assert.ok(panel.includes(allowed), `missing sanitized review field: ${allowed}`);
     }
 
+    assert.equal(
+        panel.includes('benchmarkReviewState.summary.reviewerIdentityVerified'),
+        false,
+        'P1C22 review summary must not expose reviewer identity metadata',
+    );
+
     for (const forbidden of [
         'readUserBenchmarkReviewSession',
         'runtimeBinarySha256',
@@ -55,7 +61,6 @@ test('P1C22 UI renders only sanitized recommendation summary and no evidence pro
         'summary.harnessVersion',
         'certificationRecord',
         '.reviewNote',
-        'reviewerIdentityVerified',
         'result.reason',
     ]) {
         assert.equal(panel.includes(forbidden), false, `unexpected P1C22 UI exposure: ${forbidden}`);
