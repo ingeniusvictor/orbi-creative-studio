@@ -191,6 +191,9 @@ function cloneAttestation(attestation) {
             sourceApplyPlanValidated: true,
             sourceApplyPlanBound: true,
         },
+        planBinding: {
+            ...attestation.planBinding,
+        },
         ...authorityFields({ provenanceVerified: true }),
     });
 }
@@ -221,6 +224,16 @@ export function validateRuntimeCertificationEvidenceProvenanceAttestation(attest
         || attestation.bindings?.certificationEntryBound !== true
         || attestation.bindings?.sourceApplyPlanValidated !== true
         || attestation.bindings?.sourceApplyPlanBound !== true
+        || typeof attestation.planBinding?.baseCommitSha !== 'string'
+        || !SHA40_PATTERN.test(attestation.planBinding.baseCommitSha)
+        || typeof attestation.planBinding?.sourceBlobSha !== 'string'
+        || !SHA40_PATTERN.test(attestation.planBinding.sourceBlobSha)
+        || !Number.isInteger(attestation.planBinding?.baseSourceRevision)
+        || !Number.isInteger(attestation.planBinding?.baseCertificationCount)
+        || !Number.isInteger(attestation.planBinding?.proposedSourceRevision)
+        || !Number.isInteger(attestation.planBinding?.proposedCertificationCount)
+        || attestation.planBinding.proposedSourceRevision !== attestation.planBinding.baseSourceRevision + 1
+        || attestation.planBinding.proposedCertificationCount !== attestation.planBinding.baseCertificationCount + 1
         || attestation.provenanceGateOnly !== true
         || attestation.realEvidenceProvenanceVerified !== true
         || attestation.trustedMainProcessAcquisition !== true
@@ -258,6 +271,8 @@ function buildSummary(attestation) {
         certificationEntryBound: true,
         sourceApplyPlanValidated: true,
         sourceApplyPlanBound: true,
+        baseSourceRevision: attestation.planBinding.baseSourceRevision,
+        proposedSourceRevision: attestation.planBinding.proposedSourceRevision,
         ...authorityFields({ provenanceVerified: true }),
     });
 }
@@ -401,6 +416,14 @@ export function createRuntimeCertificationEvidenceProvenanceGate({
                 certificationEntryBound: true,
                 sourceApplyPlanValidated: true,
                 sourceApplyPlanBound: true,
+            },
+            planBinding: {
+                baseCommitSha: plan.operation.expectedCurrent.baseCommitSha,
+                sourceBlobSha: plan.operation.expectedCurrent.sourceBlobSha,
+                baseSourceRevision: plan.operation.expectedCurrent.sourceRevision,
+                baseCertificationCount: plan.operation.expectedCurrent.certificationCount,
+                proposedSourceRevision: plan.operation.proposed.sourceRevision,
+                proposedCertificationCount: plan.operation.proposed.certificationCount,
             },
             ...authorityFields({ provenanceVerified: true }),
         });
