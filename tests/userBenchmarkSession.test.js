@@ -66,6 +66,54 @@ function readyResult(runIndex, overrides = {}) {
     };
 }
 
+function provenance(runIndex, overrides = {}) {
+    return {
+        schemaVersion: 1,
+        proofType: 'p1c31-real-benchmark-acquisition-proof',
+        origin: 'electron-main-controlled-benchmark',
+        evidenceClass: 'real-runtime-measurement',
+        trustedMainProcess: true,
+        runtimeIntegrityVerified: true,
+        runtimeManifestPinned: true,
+        modelStateResolved: true,
+        buildIdentityResolved: true,
+        benchmarkProcessExecuted: true,
+        fixture: false,
+        synthetic: false,
+        demo: false,
+        context: {
+            modelId: TARGET.modelId,
+            backend: TARGET.backend,
+            resolution: { width: TARGET.width, height: TARGET.height },
+            runIndex,
+        },
+        benchmarkContext: {
+            harnessVersion: 'orbi-local-benchmark-harness-0.1.0',
+            sourceCommit: SOURCE_COMMIT,
+            runtimeIdentity: 'stable-diffusion.cpp-win-cuda12.zip',
+            runtimeVersion: 'v-test',
+            runtimeBinarySha256: RUNTIME_SHA,
+            modelArtifactSha256: MODEL_SHA,
+            auxiliaryArtifacts: [
+                { role: 'llm', sha256: LLM_SHA },
+                { role: 'vae', sha256: VAE_SHA },
+            ],
+        },
+        cryptographicAuthenticityVerified: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+        ...overrides,
+    };
+}
+
+function realReadyResult(runIndex, overrides = {}) {
+    return {
+        ...readyResult(runIndex, overrides),
+        provenance: provenance(runIndex, overrides.provenance || {}),
+    };
+}
+
 async function loadModule() {
     return import('../src/lib/computeRouter/userBenchmarkSession.mjs');
 }
@@ -343,6 +391,88 @@ test('P1C21 review evidence reader returns detached frozen envelopes for later r
     assert.equal(firstRead[0] === secondRead[0], false);
     assert.equal(firstRead[0].productionProfilePromoted, false);
     assert.equal(firstRead[0].routingEligible, false);
+});
+
+test('P1C31 P1C21 retains trusted benchmark provenance separately from review evidence', async () => {
+    const benchmarkSession = await loadModule();
+    const session = benchmarkSession.createUserBenchmarkSession({
+        sessionStore: new Map(),
+        provenanceStore: new Map(),
+        getBridge: () => ({
+            isElectron: true,
+            runSample: async (request) => realReadyResult(request.runIndex),
+        }),
+    });
+
+    await session.capture(TARGET);
+    await session.capture(TARGET);
+    await session.capture(TARGET);
+
+    const provenanceRead = session.readProvenance(TARGET);
+    assert.equal(provenanceRead.length, 3);
+    assert.deepEqual(provenanceRead.map((item) => item.context.runIndex), [1, 2, 3]);
+    assert.equal(Object.isFrozen(provenanceRead), true);
+    assert.equal(Object.isFrozen(provenanceRead[0]), true);
+    assert.equal(provenanceRead[0].fixture, false);
+    assert.equal(provenanceRead[0].trustedMainProcess, true);
+    assert.equal(provenanceRead[0].cryptographicAuthenticityVerified, false);
+
+    const reviewEvidence = session.readEvidence(TARGET);
+    assert.equal(reviewEvidence.length, 3);
+    assert.equal('provenance' in reviewEvidence[0], false);
+});
+
+test('P1C31 legacy/fixture-shaped benchmark results remain usable for tests but do not gain real provenance', async () => {
+    const benchmarkSession = await loadModule();
+    const session = benchmarkSession.createUserBenchmarkSession({
+        sessionStore: new Map(),
+        provenanceStore: new Map(),
+        getBridge: () => ({
+            isElectron: true,
+            runSample: async (request) => readyResult(request.runIndex),
+        }),
+    });
+
+    await session.capture(TARGET);
+    await session.capture(TARGET);
+    await session.capture(TARGET);
+
+    assert.equal(session.getState(TARGET).sampleCount, 3);
+    assert.deepEqual(session.readProvenance(TARGET), []);
+});
+
+test('P1C31 rejects malformed or context-mismatched provenance without storing the sample', async () => {
+    const benchmarkSession = await loadModule();
+
+    for (const badProvenance of [
+        provenance(1, { fixture: true }),
+        provenance(1, { synthetic: true }),
+        provenance(1, {
+            context: {
+                modelId: TARGET.modelId,
+                backend: TARGET.backend,
+                resolution: { width: TARGET.width, height: TARGET.height },
+                runIndex: 2,
+            },
+        }),
+    ]) {
+        const session = benchmarkSession.createUserBenchmarkSession({
+            sessionStore: new Map(),
+            provenanceStore: new Map(),
+            getBridge: () => ({
+                isElectron: true,
+                runSample: async () => ({
+                    ...readyResult(1),
+                    provenance: badProvenance,
+                }),
+            }),
+        });
+
+        const result = await session.capture(TARGET);
+        assert.equal(result.status, 'USER_BENCHMARK_SESSION_REJECTED');
+        assert.equal(session.getState(TARGET).sampleCount, 0);
+        assert.deepEqual(session.readProvenance(TARGET), []);
+    }
 });
 
 test('P1C21 source remains in-memory, explicit, and non-certifying', () => {
