@@ -11,29 +11,27 @@ Its job is to answer two separate questions before any future write:
 
 A dry-run is considered apply-eligible only when both conditions hold.
 
-## Current loader limitation discovered by P1C28
+## Loader compatibility after P1C29
 
-The current runtime loader accepts only source revision 1.
+P1C28 originally discovered that the runtime loader accepted only source revision 1.
 
-P1C28 centralizes that capability in:
+P1C29 deliberately migrates the loader contract to:
 
-`RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS`
+`RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS = [1, 2]`
 
-which is currently:
+The real governed source remains revision 1 and empty, but a reviewed P1C27 proposal for revision 2 is now loader-compatible.
 
-`[1]`
+Therefore the default P1C28 result for a valid revision-2 proposal is:
 
-The existing loader behavior remains unchanged.
+`RUNTIME_CERTIFICATION_SOURCE_APPLY_DRY_RUN_READY`
 
-Because a valid P1C27 handoff proposes source revision 2, the default P1C28 result is intentionally:
+with:
 
-`RUNTIME_CERTIFICATION_SOURCE_APPLY_DRY_RUN_BLOCKED`
+- `runtimeLoaderCompatible: true`;
+- `runtimeLoaderMigrationRequired: false`;
+- `sourceApplyEligible: true`.
 
-with reason:
-
-`SOURCE_APPLY_RUNTIME_LOADER_MIGRATION_REQUIRED`
-
-This is a truthful safety block, not a failure of the reviewed certification chain.
+This still does not perform or authorize a source mutation by itself.
 
 ## Preconditions
 
@@ -89,14 +87,14 @@ If the proposed revision is not supported:
 - `sourceApplyEligible: false`;
 - plan status is `runtime-loader-migration-required`.
 
-If a future loader contract explicitly supports the proposed revision:
+With P1C29, revision 2 is explicitly supported:
 
 - `runtimeLoaderCompatible: true`;
 - `runtimeLoaderMigrationRequired: false`;
 - `sourceApplyEligible: true`;
-- plan status becomes `guarded-source-apply-ready`.
+- plan status is `guarded-source-apply-ready`.
 
-P1C28 tests both states without changing the production loader contract.
+P1C28 still tests the blocked state by injecting an older capability list that omits revision 2, so the migration guard remains fail-closed.
 
 ## Internal dry-run plan
 
