@@ -52,13 +52,18 @@ test('P1C24 UI renders sanitized promotion summary only', () => {
         assert.ok(panel.includes(allowed), `missing P1C24 summary field: ${allowed}`);
     }
 
+    assert.equal(
+        /summary\.reviewerId(?!entityVerified)/.test(panel),
+        false,
+        'P1C24 promotion UI must not render reviewer id',
+    );
+
     for (const forbidden of [
         'readRuntimeCertificationPromotionPackage',
         'summary.certificationEntry',
         'summary.certificationRecord',
         'summary.certifiedProfile',
         'summary.reviewNote',
-        'summary.reviewerId',
         'summary.sourceCommit',
         'runtimeBinarySha256',
         'modelArtifactSha256',
