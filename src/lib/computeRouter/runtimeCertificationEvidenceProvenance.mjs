@@ -397,7 +397,10 @@ export function createRuntimeCertificationEvidenceProvenanceGate({
             stableNormalize(promotion.certificationEntry),
             null,
             4,
-        );
+        )
+            .split('\n')
+            .map((line) => `    ${line}`)
+            .join('\n');
         if (!plan.operation.proposed.sourceContent.includes(stableEntry)) {
             return rejected('REAL_EVIDENCE_PROVENANCE_SOURCE_BINDING_MISMATCH', normalizedTarget);
         }
