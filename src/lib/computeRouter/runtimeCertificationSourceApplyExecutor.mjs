@@ -2,6 +2,10 @@ import {
     readRuntimeCertificationSourceApplyDryRun,
     validateRuntimeCertificationSourceApplyDryRun,
 } from './runtimeCertificationSourceApplyDryRun.mjs';
+import {
+    readRuntimeCertificationEvidenceProvenanceAttestation,
+    validateRuntimeCertificationEvidenceProvenanceAttestation,
+} from './runtimeCertificationEvidenceProvenance.mjs';
 import { validateTarget } from './userBenchmarkSession.mjs';
 
 export const RUNTIME_CERTIFICATION_SOURCE_APPLY_EXECUTOR_STATUS = Object.freeze({
@@ -50,6 +54,7 @@ function executionKey(plan) {
 
 function authorityFields({
     sourceApplyApproved = false,
+    realEvidenceProvenanceVerified = false,
     finalStateValidated = false,
     externalWriterInvoked = false,
     externalMutationReported = false,
@@ -58,6 +63,7 @@ function authorityFields({
     return Object.freeze({
         executorContractOnly: true,
         sourceApplyApproved,
+        realEvidenceProvenanceVerified,
         finalStateValidated,
         externalWriterInvoked,
         externalMutationReported,
@@ -100,6 +106,7 @@ function indeterminate(reason, target, extras = {}) {
         receipt: null,
         ...authorityFields({
             sourceApplyApproved: true,
+            realEvidenceProvenanceVerified: true,
             finalStateValidated: true,
             externalWriterInvoked: true,
             externalMutationReported: false,
@@ -192,7 +199,7 @@ export function validateRuntimeCertificationSourceApplyFinalState(plan, currentS
     });
 }
 
-function buildExternalWriteRequest(plan, approval) {
+function buildExternalWriteRequest(plan, approval, provenanceAttestation) {
     return deepFreeze({
         schemaVersion: 1,
         requestType: 'p1c30-external-source-control-update-request',
@@ -218,6 +225,20 @@ function buildExternalWriteRequest(plan, approval) {
             approvalNote: approval.approvalNote,
             approvedAt: approval.approvedAt,
             operatorIdentityVerified: false,
+        },
+        provenance: {
+            attestationType: provenanceAttestation.attestationType,
+            status: provenanceAttestation.status,
+            origin: provenanceAttestation.acquisition.origin,
+            evidenceClass: provenanceAttestation.acquisition.evidenceClass,
+            runCount: provenanceAttestation.acquisition.runCount,
+            runIndexes: [...provenanceAttestation.acquisition.runIndexes],
+            realEvidenceProvenanceVerified: true,
+            cryptographicAuthenticityVerified: false,
+            baseCommitSha: provenanceAttestation.planBinding.baseCommitSha,
+            sourceBlobSha: provenanceAttestation.planBinding.sourceBlobSha,
+            proposedSourceRevision: provenanceAttestation.planBinding.proposedSourceRevision,
+            proposedCertificationCount: provenanceAttestation.planBinding.proposedCertificationCount,
         },
         sourceMutationAppliedByModule: false,
         runtimeRegistryLoaded: false,
@@ -283,12 +304,16 @@ function buildReceiptSummary(target, request, receipt) {
 
 export function createRuntimeCertificationSourceApplyExecutor({
     readDryRun = readRuntimeCertificationSourceApplyDryRun,
+    readProvenanceAttestation = readRuntimeCertificationEvidenceProvenanceAttestation,
     readCurrentState = null,
     applySourceUpdate = null,
     attempts = executionAttempts,
 } = {}) {
     if (typeof readDryRun !== 'function') {
         throw new TypeError('source apply dry-run reader must be a function');
+    }
+    if (typeof readProvenanceAttestation !== 'function') {
+        throw new TypeError('real evidence provenance reader must be a function');
     }
     if (readCurrentState !== null && typeof readCurrentState !== 'function') {
         throw new TypeError('current source state reader must be a function or null');
@@ -336,9 +361,46 @@ export function createRuntimeCertificationSourceApplyExecutor({
             return rejected('SOURCE_APPLY_EXECUTOR_CONTEXT_MISMATCH', normalizedTarget);
         }
 
+        let provenanceAttestation;
+        try {
+            provenanceAttestation = readProvenanceAttestation(normalizedTarget);
+        } catch {
+            return rejected('SOURCE_APPLY_REAL_EVIDENCE_PROVENANCE_READ_FAILED', normalizedTarget);
+        }
+        if (!provenanceAttestation) {
+            return rejected('SOURCE_APPLY_REAL_EVIDENCE_PROVENANCE_MISSING', normalizedTarget);
+        }
+
+        const provenanceValidation = validateRuntimeCertificationEvidenceProvenanceAttestation(
+            provenanceAttestation,
+        );
+        if (!provenanceValidation.ok
+            || provenanceAttestation.context.modelId !== normalizedTarget.modelId
+            || provenanceAttestation.context.backend !== normalizedTarget.backend
+            || provenanceAttestation.context.resolution?.width !== normalizedTarget.width
+            || provenanceAttestation.context.resolution?.height !== normalizedTarget.height
+            || provenanceAttestation.planBinding.baseCommitSha
+                !== plan.operation.expectedCurrent.baseCommitSha
+            || provenanceAttestation.planBinding.sourceBlobSha
+                !== plan.operation.expectedCurrent.sourceBlobSha
+            || provenanceAttestation.planBinding.baseSourceRevision
+                !== plan.operation.expectedCurrent.sourceRevision
+            || provenanceAttestation.planBinding.baseCertificationCount
+                !== plan.operation.expectedCurrent.certificationCount
+            || provenanceAttestation.planBinding.proposedSourceRevision
+                !== plan.operation.proposed.sourceRevision
+            || provenanceAttestation.planBinding.proposedCertificationCount
+                !== plan.operation.proposed.certificationCount) {
+            return rejected('SOURCE_APPLY_REAL_EVIDENCE_PROVENANCE_INVALID', normalizedTarget);
+        }
+
         const approvalValidation = validateApplyApproval(approval);
         if (!approvalValidation.ok) {
-            return rejected(approvalValidation.reason, normalizedTarget);
+            return rejected(
+                approvalValidation.reason,
+                normalizedTarget,
+                { realEvidenceProvenanceVerified: true },
+            );
         }
 
         const key = executionKey(plan);
@@ -348,6 +410,7 @@ export function createRuntimeCertificationSourceApplyExecutor({
                 normalizedTarget,
                 {
                     sourceApplyApproved: true,
+                    realEvidenceProvenanceVerified: true,
                     retryAllowed: false,
                 },
             );
@@ -363,7 +426,10 @@ export function createRuntimeCertificationSourceApplyExecutor({
             return rejected(
                 'SOURCE_APPLY_FINAL_STATE_READ_FAILED',
                 normalizedTarget,
-                { sourceApplyApproved: true },
+                {
+                    sourceApplyApproved: true,
+                    realEvidenceProvenanceVerified: true,
+                },
             );
         }
 
@@ -379,7 +445,11 @@ export function createRuntimeCertificationSourceApplyExecutor({
             );
         }
 
-        const request = buildExternalWriteRequest(plan, approvalValidation.approval);
+        const request = buildExternalWriteRequest(
+            plan,
+            approvalValidation.approval,
+            provenanceAttestation,
+        );
 
         // Mark the attempt before invoking the external writer. If the writer fails
         // or returns an invalid receipt, automatic retry is forbidden because the
@@ -445,6 +515,7 @@ export function createRuntimeCertificationSourceApplyExecutor({
             receipt: summary,
             ...authorityFields({
                 sourceApplyApproved: true,
+                realEvidenceProvenanceVerified: true,
                 finalStateValidated: true,
                 externalWriterInvoked: true,
                 externalMutationReported: true,

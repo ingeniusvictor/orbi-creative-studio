@@ -231,6 +231,49 @@ function sampleMatchesPlan(sample, plan) {
         && sample.sourceCommit === plan.sourceCommit;
 }
 
+function buildRealBenchmarkAcquisitionProof(runEvidence) {
+    const sample = runEvidence.sample;
+    return Object.freeze({
+        schemaVersion: 1,
+        proofType: 'p1c31-real-benchmark-acquisition-proof',
+        origin: 'electron-main-controlled-benchmark',
+        evidenceClass: 'real-runtime-measurement',
+        trustedMainProcess: true,
+        runtimeIntegrityVerified: true,
+        runtimeManifestPinned: true,
+        modelStateResolved: true,
+        buildIdentityResolved: true,
+        benchmarkProcessExecuted: true,
+        fixture: false,
+        synthetic: false,
+        demo: false,
+        context: Object.freeze({
+            modelId: sample.modelId,
+            backend: sample.backend,
+            resolution: Object.freeze({
+                width: sample.resolution.width,
+                height: sample.resolution.height,
+            }),
+            runIndex: sample.runIndex,
+        }),
+        benchmarkContext: Object.freeze({
+            harnessVersion: sample.harnessVersion,
+            sourceCommit: sample.sourceCommit,
+            runtimeIdentity: sample.runtimeIdentity,
+            runtimeVersion: sample.runtimeVersion,
+            runtimeBinarySha256: sample.runtimeBinarySha256,
+            modelArtifactSha256: sample.modelArtifactSha256,
+            auxiliaryArtifacts: Object.freeze(runEvidence.auxiliaryArtifacts.map((artifact) => (
+                Object.freeze({ role: artifact.role, sha256: artifact.sha256 })
+            ))),
+        }),
+        cryptographicAuthenticityVerified: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+    });
+}
+
 function createControlledBenchmarkSampleRunner({
     getBinaryStatus,
     listModels,
@@ -300,10 +343,13 @@ function createControlledBenchmarkSampleRunner({
                 executionAuthority: 'legacy-dispatcher-only',
             });
 
+            const provenance = buildRealBenchmarkAcquisitionProof(runEvidence);
+
             return Object.freeze({
                 status: CONTROLLED_BENCHMARK_SAMPLE_STATUS.READY,
                 reason: null,
                 runEvidence,
+                provenance,
                 benchmarkOnly: true,
                 productionProfilePromoted: false,
                 routingEligible: false,
@@ -330,6 +376,7 @@ module.exports = {
     CERTIFIABLE_BACKENDS,
     CONTROLLED_BENCHMARK_SAMPLE_STATUS,
     REQUEST_KEYS,
+    buildRealBenchmarkAcquisitionProof,
     createControlledBenchmarkSampleRunner,
     getControlledBenchmarkTargets,
     resolveBenchmarkPlan,

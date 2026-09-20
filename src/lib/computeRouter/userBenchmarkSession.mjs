@@ -12,6 +12,7 @@ export const USER_BENCHMARK_REQUIRED_SAMPLES = 3;
 
 const CERTIFIABLE_BACKENDS = new Set(['cpu', 'cuda12']);
 const sessions = new Map();
+const provenanceRecords = new Map();
 let benchmarkActive = false;
 
 function defaultGetBridge() {
@@ -76,6 +77,92 @@ function cloneRunEvidence(runEvidence) {
         routingEligible: false,
         cutoverAuthorized: false,
         executionAuthority: 'legacy-dispatcher-only',
+    });
+}
+
+function cloneProvenance(provenance) {
+    return Object.freeze({
+        schemaVersion: 1,
+        proofType: provenance.proofType,
+        origin: provenance.origin,
+        evidenceClass: provenance.evidenceClass,
+        trustedMainProcess: provenance.trustedMainProcess,
+        runtimeIntegrityVerified: provenance.runtimeIntegrityVerified,
+        runtimeManifestPinned: provenance.runtimeManifestPinned,
+        modelStateResolved: provenance.modelStateResolved,
+        buildIdentityResolved: provenance.buildIdentityResolved,
+        benchmarkProcessExecuted: provenance.benchmarkProcessExecuted,
+        fixture: provenance.fixture,
+        synthetic: provenance.synthetic,
+        demo: provenance.demo,
+        context: Object.freeze({
+            ...provenance.context,
+            resolution: Object.freeze({ ...provenance.context.resolution }),
+        }),
+        benchmarkContext: Object.freeze({
+            ...provenance.benchmarkContext,
+            auxiliaryArtifacts: Object.freeze(
+                provenance.benchmarkContext.auxiliaryArtifacts.map((artifact) => (
+                    Object.freeze({ ...artifact })
+                )),
+            ),
+        }),
+        cryptographicAuthenticityVerified: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+    });
+}
+
+function validateBridgeProvenance(provenance, runEvidence) {
+    if (!provenance) return Object.freeze({ ok: true, reason: null, provenance: null });
+    if (typeof provenance !== 'object'
+        || Array.isArray(provenance)
+        || provenance.schemaVersion !== 1
+        || provenance.proofType !== 'p1c31-real-benchmark-acquisition-proof'
+        || provenance.origin !== 'electron-main-controlled-benchmark'
+        || provenance.evidenceClass !== 'real-runtime-measurement'
+        || provenance.trustedMainProcess !== true
+        || provenance.runtimeIntegrityVerified !== true
+        || provenance.runtimeManifestPinned !== true
+        || provenance.modelStateResolved !== true
+        || provenance.buildIdentityResolved !== true
+        || provenance.benchmarkProcessExecuted !== true
+        || provenance.fixture !== false
+        || provenance.synthetic !== false
+        || provenance.demo !== false
+        || provenance.cryptographicAuthenticityVerified !== false
+        || provenance.routingEligible !== false
+        || provenance.cutoverAuthorized !== false
+        || provenance.executionAuthority !== 'legacy-dispatcher-only') {
+        return Object.freeze({ ok: false, reason: 'USER_BENCHMARK_PROVENANCE_INVALID' });
+    }
+
+    const sample = runEvidence.sample;
+    const context = provenance.context;
+    const benchmarkContext = provenance.benchmarkContext;
+    if (!context
+        || context.modelId !== sample.modelId
+        || context.backend !== sample.backend
+        || context.resolution?.width !== sample.resolution.width
+        || context.resolution?.height !== sample.resolution.height
+        || context.runIndex !== sample.runIndex
+        || !benchmarkContext
+        || benchmarkContext.harnessVersion !== sample.harnessVersion
+        || benchmarkContext.sourceCommit !== sample.sourceCommit
+        || benchmarkContext.runtimeIdentity !== sample.runtimeIdentity
+        || benchmarkContext.runtimeVersion !== sample.runtimeVersion
+        || benchmarkContext.runtimeBinarySha256 !== sample.runtimeBinarySha256
+        || benchmarkContext.modelArtifactSha256 !== sample.modelArtifactSha256
+        || !Array.isArray(benchmarkContext.auxiliaryArtifacts)
+        || !sameAuxiliaryArtifacts(benchmarkContext.auxiliaryArtifacts, runEvidence.auxiliaryArtifacts)) {
+        return Object.freeze({ ok: false, reason: 'USER_BENCHMARK_PROVENANCE_CONTEXT_MISMATCH' });
+    }
+
+    return Object.freeze({
+        ok: true,
+        reason: null,
+        provenance: cloneProvenance(provenance),
     });
 }
 
@@ -174,9 +261,11 @@ function validateBridgeResult(result, target, expectedRunIndex) {
 export function createUserBenchmarkSession({
     getBridge = defaultGetBridge,
     sessionStore = sessions,
+    provenanceStore = provenanceRecords,
 } = {}) {
     if (typeof getBridge !== 'function') throw new TypeError('benchmark bridge resolver must be a function');
     if (!(sessionStore instanceof Map)) throw new TypeError('benchmark session store must be a Map');
+    if (!(provenanceStore instanceof Map)) throw new TypeError('benchmark provenance store must be a Map');
 
     const getState = (target) => {
         const validation = validateTarget(target);
@@ -190,6 +279,13 @@ export function createUserBenchmarkSession({
         if (!validation.ok) return Object.freeze([]);
         const evidence = sessionStore.get(targetKey(validation.target)) || [];
         return Object.freeze(evidence.map((run) => cloneRunEvidence(run)));
+    };
+
+    const readProvenance = (target) => {
+        const validation = validateTarget(target);
+        if (!validation.ok) return Object.freeze([]);
+        const provenance = provenanceStore.get(targetKey(validation.target)) || [];
+        return Object.freeze(provenance.map((entry) => cloneProvenance(entry)));
     };
 
     const capture = async (target) => {
@@ -242,6 +338,11 @@ export function createUserBenchmarkSession({
             return rejected(resultValidation.reason, normalizedTarget, current.length);
         }
 
+        const provenanceValidation = validateBridgeProvenance(result.provenance, result.runEvidence);
+        if (!provenanceValidation.ok) {
+            return rejected(provenanceValidation.reason, normalizedTarget, current.length);
+        }
+
         const detached = cloneRunEvidence(result.runEvidence);
         if (current.length > 0 && !sameEvidenceContext(current[0], detached)) {
             return rejected('USER_BENCHMARK_EVIDENCE_CONTEXT_DRIFT', normalizedTarget, current.length);
@@ -249,6 +350,15 @@ export function createUserBenchmarkSession({
 
         const next = Object.freeze([...current, detached]);
         sessionStore.set(key, next);
+
+        if (provenanceValidation.provenance) {
+            const currentProvenance = provenanceStore.get(key) || [];
+            provenanceStore.set(
+                key,
+                Object.freeze([...currentProvenance, provenanceValidation.provenance]),
+            );
+        }
+
         return stateFor(normalizedTarget, next.length);
     };
 
@@ -256,6 +366,7 @@ export function createUserBenchmarkSession({
         capture,
         getState,
         readEvidence,
+        readProvenance,
         benchmarkOnly: true,
         productionProfilePromoted: false,
         routingEligible: false,
@@ -278,11 +389,17 @@ export function readUserBenchmarkSessionEvidence(target) {
     return defaultSession.readEvidence(target);
 }
 
+export function readUserBenchmarkSessionProvenance(target) {
+    return defaultSession.readProvenance(target);
+}
+
 export {
     CERTIFIABLE_BACKENDS,
+    cloneProvenance,
     cloneRunEvidence,
     sameEvidenceContext,
     targetKey,
+    validateBridgeProvenance,
     validateBridgeResult,
     validateTarget,
 };
