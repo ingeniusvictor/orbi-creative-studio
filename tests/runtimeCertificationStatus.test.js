@@ -48,7 +48,7 @@ test('P1C19 Router Diagnostics renders bounded certification metadata without ad
     assert.ok(panel.includes('resolveRuntimeCertificationStatus'));
     assert.ok(panel.includes('renderRuntimeCertificationStatus'));
     assert.ok(panel.includes('runtimeCertificationStatusProvider = null'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 5);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 6);
     assert.equal((panel.match(/\.onchange\s*=/g) || []).length, 1);
 
     for (const token of [
