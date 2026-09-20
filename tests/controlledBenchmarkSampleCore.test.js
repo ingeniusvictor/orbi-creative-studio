@@ -190,6 +190,28 @@ test('P1C20 emits a valid P1C7 run envelope without exposing internal paths', as
         { role: 'vae', sha256: VAE_SHA },
     ]);
 
+    assert.equal(result.provenance.proofType, 'p1c31-real-benchmark-acquisition-proof');
+    assert.equal(result.provenance.origin, 'electron-main-controlled-benchmark');
+    assert.equal(result.provenance.evidenceClass, 'real-runtime-measurement');
+    assert.equal(result.provenance.trustedMainProcess, true);
+    assert.equal(result.provenance.runtimeIntegrityVerified, true);
+    assert.equal(result.provenance.runtimeManifestPinned, true);
+    assert.equal(result.provenance.modelStateResolved, true);
+    assert.equal(result.provenance.buildIdentityResolved, true);
+    assert.equal(result.provenance.benchmarkProcessExecuted, true);
+    assert.equal(result.provenance.fixture, false);
+    assert.equal(result.provenance.synthetic, false);
+    assert.equal(result.provenance.demo, false);
+    assert.equal(result.provenance.cryptographicAuthenticityVerified, false);
+    assert.equal(result.provenance.context.runIndex, 1);
+    assert.equal(result.provenance.benchmarkContext.sourceCommit, SOURCE_COMMIT);
+    assert.equal(result.provenance.benchmarkContext.runtimeBinarySha256, RUNTIME_SHA);
+    assert.equal(result.provenance.benchmarkContext.modelArtifactSha256, MODEL_SHA);
+    assert.deepEqual(result.provenance.benchmarkContext.auxiliaryArtifacts, [
+        { role: 'llm', sha256: LLM_SHA },
+        { role: 'vae', sha256: VAE_SHA },
+    ]);
+
     const p1c7 = await import('../src/lib/computeRouter/benchmarkSessionEvidence.mjs');
     assert.deepEqual(p1c7.validateRunEnvelope(result.runEvidence), {
         ok: true,
