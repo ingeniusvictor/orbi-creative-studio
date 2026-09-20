@@ -6,7 +6,7 @@ import {
     RUNTIME_RESOURCE_PROFILE_CERTIFICATION_SOURCE,
 } from './runtimeResourceProfileCertifications.mjs';
 
-export const RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS = Object.freeze([1]);
+export const RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS = Object.freeze([1, 2]);
 
 const SOURCE_KEYS = new Set([
     'schemaVersion',
