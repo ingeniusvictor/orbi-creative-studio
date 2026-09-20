@@ -15,10 +15,21 @@ Execution requires all of the following:
 1. a valid P1C28 plan with status `guarded-source-apply-ready`;
 2. `sourceApplyEligible: true`;
 3. runtime loader compatibility already established by P1C29;
-4. explicit human source-apply approval;
-5. a configured final-state reader;
-6. a configured external writer;
-7. final repository/source state still matching the exact P1C28 expectation.
+4. a valid P1C31 real-evidence provenance attestation bound to the exact plan;
+5. explicit human source-apply approval;
+6. a configured final-state reader;
+7. a configured external writer;
+8. final repository/source state still matching the exact P1C28 expectation.
+
+## P1C31 provenance precondition
+
+Before source-apply approval can become executable, P1C30 requires:
+
+`p1c31-real-evidence-provenance-attestation`
+
+The attestation must match the exact target and P1C28 plan identity. Missing, invalid, fixture, synthetic, demo, or stale provenance prevents the final-state read and prevents writer invocation.
+
+This check preserves `cryptographicAuthenticityVerified: false`; it validates trusted acquisition provenance and chain binding, not a cryptographic signature.
 
 ## Explicit apply approval
 
