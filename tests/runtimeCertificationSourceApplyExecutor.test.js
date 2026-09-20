@@ -108,6 +108,71 @@ function exactCurrentState(overrides = {}) {
     };
 }
 
+function provenanceAttestation(plan, overrides = {}) {
+    return {
+        schemaVersion: 1,
+        attestationType: 'p1c31-real-evidence-provenance-attestation',
+        status: 'real-evidence-provenance-verified',
+        context: {
+            modelId: TARGET.modelId,
+            backend: TARGET.backend,
+            resolution: { width: TARGET.width, height: TARGET.height },
+        },
+        acquisition: {
+            origin: 'electron-main-controlled-benchmark',
+            evidenceClass: 'real-runtime-measurement',
+            runCount: 3,
+            runIndexes: [1, 2, 3],
+            trustedMainProcess: true,
+            runtimeIntegrityVerified: true,
+            runtimeManifestPinned: true,
+            modelStateResolved: true,
+            buildIdentityResolved: true,
+            benchmarkProcessExecuted: true,
+            fixture: false,
+            synthetic: false,
+            demo: false,
+        },
+        benchmarkContext: {
+            harnessVersion: 'orbi-local-benchmark-harness-0.1.0',
+            sourceCommit: 'c'.repeat(40),
+            runtimeIdentity: 'stable-diffusion.cpp-win-cuda12.zip',
+            runtimeVersion: 'v-test',
+            runtimeBinarySha256: 'd'.repeat(64),
+            modelArtifactSha256: 'e'.repeat(64),
+            auxiliaryArtifacts: [
+                { role: 'llm', sha256: 'a'.repeat(64) },
+                { role: 'vae', sha256: 'b'.repeat(64) },
+            ],
+        },
+        bindings: {
+            promotionPackageValidated: true,
+            certificationEntryBound: true,
+            sourceApplyPlanValidated: true,
+            sourceApplyPlanBound: true,
+        },
+        planBinding: {
+            baseCommitSha: plan.operation.expectedCurrent.baseCommitSha,
+            sourceBlobSha: plan.operation.expectedCurrent.sourceBlobSha,
+            baseSourceRevision: plan.operation.expectedCurrent.sourceRevision,
+            baseCertificationCount: plan.operation.expectedCurrent.certificationCount,
+            proposedSourceRevision: plan.operation.proposed.sourceRevision,
+            proposedCertificationCount: plan.operation.proposed.certificationCount,
+        },
+        provenanceGateOnly: true,
+        realEvidenceProvenanceVerified: true,
+        trustedMainProcessAcquisition: true,
+        cryptographicAuthenticityVerified: false,
+        sourceMutationApplied: false,
+        runtimeRegistryLoaded: false,
+        authenticityVerified: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+        ...overrides,
+    };
+}
+
 async function makeReadyDryRun() {
     const promotionModule = await import(
         '../src/lib/computeRouter/runtimeCertificationPromotion.mjs'
@@ -200,6 +265,39 @@ test('P1C30 default executor fails closed because no final-state reader or exter
     assert.equal(result.cutoverAuthorized, false);
 });
 
+test('P1C31 blocks P1C30 before approval/state read when real evidence provenance is missing', async () => {
+    const executorModule = await import(
+        '../src/lib/computeRouter/runtimeCertificationSourceApplyExecutor.mjs'
+    );
+    const plan = await makeReadyDryRun();
+    let stateReads = 0;
+    let writerCalls = 0;
+
+    const executor = executorModule.createRuntimeCertificationSourceApplyExecutor({
+        readDryRun: () => plan,
+        readProvenanceAttestation: () => null,
+        readCurrentState: async () => {
+            stateReads += 1;
+            return exactCurrentState();
+        },
+        applySourceUpdate: async () => {
+            writerCalls += 1;
+            return {};
+        },
+        attempts: new Map(),
+    });
+
+    const result = await executor.execute(TARGET, {
+        approval: sourceApplyApproval(),
+    });
+
+    assert.equal(result.status, 'RUNTIME_CERTIFICATION_SOURCE_APPLY_EXECUTOR_REJECTED');
+    assert.equal(result.reason, 'SOURCE_APPLY_REAL_EVIDENCE_PROVENANCE_MISSING');
+    assert.equal(result.realEvidenceProvenanceVerified, false);
+    assert.equal(stateReads, 0);
+    assert.equal(writerCalls, 0);
+});
+
 test('P1C30 invokes an injected external writer exactly once after final-state revalidation', async () => {
     const executorModule = await import(
         '../src/lib/computeRouter/runtimeCertificationSourceApplyExecutor.mjs'
@@ -212,6 +310,7 @@ test('P1C30 invokes an injected external writer exactly once after final-state r
 
     const executor = executorModule.createRuntimeCertificationSourceApplyExecutor({
         readDryRun: () => plan,
+        readProvenanceAttestation: () => provenanceAttestation(plan),
         readCurrentState: async () => {
             stateReads += 1;
             return exactCurrentState();
@@ -243,6 +342,7 @@ test('P1C30 invokes an injected external writer exactly once after final-state r
     assert.equal(stateReads, 1);
     assert.equal(writerCalls, 1);
     assert.equal(result.sourceApplyApproved, true);
+    assert.equal(result.realEvidenceProvenanceVerified, true);
     assert.equal(result.finalStateValidated, true);
     assert.equal(result.externalWriterInvoked, true);
     assert.equal(result.externalMutationReported, true);
@@ -265,6 +365,11 @@ test('P1C30 invokes an injected external writer exactly once after final-state r
     assert.equal(capturedRequest.proposed.sourceRevision, 2);
     assert.equal(capturedRequest.proposed.certificationCount, 1);
     assert.equal(capturedRequest.proposed.sourceContent, plan.operation.proposed.sourceContent);
+    assert.equal(capturedRequest.provenance.attestationType, 'p1c31-real-evidence-provenance-attestation');
+    assert.equal(capturedRequest.provenance.realEvidenceProvenanceVerified, true);
+    assert.equal(capturedRequest.provenance.cryptographicAuthenticityVerified, false);
+    assert.equal(capturedRequest.provenance.baseCommitSha, BASE_COMMIT_SHA);
+    assert.equal(capturedRequest.provenance.sourceBlobSha, SOURCE_BLOB_SHA);
 
     assert.equal(result.receipt.newCommitSha, NEW_COMMIT_SHA);
     assert.equal(result.receipt.newSourceBlobSha, NEW_BLOB_SHA);
@@ -319,6 +424,7 @@ test('P1C30 requires explicit source-apply approval before final-state read or w
     let writerCalls = 0;
     const executor = executorModule.createRuntimeCertificationSourceApplyExecutor({
         readDryRun: () => plan,
+        readProvenanceAttestation: () => provenanceAttestation(plan),
         readCurrentState: async () => {
             stateReads += 1;
             return exactCurrentState();
@@ -399,6 +505,7 @@ test('P1C30 successful receipt summary is sanitized', async () => {
 
     const executor = executorModule.createRuntimeCertificationSourceApplyExecutor({
         readDryRun: () => plan,
+        readProvenanceAttestation: () => provenanceAttestation(plan),
         readCurrentState: async () => exactCurrentState(),
         applySourceUpdate: async (request) => ({
             applied: true,
