@@ -87,10 +87,10 @@ function validateReviewApproval(review) {
     });
 }
 
-function authorityFields() {
+function authorityFields(sourceReviewApproved = false) {
     return Object.freeze({
         handoffOnly: true,
-        sourceReviewApproved: true,
+        sourceReviewApproved,
         sourceCommitRequired: true,
         requiresExternalSourceCommit: true,
         baseIdentityBound: true,
@@ -133,7 +133,7 @@ function cloneHandoff(handoff) {
             reviewedAt: handoff.review.reviewedAt,
             reviewerIdentityVerified: false,
         },
-        ...authorityFields(),
+        ...authorityFields(true),
     });
 }
 
@@ -176,7 +176,7 @@ function rejected(reason, target = null) {
         reason,
         context: target ? Object.freeze({ ...target }) : null,
         summary: null,
-        ...authorityFields(),
+        ...authorityFields(false),
     });
 }
 
@@ -186,7 +186,7 @@ function empty(target) {
         reason: null,
         context: Object.freeze({ ...target }),
         summary: null,
-        ...authorityFields(),
+        ...authorityFields(false),
     });
 }
 
@@ -394,7 +394,7 @@ export function createRuntimeCertificationSourceCommitHandoff({
                 candidateRegistryValidated: true,
             },
             review: reviewValidation.review,
-            ...authorityFields(),
+            ...authorityFields(true),
         });
 
         const handoffValidation = validateRuntimeCertificationSourceCommitHandoff(handoff);
@@ -410,7 +410,7 @@ export function createRuntimeCertificationSourceCommitHandoff({
             reason: null,
             context: normalizedTarget,
             summary: buildSummary(detached),
-            ...authorityFields(),
+            ...authorityFields(true),
         });
     };
 
@@ -426,7 +426,7 @@ export function createRuntimeCertificationSourceCommitHandoff({
             reason: null,
             context: normalizedTarget,
             summary: buildSummary(handoff),
-            ...authorityFields(),
+            ...authorityFields(true),
         });
     };
 
@@ -441,7 +441,7 @@ export function createRuntimeCertificationSourceCommitHandoff({
         prepare,
         getSummary,
         readHandoff,
-        ...authorityFields(),
+        ...authorityFields(false),
     });
 }
 
