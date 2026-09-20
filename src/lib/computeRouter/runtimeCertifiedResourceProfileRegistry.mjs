@@ -6,6 +6,8 @@ import {
     RUNTIME_RESOURCE_PROFILE_CERTIFICATION_SOURCE,
 } from './runtimeResourceProfileCertifications.mjs';
 
+export const RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS = Object.freeze([1]);
+
 const SOURCE_KEYS = new Set([
     'schemaVersion',
     'sourceType',
@@ -54,7 +56,7 @@ function validateRuntimeCertificationSource(source) {
     }
     if (source.schemaVersion !== 1
         || source.sourceType !== 'source-controlled-static-bundle'
-        || source.sourceRevision !== 1
+        || !RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS.includes(source.sourceRevision)
         || !Array.isArray(source.certifications)) {
         return Object.freeze({ ok: false, reason: 'RUNTIME_CERTIFICATION_SOURCE_IDENTITY_INVALID' });
     }
