@@ -395,6 +395,7 @@ test('P1C30 blocks every stale final-state dimension before writer invocation', 
         let writerCalls = 0;
         const executor = executorModule.createRuntimeCertificationSourceApplyExecutor({
             readDryRun: () => plan,
+            readProvenanceAttestation: () => provenanceAttestation(plan),
             readCurrentState: async () => state,
             applySourceUpdate: async () => {
                 writerCalls += 1;
@@ -470,6 +471,7 @@ test('P1C30 treats thrown or invalid writer outcomes as indeterminate and perman
         const attempts = new Map();
         const executor = executorModule.createRuntimeCertificationSourceApplyExecutor({
             readDryRun: () => plan,
+            readProvenanceAttestation: () => provenanceAttestation(plan),
             readCurrentState: async () => exactCurrentState(),
             applySourceUpdate: async (request) => {
                 writerCalls += 1;
