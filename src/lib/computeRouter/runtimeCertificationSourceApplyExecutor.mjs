@@ -396,7 +396,11 @@ export function createRuntimeCertificationSourceApplyExecutor({
 
         const approvalValidation = validateApplyApproval(approval);
         if (!approvalValidation.ok) {
-            return rejected(approvalValidation.reason, normalizedTarget);
+            return rejected(
+                approvalValidation.reason,
+                normalizedTarget,
+                { realEvidenceProvenanceVerified: true },
+            );
         }
 
         const key = executionKey(plan);
@@ -406,6 +410,7 @@ export function createRuntimeCertificationSourceApplyExecutor({
                 normalizedTarget,
                 {
                     sourceApplyApproved: true,
+                    realEvidenceProvenanceVerified: true,
                     retryAllowed: false,
                 },
             );
@@ -421,7 +426,10 @@ export function createRuntimeCertificationSourceApplyExecutor({
             return rejected(
                 'SOURCE_APPLY_FINAL_STATE_READ_FAILED',
                 normalizedTarget,
-                { sourceApplyApproved: true },
+                {
+                    sourceApplyApproved: true,
+                    realEvidenceProvenanceVerified: true,
+                },
             );
         }
 
