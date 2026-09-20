@@ -1,0 +1,151 @@
+name: ORBI Runtime certification source apply dry-run P1C28 validation
+
+on:
+  push:
+    branches:
+      - feature/runtime-certification-source-apply-dry-run-p1c28
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C28
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C28 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const dryRun = fs.readFileSync(
+            'src/lib/computeRouter/runtimeCertificationSourceApplyDryRun.mjs',
+            'utf8',
+          );
+          const loader = fs.readFileSync(
+            'src/lib/computeRouter/runtimeCertifiedResourceProfileRegistry.mjs',
+            'utf8',
+          );
+          const runtimeSource = fs.readFileSync(
+            'src/lib/computeRouter/runtimeResourceProfileCertifications.mjs',
+            'utf8',
+          );
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          for (const token of [
+            'RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS',
+            'validateRuntimeCertificationSourceCommitHandoffAgainstState',
+            'validateRuntimeCertificationSourceReviewArtifact',
+            "'p1c28-runtime-certification-source-apply-dry-run'",
+            "'replace-source-controlled-file'",
+            "'external-source-control-update'",
+            "'runtime-loader-migration-required'",
+            'dryRunOnly: true',
+            'guardedApplyRequired: true',
+            'sourceMutationApplied: false',
+            'runtimeRegistryLoaded: false',
+            'authenticityVerified: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!dryRun.includes(token)) {
+              throw new Error('P1C28 dry-run invariant missing: ' + token);
+            }
+          }
+
+          if (!loader.includes(
+            'export const RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS = Object.freeze([1]);'
+          )) {
+            throw new Error('P1C28 must keep the runtime loader capability explicit at revision 1');
+          }
+
+          for (const forbidden of [
+            "from 'node:fs'",
+            "from 'fs'",
+            'writeFile',
+            'createWriteStream',
+            'fetch(',
+            'octokit',
+            'updateFile',
+            'createCommit',
+            'updateRef',
+            'ipcRenderer',
+            'ipcMain',
+            'localStorage',
+            'sessionStorage',
+            'indexedDB',
+            'loadRuntimeCertifiedResourceProfileRegistry',
+            'sourceMutationApplied: true',
+            'runtimeRegistryLoaded: true',
+            'authenticityVerified: true',
+            'routingEligible: true',
+            'cutoverAuthorized: true',
+          ]) {
+            if (dryRun.includes(forbidden)) {
+              throw new Error('P1C28 gained forbidden capability: ' + forbidden);
+            }
+          }
+
+          if (!runtimeSource.includes('const certifications = [];')
+              || !runtimeSource.includes('sourceRevision: 1')) {
+            throw new Error('P1C28 must leave runtime certification source unchanged');
+          }
+
+          for (const source of [settings, panel, main, image, video]) {
+            if (source.includes('runtimeCertificationSourceApplyDryRun')
+                || source.includes('prepareRuntimeCertificationSourceApplyDryRun')) {
+              throw new Error('P1C28 entered UI/startup/generation surface');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C28 focused tests
+        run: node --test tests/runtimeCertificationSourceApplyDryRun.test.js tests/runtimeCertificationSourceCommitHandoff.test.js tests/runtimeCertificationSourceReview.test.js tests/runtimeCertificationSourceMaterialization.test.js tests/runtimeCertificationPromotion.test.js tests/runtimeCertifiedResourceProfileRegistry.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C28_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
