@@ -628,6 +628,301 @@ function renderBenchmarkReviewSection(target, benchmarkState, reviewState, {
     return section;
 }
 
+function normalizeBenchmarkCertificationState(result, target) {
+    if (!result
+        || typeof result !== 'object'
+        || !sameDiagnosticTarget(result.context, target)
+        || ![
+            'USER_BENCHMARK_CERTIFICATION_EMPTY',
+            'USER_BENCHMARK_CERTIFICATION_RECORDED',
+        ].includes(result.status)
+        || result.certificationOnly !== true
+        || result.runtimeRegistryLoaded !== false
+        || result.reviewerIdentityVerified !== false
+        || result.authenticityVerified !== false
+        || result.routingEligible !== false
+        || result.cutoverAuthorized !== false
+        || result.executionAuthority !== 'legacy-dispatcher-only') {
+        return null;
+    }
+
+    if (result.status === 'USER_BENCHMARK_CERTIFICATION_EMPTY') {
+        if (result.summary !== null) return null;
+        return Object.freeze({ status: result.status, summary: null });
+    }
+
+    const summary = result.summary;
+    if (!summary
+        || typeof summary !== 'object'
+        || summary.modelId !== target.modelId
+        || summary.backend !== target.backend
+        || summary.resolution?.width !== target.width
+        || summary.resolution?.height !== target.height
+        || typeof summary.certifiedAt !== 'string'
+        || !Number.isFinite(Date.parse(summary.certifiedAt))
+        || typeof summary.reviewerDisplayName !== 'string'
+        || !summary.reviewerDisplayName.trim()
+        || !Number.isFinite(summary.requirements?.minSystemRamMiB)
+        || summary.requirements.minSystemRamMiB <= 0
+        || summary.reviewerIdentityVerified !== false
+        || summary.authenticityVerified !== false
+        || summary.runtimeRegistryLoaded !== false
+        || summary.routingEligible !== false
+        || summary.cutoverAuthorized !== false
+        || summary.executionAuthority !== 'legacy-dispatcher-only') {
+        return null;
+    }
+
+    if (target.backend === 'cuda12'
+        && (!Number.isFinite(summary.requirements.minVramMiB)
+            || summary.requirements.minVramMiB <= 0)) {
+        return null;
+    }
+
+    return Object.freeze({
+        status: result.status,
+        summary: Object.freeze({
+            modelId: summary.modelId,
+            backend: summary.backend,
+            resolution: Object.freeze({ ...summary.resolution }),
+            certifiedAt: summary.certifiedAt,
+            minSystemRamMiB: summary.requirements.minSystemRamMiB,
+            minVramMiB: target.backend === 'cuda12' ? summary.requirements.minVramMiB : null,
+            reviewerDisplayName: summary.reviewerDisplayName.trim(),
+            reviewerIdentityVerified: false,
+            authenticityVerified: false,
+            runtimeRegistryLoaded: false,
+        }),
+    });
+}
+
+function resolveBenchmarkCertificationState(provider, target) {
+    if (typeof provider !== 'function' || !target) return null;
+    try {
+        return normalizeBenchmarkCertificationState(provider(target), target);
+    } catch {
+        return null;
+    }
+}
+
+function validCertificationForm({
+    reviewerId,
+    reviewerDisplayName,
+    reviewNote,
+    approved,
+} = {}) {
+    return typeof reviewerId === 'string'
+        && reviewerId.trim().length > 0
+        && reviewerId.trim().length <= 200
+        && typeof reviewerDisplayName === 'string'
+        && reviewerDisplayName.trim().length > 0
+        && reviewerDisplayName.trim().length <= 200
+        && typeof reviewNote === 'string'
+        && reviewNote.trim().length > 0
+        && reviewNote.trim().length <= 2000
+        && approved === true;
+}
+
+function benchmarkCertificationActionStatusLabel(status) {
+    const key = {
+        running: 'routerDiagnostics.benchmarkCertificationRecording',
+        recorded: 'routerDiagnostics.benchmarkCertificationRecorded',
+        rejected: 'routerDiagnostics.benchmarkCertificationRejected',
+    }[status];
+    return key ? t(key) : null;
+}
+
+function renderBenchmarkCertificationSection(target, reviewState, certificationState, {
+    reviewerId = '',
+    reviewerDisplayName = '',
+    reviewNote = '',
+    approved = false,
+    onReviewerIdChange = null,
+    onReviewerDisplayNameChange = null,
+    onReviewNoteChange = null,
+    onApprovalChange = null,
+    onCertify = null,
+    actionStatus = 'idle',
+} = {}) {
+    const section = document.createElement('div');
+    section.dataset.orbiBenchmarkCertification = 'certification-only';
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(52,211,153,0.16);border-radius:0.75rem;background:rgba(16,185,129,0.025);';
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkCertificationTitle'),
+        'font-size:0.72rem;color:rgba(255,255,255,0.68);font-weight:800;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkCertificationSubtitle'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+
+    if (certificationState?.summary) {
+        const summary = certificationState.summary;
+        const metrics = document.createElement('div');
+        metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkCertificationReviewer'),
+            summary.reviewerDisplayName,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkCertificationSystemRam'),
+            `${Math.round(summary.minSystemRamMiB)} MiB`,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkCertificationVram'),
+            target?.backend === 'cuda12'
+                ? `${Math.round(summary.minVramMiB)} MiB`
+                : t('routerDiagnostics.benchmarkReviewNotApplicable'),
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkCertificationIdentity'),
+            t('routerDiagnostics.benchmarkCertificationNotVerified'),
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkCertificationAuthenticity'),
+            t('routerDiagnostics.benchmarkCertificationNotVerified'),
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.benchmarkCertificationRuntimeRegistry'),
+            t('routerDiagnostics.benchmarkCertificationNotLoaded'),
+        ));
+        section.appendChild(metrics);
+    } else {
+        section.appendChild(makeText(
+            'div',
+            reviewState?.summary
+                ? t('routerDiagnostics.benchmarkCertificationReady')
+                : t('routerDiagnostics.benchmarkCertificationNeedsReview'),
+            'padding:0.65rem;border-radius:0.6rem;background:rgba(255,255,255,0.025);color:rgba(255,255,255,0.4);font-size:0.68rem;',
+        ));
+    }
+
+    if (reviewState?.summary
+        && !certificationState?.summary
+        && typeof onReviewerIdChange === 'function'
+        && typeof onReviewerDisplayNameChange === 'function'
+        && typeof onReviewNoteChange === 'function'
+        && typeof onApprovalChange === 'function'
+        && typeof onCertify === 'function') {
+        const form = document.createElement('div');
+        form.style.cssText = 'display:flex;flex-direction:column;gap:0.55rem;';
+
+        const reviewerRow = document.createElement('div');
+        reviewerRow.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.55rem;';
+
+        const idWrap = document.createElement('label');
+        idWrap.style.cssText = 'display:flex;flex-direction:column;gap:0.3rem;font-size:0.62rem;color:rgba(255,255,255,0.42);font-weight:700;';
+        idWrap.appendChild(makeText('span', t('routerDiagnostics.benchmarkCertificationReviewerId')));
+        const idInput = document.createElement('input');
+        idInput.type = 'text';
+        idInput.maxLength = 200;
+        idInput.value = reviewerId;
+        idInput.dataset.orbiCertificationReviewerId = 'declared-metadata';
+        idInput.style.cssText = 'padding:0.4rem 0.55rem;border-radius:0.5rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.68rem;';
+        idWrap.appendChild(idInput);
+        reviewerRow.appendChild(idWrap);
+
+        const nameWrap = document.createElement('label');
+        nameWrap.style.cssText = idWrap.style.cssText;
+        nameWrap.appendChild(makeText('span', t('routerDiagnostics.benchmarkCertificationReviewerName')));
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.maxLength = 200;
+        nameInput.value = reviewerDisplayName;
+        nameInput.dataset.orbiCertificationReviewerName = 'declared-metadata';
+        nameInput.style.cssText = idInput.style.cssText;
+        nameWrap.appendChild(nameInput);
+        reviewerRow.appendChild(nameWrap);
+        form.appendChild(reviewerRow);
+
+        const noteWrap = document.createElement('label');
+        noteWrap.style.cssText = 'display:flex;flex-direction:column;gap:0.3rem;font-size:0.62rem;color:rgba(255,255,255,0.42);font-weight:700;';
+        noteWrap.appendChild(makeText('span', t('routerDiagnostics.benchmarkCertificationReviewNote')));
+        const noteInput = document.createElement('textarea');
+        noteInput.maxLength = 2000;
+        noteInput.rows = 3;
+        noteInput.value = reviewNote;
+        noteInput.dataset.orbiCertificationReviewNote = 'declared-metadata';
+        noteInput.style.cssText = 'padding:0.5rem 0.6rem;border-radius:0.5rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:0.68rem;resize:vertical;';
+        noteWrap.appendChild(noteInput);
+        form.appendChild(noteWrap);
+
+        const approvalWrap = document.createElement('label');
+        approvalWrap.style.cssText = 'display:flex;align-items:flex-start;gap:0.45rem;font-size:0.62rem;color:rgba(255,255,255,0.42);line-height:1.4;cursor:pointer;';
+        const approvalInput = document.createElement('input');
+        approvalInput.type = 'checkbox';
+        approvalInput.checked = approved;
+        approvalInput.dataset.orbiCertificationApproval = 'explicit-human-approval';
+        approvalWrap.appendChild(approvalInput);
+        approvalWrap.appendChild(makeText('span', t('routerDiagnostics.benchmarkCertificationApproval')));
+        form.appendChild(approvalWrap);
+
+        const actionWrap = document.createElement('div');
+        actionWrap.style.cssText = 'display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.orbiBenchmarkCertificationRecord = 'certification-only';
+        button.textContent = t('routerDiagnostics.benchmarkCertificationRecord');
+        button.disabled = actionStatus === 'running' || !validCertificationForm({
+            reviewerId,
+            reviewerDisplayName,
+            reviewNote,
+            approved,
+        });
+        button.style.cssText = 'padding:0.4rem 0.7rem;border-radius:0.5rem;background:rgba(16,185,129,0.1);border:1px solid rgba(52,211,153,0.24);color:#a7f3d0;font-size:0.68rem;font-weight:700;cursor:pointer;';
+        button.onclick = onCertify;
+        actionWrap.appendChild(button);
+
+        const syncButton = () => {
+            button.disabled = actionStatus === 'running' || !validCertificationForm({
+                reviewerId: idInput.value,
+                reviewerDisplayName: nameInput.value,
+                reviewNote: noteInput.value,
+                approved: approvalInput.checked,
+            });
+        };
+
+        idInput.addEventListener('input', () => {
+            onReviewerIdChange(idInput.value);
+            syncButton();
+        });
+        nameInput.addEventListener('input', () => {
+            onReviewerDisplayNameChange(nameInput.value);
+            syncButton();
+        });
+        noteInput.addEventListener('input', () => {
+            onReviewNoteChange(noteInput.value);
+            syncButton();
+        });
+        approvalInput.addEventListener('change', () => {
+            onApprovalChange(approvalInput.checked);
+            syncButton();
+        });
+
+        const statusLabel = benchmarkCertificationActionStatusLabel(actionStatus);
+        if (statusLabel) {
+            actionWrap.appendChild(makeText(
+                'span',
+                statusLabel,
+                'font-size:0.62rem;color:rgba(255,255,255,0.38);',
+            ));
+        }
+        form.appendChild(actionWrap);
+        section.appendChild(form);
+    }
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.benchmarkCertificationBoundaryNote'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.24);line-height:1.4;',
+    ));
+
+    return section;
+}
+
 function renderShadowCompatibilitySection(snapshot, {
     onRefresh = null,
     refreshStatus = 'idle',
@@ -777,6 +1072,8 @@ export function RouterDiagnosticsPanel({
     benchmarkSessionStateProvider = null,
     benchmarkReviewPrepare = null,
     benchmarkReviewSummaryProvider = null,
+    benchmarkCertificationRecord = null,
+    benchmarkCertificationSummaryProvider = null,
 } = {}) {
     const panel = document.createElement('div');
     let shadowRefreshStatus = 'idle';
@@ -785,6 +1082,11 @@ export function RouterDiagnosticsPanel({
     let benchmarkActionStatus = 'idle';
     let benchmarkReviewActionStatus = 'idle';
     let benchmarkSafetyMarginPct = '';
+    let benchmarkCertificationActionStatus = 'idle';
+    let benchmarkCertificationReviewerId = '';
+    let benchmarkCertificationReviewerName = '';
+    let benchmarkCertificationReviewNote = '';
+    let benchmarkCertificationApproved = false;
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
 
@@ -878,6 +1180,11 @@ export function RouterDiagnosticsPanel({
                     benchmarkActionStatus = 'idle';
                     benchmarkReviewActionStatus = 'idle';
                     benchmarkSafetyMarginPct = '';
+                    benchmarkCertificationActionStatus = 'idle';
+                    benchmarkCertificationReviewerId = '';
+                    benchmarkCertificationReviewerName = '';
+                    benchmarkCertificationReviewNote = '';
+                    benchmarkCertificationApproved = false;
                     render();
                 },
                 onRefresh: typeof shadowDiagnosticRefresh === 'function'
@@ -1087,6 +1394,90 @@ export function RouterDiagnosticsPanel({
                                 }
                             } catch {
                                 benchmarkReviewActionStatus = 'rejected';
+                            }
+                            render();
+                        }
+                        : null,
+                },
+            ));
+
+            const benchmarkCertificationState = resolveBenchmarkCertificationState(
+                benchmarkCertificationSummaryProvider,
+                selectedBenchmarkTarget,
+            );
+            panel.appendChild(renderBenchmarkCertificationSection(
+                selectedBenchmarkTarget,
+                benchmarkReviewState,
+                benchmarkCertificationState,
+                {
+                    reviewerId: benchmarkCertificationReviewerId,
+                    reviewerDisplayName: benchmarkCertificationReviewerName,
+                    reviewNote: benchmarkCertificationReviewNote,
+                    approved: benchmarkCertificationApproved,
+                    actionStatus: benchmarkCertificationActionStatus,
+                    onReviewerIdChange: (value) => {
+                        benchmarkCertificationReviewerId = value;
+                        benchmarkCertificationActionStatus = 'idle';
+                    },
+                    onReviewerDisplayNameChange: (value) => {
+                        benchmarkCertificationReviewerName = value;
+                        benchmarkCertificationActionStatus = 'idle';
+                    },
+                    onReviewNoteChange: (value) => {
+                        benchmarkCertificationReviewNote = value;
+                        benchmarkCertificationActionStatus = 'idle';
+                    },
+                    onApprovalChange: (value) => {
+                        benchmarkCertificationApproved = value === true;
+                        benchmarkCertificationActionStatus = 'idle';
+                    },
+                    onCertify: typeof benchmarkCertificationRecord === 'function'
+                        ? () => {
+                            if (benchmarkCertificationActionStatus === 'running'
+                                || !selectedBenchmarkTarget
+                                || !benchmarkReviewState?.summary
+                                || !validCertificationForm({
+                                    reviewerId: benchmarkCertificationReviewerId,
+                                    reviewerDisplayName: benchmarkCertificationReviewerName,
+                                    reviewNote: benchmarkCertificationReviewNote,
+                                    approved: benchmarkCertificationApproved,
+                                })) {
+                                benchmarkCertificationActionStatus = 'rejected';
+                                render();
+                                return;
+                            }
+
+                            benchmarkCertificationActionStatus = 'running';
+                            render();
+                            try {
+                                const result = benchmarkCertificationRecord({
+                                    target: selectedBenchmarkTarget,
+                                    decision: 'approve',
+                                    reviewer: {
+                                        id: benchmarkCertificationReviewerId,
+                                        displayName: benchmarkCertificationReviewerName,
+                                    },
+                                    reviewNote: benchmarkCertificationReviewNote,
+                                });
+                                const authorityValid = result
+                                    && result.certificationOnly === true
+                                    && result.runtimeRegistryLoaded === false
+                                    && result.reviewerIdentityVerified === false
+                                    && result.authenticityVerified === false
+                                    && result.routingEligible === false
+                                    && result.cutoverAuthorized === false
+                                    && result.executionAuthority === 'legacy-dispatcher-only';
+
+                                if (authorityValid
+                                    && result.status === 'USER_BENCHMARK_CERTIFICATION_RECORDED'
+                                    && sameDiagnosticTarget(result.context, selectedBenchmarkTarget)
+                                    && result.summary?.runtimeRegistryLoaded === false) {
+                                    benchmarkCertificationActionStatus = 'recorded';
+                                } else {
+                                    benchmarkCertificationActionStatus = 'rejected';
+                                }
+                            } catch {
+                                benchmarkCertificationActionStatus = 'rejected';
                             }
                             render();
                         }

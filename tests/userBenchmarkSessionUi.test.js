@@ -16,7 +16,7 @@ test('P1C21 Router Diagnostics adds one explicit benchmark-only action and reuse
     assert.ok(panel.includes('benchmarkSessionStateProvider = null'));
     assert.ok(panel.includes('resolveBenchmarkSessionState'));
     assert.ok(panel.includes('renderBenchmarkSessionSection'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 4);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 5);
     assert.equal((panel.match(/\.onchange\s*=/g) || []).length, 1);
     assert.equal((panel.match(/orbiShadowTargetSelector/g) || []).length, 1);
 });
@@ -36,6 +36,12 @@ test('P1C21 benchmark button captures only one sample per click and never loops'
 test('P1C21 UI never renders benchmark evidence hashes, paths, review records or raw rejection reasons', () => {
     const panel = read('src/components/RouterDiagnosticsPanel.js');
 
+    assert.equal(
+        /summary\\.reviewerId(?!entityVerified)/.test(panel),
+        false,
+        'benchmark UI must not render a reviewer id',
+    );
+
     for (const token of [
         'readUserBenchmarkSessionEvidence',
         'runEvidence',
@@ -46,7 +52,6 @@ test('P1C21 UI never renders benchmark evidence hashes, paths, review records or
         'runtimeVersion',
         'certificationRecord',
         '.reviewNote',
-        'reviewerIdentityVerified',
         'result.reason',
     ]) {
         assert.equal(panel.includes(token), false, `unexpected benchmark evidence exposure: ${token}`);

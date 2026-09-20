@@ -16,7 +16,7 @@ test('P1C22 Router Diagnostics adds one review-only package action after the 3-s
     assert.ok(panel.includes('input.oninput = () =>'));
     assert.ok(panel.includes('benchmarkReviewPrepare = null'));
     assert.ok(panel.includes('benchmarkReviewSummaryProvider = null'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 4);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 5);
     assert.equal((panel.match(/\.onchange\s*=/g) || []).length, 1);
 });
 
@@ -44,6 +44,12 @@ test('P1C22 UI renders only sanitized recommendation summary and no evidence pro
         assert.ok(panel.includes(allowed), `missing sanitized review field: ${allowed}`);
     }
 
+    assert.equal(
+        panel.includes('benchmarkReviewState.summary.reviewerIdentityVerified'),
+        false,
+        'P1C22 review summary must not expose reviewer identity metadata',
+    );
+
     for (const forbidden of [
         'readUserBenchmarkReviewSession',
         'runtimeBinarySha256',
@@ -55,7 +61,6 @@ test('P1C22 UI renders only sanitized recommendation summary and no evidence pro
         'summary.harnessVersion',
         'certificationRecord',
         '.reviewNote',
-        'reviewerIdentityVerified',
         'result.reason',
     ]) {
         assert.equal(panel.includes(forbidden), false, `unexpected P1C22 UI exposure: ${forbidden}`);
