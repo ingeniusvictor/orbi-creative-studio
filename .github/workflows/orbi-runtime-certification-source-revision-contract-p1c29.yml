@@ -1,0 +1,141 @@
+name: ORBI Runtime certification source revision contract P1C29 validation
+
+on:
+  push:
+    branches:
+      - feature/runtime-certification-source-revision-contract-p1c29
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout P1C29
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: P1C29 static safety gate
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const loader = fs.readFileSync(
+            'src/lib/computeRouter/runtimeCertifiedResourceProfileRegistry.mjs',
+            'utf8',
+          );
+          const runtimeSource = fs.readFileSync(
+            'src/lib/computeRouter/runtimeResourceProfileCertifications.mjs',
+            'utf8',
+          );
+          const dryRun = fs.readFileSync(
+            'src/lib/computeRouter/runtimeCertificationSourceApplyDryRun.mjs',
+            'utf8',
+          );
+          const settings = fs.readFileSync('src/components/SettingsModal.js', 'utf8');
+          const panel = fs.readFileSync('src/components/RouterDiagnosticsPanel.js', 'utf8');
+          const main = fs.readFileSync('src/main.js', 'utf8');
+          const image = fs.readFileSync('src/components/ImageStudio.js', 'utf8');
+          const video = fs.readFileSync('src/components/VideoStudio.js', 'utf8');
+
+          if (!loader.includes(
+            'export const RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS = Object.freeze([1, 2]);'
+          )) {
+            throw new Error('P1C29 must support exactly runtime source revisions 1 and 2');
+          }
+
+          if (!loader.includes(
+            '!RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS.includes(source.sourceRevision)'
+          )) {
+            throw new Error('P1C29 validator must use the explicit supported revision contract');
+          }
+
+          for (const token of [
+            'authenticityVerified: false',
+            'routingEligible: false',
+            'cutoverAuthorized: false',
+            "executionAuthority: 'legacy-dispatcher-only'",
+          ]) {
+            if (!loader.includes(token)) {
+              throw new Error('P1C29 loader authority boundary missing: ' + token);
+            }
+          }
+
+          if (!dryRun.includes(
+            'supportedSourceRevisionsProvider = () => RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS'
+          )) {
+            throw new Error('P1C28 must consume the migrated P1C29 revision contract');
+          }
+
+          if (!runtimeSource.includes('const certifications = [];')
+              || !runtimeSource.includes('sourceRevision: 1')) {
+            throw new Error('P1C29 must leave the real runtime source empty at revision 1');
+          }
+
+          for (const forbidden of [
+            'writeFile',
+            'createWriteStream',
+            'fetch(',
+            'octokit',
+            'updateFile',
+            'createCommit',
+            'updateRef',
+            'routingEligible: true',
+            'cutoverAuthorized: true',
+            "executionAuthority: 'compute-router'",
+          ]) {
+            if (loader.includes(forbidden)) {
+              throw new Error('P1C29 loader gained forbidden capability: ' + forbidden);
+            }
+          }
+
+          for (const source of [settings, panel, main, image, video]) {
+            if (source.includes('RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS')) {
+              throw new Error('P1C29 revision contract entered UI/startup/generation surface');
+            }
+          }
+          NODE
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: P1C29 focused tests
+        run: node --test tests/runtimeCertificationSourceRevisionContract.test.js tests/runtimeCertificationSourceApplyDryRun.test.js tests/runtimeCertifiedResourceProfileRegistry.test.js tests/runtimeCertificationSourceCommitHandoff.test.js tests/runtimeCertificationSourceReview.test.js tests/runtimeCertificationSourceMaterialization.test.js
+
+      - name: Root tests
+        run: node --test tests/*.test.js
+
+      - name: Deterministic lint
+        run: npm run lint -- --max-warnings 10
+
+      - name: Build workspaces
+        run: npm run build:packages
+
+      - name: Build Next application
+        run: npm run build
+
+      - name: Build Electron renderer
+        run: npm run vite:build
+
+      - name: Production security gate
+        run: |
+          set +e
+          npm audit --omit=dev --json > /tmp/prod-audit.json
+          set -e
+          node - <<'NODE'
+          const a = require('/tmp/prod-audit.json');
+          const v = a.metadata?.vulnerabilities || {};
+          console.log('P1C29_PROD_AUDIT', JSON.stringify(v));
+          if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+            throw new Error('Critical/high production findings remain');
+          }
+          NODE
