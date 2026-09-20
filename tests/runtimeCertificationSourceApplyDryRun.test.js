@@ -147,7 +147,7 @@ async function makeChain() {
     };
 }
 
-test('P1C28 blocks the guarded dry-run while runtime loader supports only source revision 1', async () => {
+test('P1C28 guarded dry-run is READY when runtime loader supports source revisions 1 and 2', async () => {
     const applyModule = await import(
         '../src/lib/computeRouter/runtimeCertificationSourceApplyDryRun.mjs'
     );
@@ -158,7 +158,7 @@ test('P1C28 blocks the guarded dry-run while runtime loader supports only source
 
     assert.deepEqual(
         [...registryModule.RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS],
-        [1],
+        [1, 2],
     );
 
     const dryRun = applyModule.createRuntimeCertificationSourceApplyDryRun({
@@ -173,20 +173,20 @@ test('P1C28 blocks the guarded dry-run while runtime loader supports only source
         sourceBlobSha: SOURCE_BLOB_SHA,
     });
 
-    assert.equal(result.status, 'RUNTIME_CERTIFICATION_SOURCE_APPLY_DRY_RUN_BLOCKED');
-    assert.equal(result.reason, 'SOURCE_APPLY_RUNTIME_LOADER_MIGRATION_REQUIRED');
+    assert.equal(result.status, 'RUNTIME_CERTIFICATION_SOURCE_APPLY_DRY_RUN_READY');
+    assert.equal(result.reason, null);
     assert.equal(result.dryRunOnly, true);
     assert.equal(result.sourceReviewApproved, true);
-    assert.equal(result.sourceApplyEligible, false);
-    assert.equal(result.runtimeLoaderCompatible, false);
-    assert.equal(result.runtimeLoaderMigrationRequired, true);
+    assert.equal(result.sourceApplyEligible, true);
+    assert.equal(result.runtimeLoaderCompatible, true);
+    assert.equal(result.runtimeLoaderMigrationRequired, false);
     assert.equal(result.sourceMutationApplied, false);
     assert.equal(result.runtimeRegistryLoaded, false);
     assert.equal(result.routingEligible, false);
     assert.equal(result.cutoverAuthorized, false);
 
     const plan = dryRun.readDryRun(TARGET);
-    assert.equal(plan.status, 'runtime-loader-migration-required');
+    assert.equal(plan.status, 'guarded-source-apply-ready');
     assert.equal(plan.operation.operationType, 'replace-source-controlled-file');
     assert.equal(plan.operation.targetPath, 'src/lib/computeRouter/runtimeResourceProfileCertifications.mjs');
     assert.equal(plan.operation.writeStrategy, 'external-source-control-update');
@@ -198,13 +198,13 @@ test('P1C28 blocks the guarded dry-run while runtime loader supports only source
     assert.equal(plan.operation.proposed.sourceRevision, 2);
     assert.equal(plan.operation.proposed.certificationCount, 1);
     assert.equal(plan.operation.proposed.sourceContent, chain.handoff.proposal.sourceContent);
-    assert.deepEqual([...plan.guards.supportedSourceRevisions], [1]);
-    assert.equal(plan.guards.runtimeLoaderCompatible, false);
-    assert.equal(plan.guards.runtimeLoaderMigrationRequired, true);
+    assert.deepEqual([...plan.guards.supportedSourceRevisions], [1, 2]);
+    assert.equal(plan.guards.runtimeLoaderCompatible, true);
+    assert.equal(plan.guards.runtimeLoaderMigrationRequired, false);
     assert.equal(Object.isFrozen(plan), true);
 });
 
-test('P1C28 becomes READY only when loader capability explicitly includes proposed revision 2', async () => {
+test('P1C28 remains BLOCKED if a caller presents an older loader capability without revision 2', async () => {
     const applyModule = await import(
         '../src/lib/computeRouter/runtimeCertificationSourceApplyDryRun.mjs'
     );
@@ -214,7 +214,7 @@ test('P1C28 becomes READY only when loader capability explicitly includes propos
         readHandoff: () => chain.handoff,
         readReviewArtifact: () => chain.reviewArtifact,
         readMaterialization: () => chain.materialization,
-        supportedSourceRevisionsProvider: () => [2, 1, 2],
+        supportedSourceRevisionsProvider: () => [1],
         store: new Map(),
     });
 
@@ -223,23 +223,23 @@ test('P1C28 becomes READY only when loader capability explicitly includes propos
         sourceBlobSha: SOURCE_BLOB_SHA,
     });
 
-    assert.equal(result.status, 'RUNTIME_CERTIFICATION_SOURCE_APPLY_DRY_RUN_READY');
-    assert.equal(result.reason, null);
-    assert.equal(result.sourceApplyEligible, true);
-    assert.equal(result.runtimeLoaderCompatible, true);
-    assert.equal(result.runtimeLoaderMigrationRequired, false);
-    assert.deepEqual([...result.summary.supportedSourceRevisions], [1, 2]);
+    assert.equal(result.status, 'RUNTIME_CERTIFICATION_SOURCE_APPLY_DRY_RUN_BLOCKED');
+    assert.equal(result.reason, 'SOURCE_APPLY_RUNTIME_LOADER_MIGRATION_REQUIRED');
+    assert.equal(result.sourceApplyEligible, false);
+    assert.equal(result.runtimeLoaderCompatible, false);
+    assert.equal(result.runtimeLoaderMigrationRequired, true);
+    assert.deepEqual([...result.summary.supportedSourceRevisions], [1]);
 
     const plan = dryRun.readDryRun(TARGET);
-    assert.equal(plan.status, 'guarded-source-apply-ready');
-    assert.deepEqual([...plan.guards.supportedSourceRevisions], [1, 2]);
-    assert.equal(plan.guards.runtimeLoaderCompatible, true);
-    assert.equal(plan.sourceApplyEligible, true);
+    assert.equal(plan.status, 'runtime-loader-migration-required');
+    assert.deepEqual([...plan.guards.supportedSourceRevisions], [1]);
+    assert.equal(plan.guards.runtimeLoaderCompatible, false);
+    assert.equal(plan.sourceApplyEligible, false);
 
     const validation = applyModule.validateRuntimeCertificationSourceApplyDryRun(plan);
     assert.equal(validation.ok, true);
-    assert.equal(validation.runtimeLoaderCompatible, true);
-    assert.equal(validation.sourceApplyEligible, true);
+    assert.equal(validation.runtimeLoaderCompatible, false);
+    assert.equal(validation.sourceApplyEligible, false);
 });
 
 test('P1C28 rejects stale commit and stale source blob before producing a dry-run plan', async () => {
@@ -355,9 +355,9 @@ test('P1C28 summary is sanitized and never exposes proposed source or human revi
     const result = dryRun.getSummary(TARGET);
     const serialized = JSON.stringify(result);
 
-    assert.equal(result.status, 'RUNTIME_CERTIFICATION_SOURCE_APPLY_DRY_RUN_BLOCKED');
-    assert.equal(result.summary.runtimeLoaderMigrationRequired, true);
-    assert.equal(result.summary.sourceApplyEligible, false);
+    assert.equal(result.status, 'RUNTIME_CERTIFICATION_SOURCE_APPLY_DRY_RUN_READY');
+    assert.equal(result.summary.runtimeLoaderMigrationRequired, false);
+    assert.equal(result.summary.sourceApplyEligible, true);
     assert.equal(result.summary.baseCommitSha, BASE_COMMIT_SHA);
     assert.equal(result.summary.sourceBlobSha, SOURCE_BLOB_SHA);
 
@@ -375,7 +375,7 @@ test('P1C28 summary is sanitized and never exposes proposed source or human revi
     }
 });
 
-test('P1C28 preserves runtime loader behavior at revision 1 while exposing the capability list', async () => {
+test('P1C28 sees the P1C29 loader contract for revisions 1 and 2 while revision 3 stays unsupported', async () => {
     const registryModule = await import(
         '../src/lib/computeRouter/runtimeCertifiedResourceProfileRegistry.mjs'
     );
@@ -385,7 +385,7 @@ test('P1C28 preserves runtime loader behavior at revision 1 while exposing the c
 
     assert.deepEqual(
         [...registryModule.RUNTIME_CERTIFICATION_SUPPORTED_SOURCE_REVISIONS],
-        [1],
+        [1, 2],
     );
 
     const current = materializationModule.deepFreeze({
@@ -404,9 +404,16 @@ test('P1C28 preserves runtime loader behavior at revision 1 while exposing the c
         ...current,
         sourceRevision: 2,
     });
-    const validation = registryModule.validateRuntimeCertificationSource(revision2);
-    assert.equal(validation.ok, false);
-    assert.equal(validation.reason, 'RUNTIME_CERTIFICATION_SOURCE_IDENTITY_INVALID');
+    const revision2Validation = registryModule.validateRuntimeCertificationSource(revision2);
+    assert.equal(revision2Validation.ok, true);
+
+    const revision3 = materializationModule.deepFreeze({
+        ...current,
+        sourceRevision: 3,
+    });
+    const revision3Validation = registryModule.validateRuntimeCertificationSource(revision3);
+    assert.equal(revision3Validation.ok, false);
+    assert.equal(revision3Validation.reason, 'RUNTIME_CERTIFICATION_SOURCE_IDENTITY_INVALID');
 });
 
 test('P1C28 has no file/GitHub write, UI, runtime-load, routing, or cutover capability', () => {
