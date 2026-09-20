@@ -220,6 +220,33 @@ export function validateRuntimeCertificationEvidenceProvenanceAttestation(attest
         || attestation.acquisition?.fixture !== false
         || attestation.acquisition?.synthetic !== false
         || attestation.acquisition?.demo !== false
+        || typeof attestation.context?.modelId !== 'string'
+        || !attestation.context.modelId.trim()
+        || !['cpu', 'cuda12'].includes(attestation.context?.backend)
+        || !Number.isInteger(attestation.context?.resolution?.width)
+        || attestation.context.resolution.width <= 0
+        || !Number.isInteger(attestation.context?.resolution?.height)
+        || attestation.context.resolution.height <= 0
+        || typeof attestation.benchmarkContext?.harnessVersion !== 'string'
+        || !attestation.benchmarkContext.harnessVersion.trim()
+        || typeof attestation.benchmarkContext?.sourceCommit !== 'string'
+        || !SHA40_PATTERN.test(attestation.benchmarkContext.sourceCommit)
+        || typeof attestation.benchmarkContext?.runtimeIdentity !== 'string'
+        || !attestation.benchmarkContext.runtimeIdentity.trim()
+        || typeof attestation.benchmarkContext?.runtimeVersion !== 'string'
+        || !attestation.benchmarkContext.runtimeVersion.trim()
+        || typeof attestation.benchmarkContext?.runtimeBinarySha256 !== 'string'
+        || !SHA256_PATTERN.test(attestation.benchmarkContext.runtimeBinarySha256)
+        || typeof attestation.benchmarkContext?.modelArtifactSha256 !== 'string'
+        || !SHA256_PATTERN.test(attestation.benchmarkContext.modelArtifactSha256)
+        || !Array.isArray(attestation.benchmarkContext?.auxiliaryArtifacts)
+        || attestation.benchmarkContext.auxiliaryArtifacts.some((artifact) => (
+            !artifact
+            || typeof artifact.role !== 'string'
+            || !artifact.role.trim()
+            || typeof artifact.sha256 !== 'string'
+            || !SHA256_PATTERN.test(artifact.sha256)
+        ))
         || attestation.bindings?.promotionPackageValidated !== true
         || attestation.bindings?.certificationEntryBound !== true
         || attestation.bindings?.sourceApplyPlanValidated !== true
