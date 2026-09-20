@@ -99,13 +99,16 @@ jobs:
             throw new Error('P1C24 must preserve the single safety-margin oninput handler');
           }
 
+          if (/summary\.reviewerId(?!entityVerified)/.test(panel)) {
+            throw new Error('P1C24 UI exposes forbidden reviewer id');
+          }
+
           for (const forbidden of [
             'readRuntimeCertificationPromotionPackage',
             'summary.certificationEntry',
             'summary.certificationRecord',
             'summary.certifiedProfile',
             'summary.reviewNote',
-            'summary.reviewerId',
             'summary.sourceCommit',
             'runtimeBinarySha256',
             'modelArtifactSha256',
