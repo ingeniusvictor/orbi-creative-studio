@@ -1,0 +1,23 @@
+name: ORBI P1C44 Human Policy PR Request Manifest
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/upstreamPolicyPrRequest.mjs'
+      - 'tests/upstreamPolicyPrRequest.test.js'
+      - 'docs/PHASE-1C44-HUMAN-POLICY-PR-REQUEST-MANIFEST.md'
+      - '.github/workflows/orbi-upstream-policy-pr-request-p1c44.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/upstreamPolicyPrRequest.test.js
