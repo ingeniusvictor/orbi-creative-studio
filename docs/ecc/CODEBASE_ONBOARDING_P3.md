@@ -1,7 +1,7 @@
 # P3 — ORBI Creative Studio Codebase Onboarding Map
 
 Status: REFERENCE / NON-AUTHORIZING  
-Snapshot: `612c63c16d0f88168aca9808a27d22f37091e6c6`
+Snapshot: `8cb8f9357f06731c60cc051fdb9bdd14615cd120`
 
 ## Overview
 
