@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "profile": "orbi-ecc-creative-studio-v0.5",
-  "status": "two-project-skills-materialized",
+  "profile": "orbi-ecc-creative-studio-v0.6",
+  "status": "context-budget-audited",
   "enforcement": "non-blocking-security-report",
   "adoptionMode": "curated",
   "upstream": "affaan-m/ECC",
@@ -18,7 +18,7 @@
   "dailySkills": [
     "architecture-decision-records",
     "coding-standards",
-    "context-budget",
+    "orbi-context-budget",
     "delivery-gate",
     "git-workflow",
     "orbi-security-review",
@@ -160,7 +160,8 @@
     },
     "projectSkillPaths": [
       ".agents/skills/orbi-verification-loop/SKILL.md",
-      ".agents/skills/orbi-security-review/SKILL.md"
+      ".agents/skills/orbi-security-review/SKILL.md",
+      ".agents/skills/orbi-context-budget/SKILL.md"
     ]
   },
   "projectSkills": [
@@ -181,6 +182,29 @@
       "upstreamInspiration": "ECC security-review 2.2.2",
       "authoritative": false,
       "runtimeDependency": false
+    },
+    {
+      "name": "orbi-context-budget",
+      "path": ".agents/skills/orbi-context-budget/SKILL.md",
+      "version": "0.1.0",
+      "origin": "ORBI",
+      "upstreamInspiration": "ECC context-budget 2.2.2",
+      "authoritative": false,
+      "runtimeDependency": false,
+      "auditScript": "scripts/ecc-context-budget.mjs"
     }
-  ]
+  ],
+  "contextBudget": {
+    "enabled": true,
+    "enforcement": false,
+    "script": "scripts/ecc-context-budget.mjs",
+    "model": "estimate-only",
+    "persistentSurfaces": [
+      "AGENTS.md",
+      "CLAUDE.md",
+      ".codex/AGENTS.md"
+    ],
+    "skillsAssumedPersistent": false,
+    "mcpSchemaCostAssumedWithoutLiveEvidence": false
+  }
 }
