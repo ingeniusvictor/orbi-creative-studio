@@ -7,6 +7,10 @@ import {
     buildUpstreamDriftReport,
     formatUpstreamDriftMarkdown,
 } from '../src/lib/upstreamDriftReport.mjs';
+import {
+    buildUpstreamTriageReport,
+    formatUpstreamTriageMarkdown,
+} from '../src/lib/upstreamChangeTriage.mjs';
 
 const apiBase = process.env.ORBI_UPSTREAM_API_BASE || 'https://api.github.com';
 const outputDir = process.env.ORBI_UPSTREAM_DRIFT_DIR || 'artifacts/upstream-drift';
@@ -55,7 +59,15 @@ async function fetchCompare() {
     return response.json();
 }
 
-async function writeOutputs(report, markdown) {
+function normalizeCompareCommits(compare) {
+    return (Array.isArray(compare?.commits) ? compare.commits : []).map((commit) => ({
+        sha: typeof commit?.sha === 'string' ? commit.sha : null,
+        message: typeof commit?.commit?.message === 'string' ? commit.commit.message : '',
+        date: commit?.commit?.author?.date || commit?.commit?.committer?.date || null,
+    }));
+}
+
+async function writeOutputs(report, markdown, triage, triageMarkdown) {
     await fs.mkdir(outputDir, { recursive: true });
     await fs.writeFile(
         path.join(outputDir, 'open-generative-ai-drift.json'),
@@ -67,9 +79,19 @@ async function writeOutputs(report, markdown) {
         markdown,
         'utf8',
     );
+    await fs.writeFile(
+        path.join(outputDir, 'open-generative-ai-triage.json'),
+        `${JSON.stringify(triage, null, 2)}\n`,
+        'utf8',
+    );
+    await fs.writeFile(
+        path.join(outputDir, 'open-generative-ai-triage.md'),
+        triageMarkdown,
+        'utf8',
+    );
 
     if (process.env.GITHUB_STEP_SUMMARY) {
-        await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8');
+        await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n${triageMarkdown}`, 'utf8');
     }
 }
 
@@ -88,6 +110,8 @@ const report = buildUpstreamDriftReport(compare, {
     headMessage: head.message,
 });
 const markdown = formatUpstreamDriftMarkdown(report);
-await writeOutputs(report, markdown);
+const triage = buildUpstreamTriageReport(report, normalizeCompareCommits(compare));
+const triageMarkdown = formatUpstreamTriageMarkdown(triage);
+await writeOutputs(report, markdown, triage, triageMarkdown);
 
-process.stdout.write(markdown);
+process.stdout.write(`${markdown}\n${triageMarkdown}`);
