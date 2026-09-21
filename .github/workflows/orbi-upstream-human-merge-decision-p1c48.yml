@@ -1,0 +1,23 @@
+name: ORBI P1C48 Explicit Human Merge Decision
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/upstreamPolicyMergeDecision.mjs'
+      - 'tests/upstreamPolicyMergeDecision.test.js'
+      - 'docs/PHASE-1C48-EXPLICIT-HUMAN-MERGE-DECISION.md'
+      - '.github/workflows/orbi-upstream-human-merge-decision-p1c48.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/upstreamPolicyMergeDecision.test.js
