@@ -14,19 +14,23 @@ on:
       - 'src/lib/upstreamAdoptionManifest.mjs'
       - 'src/lib/upstreamReviewDecisions.mjs'
       - 'src/lib/upstreamBaselineAdvanceProposal.mjs'
+      - 'src/lib/upstreamBaselinePolicyDryRun.mjs'
       - 'scripts/check-upstream-drift.mjs'
       - 'scripts/build-upstream-baseline-proposal.mjs'
+      - 'scripts/preview-upstream-baseline-policy-update.mjs'
       - 'tests/upstreamDriftPolicy.test.js'
       - 'tests/upstreamDriftReport.test.js'
       - 'tests/upstreamChangeTriage.test.js'
       - 'tests/upstreamAdoptionManifest.test.js'
       - 'tests/upstreamReviewDecisions.test.js'
       - 'tests/upstreamBaselineAdvanceProposal.test.js'
+      - 'tests/upstreamBaselinePolicyDryRun.test.js'
       - 'docs/PHASE-1C33-AUTOMATED-UPSTREAM-DRIFT-SCANNER.md'
       - 'docs/PHASE-1C35-UPSTREAM-CHANGE-TRIAGE.md'
       - 'docs/PHASE-1C36-GOVERNED-UPSTREAM-ADOPTION-MANIFEST.md'
       - 'docs/PHASE-1C37-UPSTREAM-REVIEW-DECISIONS.md'
       - 'docs/PHASE-1C38-UPSTREAM-BASELINE-ADVANCE-PROPOSAL.md'
+      - 'docs/PHASE-1C39-UPSTREAM-BASELINE-POLICY-DRY-RUN.md'
       - '.github/workflows/orbi-upstream-drift-scanner-p1c33.yml'
   pull_request:
     paths:
@@ -36,19 +40,23 @@ on:
       - 'src/lib/upstreamAdoptionManifest.mjs'
       - 'src/lib/upstreamReviewDecisions.mjs'
       - 'src/lib/upstreamBaselineAdvanceProposal.mjs'
+      - 'src/lib/upstreamBaselinePolicyDryRun.mjs'
       - 'scripts/check-upstream-drift.mjs'
       - 'scripts/build-upstream-baseline-proposal.mjs'
+      - 'scripts/preview-upstream-baseline-policy-update.mjs'
       - 'tests/upstreamDriftPolicy.test.js'
       - 'tests/upstreamDriftReport.test.js'
       - 'tests/upstreamChangeTriage.test.js'
       - 'tests/upstreamAdoptionManifest.test.js'
       - 'tests/upstreamReviewDecisions.test.js'
       - 'tests/upstreamBaselineAdvanceProposal.test.js'
+      - 'tests/upstreamBaselinePolicyDryRun.test.js'
       - 'docs/PHASE-1C33-AUTOMATED-UPSTREAM-DRIFT-SCANNER.md'
       - 'docs/PHASE-1C35-UPSTREAM-CHANGE-TRIAGE.md'
       - 'docs/PHASE-1C36-GOVERNED-UPSTREAM-ADOPTION-MANIFEST.md'
       - 'docs/PHASE-1C37-UPSTREAM-REVIEW-DECISIONS.md'
       - 'docs/PHASE-1C38-UPSTREAM-BASELINE-ADVANCE-PROPOSAL.md'
+      - 'docs/PHASE-1C39-UPSTREAM-BASELINE-POLICY-DRY-RUN.md'
       - '.github/workflows/orbi-upstream-drift-scanner-p1c33.yml'
 
 permissions:
@@ -71,9 +79,10 @@ jobs:
         run: |
           node --check scripts/check-upstream-drift.mjs
           node --check scripts/build-upstream-baseline-proposal.mjs
+          node --check scripts/preview-upstream-baseline-policy-update.mjs
 
-      - name: Run P1C32-P1C38 upstream governance tests
-        run: node --test tests/upstreamDriftPolicy.test.js tests/upstreamDriftReport.test.js tests/upstreamChangeTriage.test.js tests/upstreamAdoptionManifest.test.js tests/upstreamReviewDecisions.test.js tests/upstreamBaselineAdvanceProposal.test.js
+      - name: Run P1C32-P1C39 upstream governance tests
+        run: node --test tests/upstreamDriftPolicy.test.js tests/upstreamDriftReport.test.js tests/upstreamChangeTriage.test.js tests/upstreamAdoptionManifest.test.js tests/upstreamReviewDecisions.test.js tests/upstreamBaselineAdvanceProposal.test.js tests/upstreamBaselinePolicyDryRun.test.js
 
   live-scan:
     name: P1C33 live upstream scan
