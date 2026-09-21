@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "profile": "orbi-ecc-portable-core-v0.1",
+  "status": "selective-reuse-ready",
+  "sourcePilot": {
+    "repository": "ingeniusvictor/orbi-creative-studio",
+    "canonicalBranch": "integration/orbi-foundation",
+    "certifiedThroughPhase": "P8"
+  },
+  "upstream": {
+    "ecc": {
+      "repository": "affaan-m/ECC",
+      "version": "2.2.2",
+      "commit": "91ba9b4cf6c47c8130829004f8bb64762a76ccbb"
+    },
+    "agentShield": {
+      "repository": "affaan-m/agentshield",
+      "package": "ecc-agentshield",
+      "version": "1.6.0",
+      "commit": "b0891303bdcd6037376a94263d45cfd2ff3dfb98"
+    }
+  },
+  "adoptionPolicy": {
+    "fullInstall": false,
+    "copyAllAgents": false,
+    "copyAllSkills": false,
+    "oneVariableAtATime": true,
+    "gitAndGovernedEvidenceRemainCanonical": true
+  },
+  "portableComponents": [
+    {
+      "name": "root-agent-instructions",
+      "source": "AGENTS.md",
+      "reuse": "adapt-required",
+      "reason": "Commands, authority boundaries and stack differ by repository."
+    },
+    {
+      "name": "orbi-verification-loop",
+      "source": ".agents/skills/orbi-verification-loop/SKILL.md",
+      "reuse": "adapt-required",
+      "reason": "Verification commands and readiness gates are repository-specific."
+    },
+    {
+      "name": "orbi-security-review",
+      "source": ".agents/skills/orbi-security-review/SKILL.md",
+      "reuse": "adapt-required",
+      "reason": "Trust boundaries differ by product/runtime."
+    },
+    {
+      "name": "orbi-context-budget",
+      "source": ".agents/skills/orbi-context-budget/SKILL.md",
+      "reuse": "portable-with-surface-review",
+      "reason": "Loading classes are portable, but harness/config paths must be reviewed."
+    },
+    {
+      "name": "orbi-agent-harness",
+      "source": ".agents/skills/orbi-agent-harness/SKILL.md",
+      "reuse": "portable-with-authority-review",
+      "reason": "Observation/recovery rules are portable, authority domains may need extension."
+    },
+    {
+      "name": "agent-observation-contract",
+      "source": ".orbi/agent-observation-v1.schema.json",
+      "reuse": "portable-with-authority-review",
+      "reason": "Structure is portable; governed authority domains must match the target repository."
+    },
+    {
+      "name": "agentshield-report-only-pattern",
+      "source": ".github/workflows/ecc-agentshield-report.yml",
+      "reuse": "adapt-required",
+      "reason": "Scanner pin may be reused, but path coverage and accepted baselines are repository-specific."
+    }
+  ],
+  "rolloutSequence": [
+    "inventory-current-repository",
+    "define-root-instructions",
+    "run-agentshield-report-only",
+    "perform-agent-sort",
+    "adapt-verification-skill",
+    "adapt-security-skill",
+    "add-context-budget",
+    "add-agent-harness-contract",
+    "certify-before-any-memory-or-hooks"
+  ],
+  "deferred": {
+    "hooks": false,
+    "mcp": false,
+    "continuousLearningV2": false,
+    "unifiedMemory": false,
+    "autonomousLoops": false,
+    "multiAgentRoles": false
+  },
+  "promotionCriteria": {
+    "agentShieldReportOnlyGreen": true,
+    "integratedRepositoryGateGreen": true,
+    "noNewUnreviewedSecurityFindingClass": true,
+    "noRuntimeDependencyOnAgentSkills": true,
+    "rollbackDocumented": true
+  }
+}
