@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "profile": "orbi-ecc-creative-studio-v0.3",
-  "status": "codex-instruction-surface",
+  "profile": "orbi-ecc-creative-studio-v0.4",
+  "status": "project-skill-materialized",
   "enforcement": "non-blocking-security-report",
   "adoptionMode": "curated",
   "upstream": "affaan-m/ECC",
@@ -23,7 +23,7 @@
     "git-workflow",
     "security-review",
     "tdd-workflow",
-    "verification-loop"
+    "orbi-verification-loop"
   ],
   "libraryAgents": [
     "build-error-resolver",
@@ -139,7 +139,7 @@
     "rootInstructions": "AGENTS.md",
     "sourceReference": "ECC 2.2.2 harness adapter compliance",
     "eccReferenceCommit": "91ba9b4cf6c47c8130829004f8bb64762a76ccbb",
-    "projectSkillsMaterialized": false,
+    "projectSkillsMaterialized": true,
     "codexConfigAdded": false,
     "multiAgentEnabled": false,
     "hooksEnabled": false,
@@ -157,6 +157,20 @@
       ],
       "newNonLockfileFindings": 0,
       "knownLockfileFalsePositiveFindings": 1161
+    },
+    "projectSkillPaths": [
+      ".agents/skills/orbi-verification-loop/SKILL.md"
+    ]
+  },
+  "projectSkills": [
+    {
+      "name": "orbi-verification-loop",
+      "path": ".agents/skills/orbi-verification-loop/SKILL.md",
+      "version": "0.1.0",
+      "origin": "ORBI",
+      "upstreamInspiration": "ECC verification-loop 2.2.2",
+      "authoritative": false,
+      "runtimeDependency": false
     }
-  }
+  ]
 }
