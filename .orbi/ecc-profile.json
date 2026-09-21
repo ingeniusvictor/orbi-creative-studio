@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "profile": "orbi-ecc-creative-studio-v0.1",
+  "status": "proposed",
+  "enforcement": "documentation-only",
+  "adoptionMode": "curated",
+  "upstream": "affaan-m/ECC",
+  "scope": "orbi-creative-studio",
+  "dailyAgents": [
+    "planner",
+    "architect",
+    "tdd-guide",
+    "code-reviewer",
+    "security-reviewer",
+    "build-error-resolver",
+    "e2e-runner",
+    "refactor-cleaner",
+    "doc-updater",
+    "typescript-reviewer",
+    "harness-optimizer",
+    "loop-operator"
+  ],
+  "dailySkills": [
+    "agent-sort",
+    "codebase-onboarding",
+    "architecture-decision-records",
+    "coding-standards",
+    "tdd-workflow",
+    "ai-regression-testing",
+    "e2e-testing",
+    "verification-loop",
+    "browser-qa",
+    "eval-harness",
+    "context-budget",
+    "delivery-gate",
+    "git-workflow",
+    "security-scan",
+    "agent-harness-construction"
+  ],
+  "libraryAgents": [
+    "react-reviewer",
+    "react-build-resolver",
+    "performance-optimizer",
+    "cpp-reviewer",
+    "cpp-build-resolver",
+    "python-reviewer",
+    "mle-reviewer",
+    "rag-pipeline-reviewer"
+  ],
+  "stage2Skills": [
+    "continuous-learning-v2",
+    "continuous-agent-loop",
+    "unified-memory",
+    "strategic-compact",
+    "cost-aware-llm-pipeline",
+    "deep-research",
+    "design-system",
+    "content-engine"
+  ],
+  "hooks": {
+    "enabled": false
+  },
+  "continuousLearning": {
+    "enabled": false
+  },
+  "unifiedMemory": {
+    "enabled": false,
+    "authoritative": false
+  },
+  "agentShield": {
+    "mode": "disabled-until-reviewed-pin",
+    "autoFix": false,
+    "ciEnforced": false
+  },
+  "authority": {
+    "eccMayMutateRuntimeCertificationSource": false,
+    "eccMayChangeRoutingAuthority": false,
+    "eccMayEnableCutover": false,
+    "eccMayMergePullRequests": false,
+    "eccMayHandleProviderSecrets": false
+  }
+}
