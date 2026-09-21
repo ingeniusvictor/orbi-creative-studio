@@ -41,6 +41,7 @@ jobs:
           fail-on-findings: false
           format: "sarif"
           sarif-output: "agentshield-results.sarif"
+          save-baseline: ".agentshield/current-baseline.json"
           supply-chain: true
           supply-chain-online: false
           fail-on-supply-chain: false
@@ -54,13 +55,14 @@ jobs:
           {
             echo "## ORBI ECC AgentShield — report only"
             echo
-            echo "- Pinned AgentShield commit: `b0891303bdcd6037376a94263d45cfd2ff3dfb98`"
-            echo "- Scanner step outcome: `${{ steps.agentshield.outcome }}`"
-            echo "- Security score: `${{ steps.agentshield.outputs.score }}`"
-            echo "- Grade: `${{ steps.agentshield.outputs.grade }}`"
-            echo "- Total findings: `${{ steps.agentshield.outputs.total-findings }}`"
-            echo "- Critical findings: `${{ steps.agentshield.outputs.critical-count }}`"
-            echo "- Supply-chain status: `${{ steps.agentshield.outputs.supply-chain-status }}`"
+            echo "- Pinned AgentShield commit: b0891303bdcd6037376a94263d45cfd2ff3dfb98"
+            echo "- Scanner step outcome: ${{ steps.agentshield.outcome }}"
+            echo "- Security score: ${{ steps.agentshield.outputs.score }}"
+            echo "- Grade: ${{ steps.agentshield.outputs.grade }}"
+            echo "- Total findings: ${{ steps.agentshield.outputs.total-findings }}"
+            echo "- Critical findings: ${{ steps.agentshield.outputs.critical-count }}"
+            echo "- Supply-chain status: ${{ steps.agentshield.outputs.supply-chain-status }}"
+            echo "- Baseline path: ${{ steps.agentshield.outputs.baseline-path }}"
             echo
             echo "**This workflow is non-blocking and does not apply fixes.**"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -74,5 +76,6 @@ jobs:
           path: |
             agentshield-results.sarif
             .agentshield/evidence
+            .agentshield/current-baseline.json
           if-no-files-found: warn
           retention-days: 14
