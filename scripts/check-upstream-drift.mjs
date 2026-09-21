@@ -16,6 +16,10 @@ import {
     formatUpstreamAdoptionManifestMarkdown,
     validateUpstreamAdoptionManifest,
 } from '../src/lib/upstreamAdoptionManifest.mjs';
+import {
+    buildUpstreamReviewDecisionTemplate,
+    formatUpstreamReviewTemplateMarkdown,
+} from '../src/lib/upstreamReviewDecisions.mjs';
 
 const apiBase = process.env.ORBI_UPSTREAM_API_BASE || 'https://api.github.com';
 const outputDir = process.env.ORBI_UPSTREAM_DRIFT_DIR || 'artifacts/upstream-drift';
@@ -72,7 +76,16 @@ function normalizeCompareCommits(compare) {
     }));
 }
 
-async function writeOutputs(report, markdown, triage, triageMarkdown, adoptionManifest, adoptionMarkdown) {
+async function writeOutputs(
+    report,
+    markdown,
+    triage,
+    triageMarkdown,
+    adoptionManifest,
+    adoptionMarkdown,
+    decisionTemplate,
+    decisionTemplateMarkdown,
+) {
     await fs.mkdir(outputDir, { recursive: true });
     await fs.writeFile(
         path.join(outputDir, 'open-generative-ai-drift.json'),
@@ -104,11 +117,21 @@ async function writeOutputs(report, markdown, triage, triageMarkdown, adoptionMa
         adoptionMarkdown,
         'utf8',
     );
+    await fs.writeFile(
+        path.join(outputDir, 'open-generative-ai-review-decisions.template.json'),
+        `${JSON.stringify(decisionTemplate, null, 2)}\n`,
+        'utf8',
+    );
+    await fs.writeFile(
+        path.join(outputDir, 'open-generative-ai-review-decisions.template.md'),
+        decisionTemplateMarkdown,
+        'utf8',
+    );
 
     if (process.env.GITHUB_STEP_SUMMARY) {
         await fs.appendFile(
             process.env.GITHUB_STEP_SUMMARY,
-            `${markdown}\n${triageMarkdown}\n${adoptionMarkdown}`,
+            `${markdown}\n${triageMarkdown}\n${adoptionMarkdown}\n${decisionTemplateMarkdown}`,
             'utf8',
         );
     }
@@ -137,6 +160,8 @@ if (!manifestValidation.valid) {
     throw new Error(`Generated adoption manifest is invalid: ${manifestValidation.errors.join('; ')}`);
 }
 const adoptionMarkdown = formatUpstreamAdoptionManifestMarkdown(adoptionManifest);
+const decisionTemplate = buildUpstreamReviewDecisionTemplate(adoptionManifest);
+const decisionTemplateMarkdown = formatUpstreamReviewTemplateMarkdown(decisionTemplate);
 await writeOutputs(
     report,
     markdown,
@@ -144,6 +169,10 @@ await writeOutputs(
     triageMarkdown,
     adoptionManifest,
     adoptionMarkdown,
+    decisionTemplate,
+    decisionTemplateMarkdown,
 );
 
-process.stdout.write(`${markdown}\n${triageMarkdown}\n${adoptionMarkdown}`);
+process.stdout.write(
+    `${markdown}\n${triageMarkdown}\n${adoptionMarkdown}\n${decisionTemplateMarkdown}`,
+);
