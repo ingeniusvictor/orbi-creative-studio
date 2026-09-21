@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbi.local/schemas/agent-observation-v1.schema.json",
+  "title": "ORBI Agent Observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "summary",
+    "nextActions",
+    "artifacts",
+    "evidence",
+    "authorityImpact"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "enum": ["success", "warning", "error"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "nextActions": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "ref"],
+        "properties": {
+          "type": {
+            "enum": ["file", "commit", "pull-request", "workflow", "artifact", "url", "other"]
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "ref", "outcome"],
+        "properties": {
+          "type": {
+            "enum": ["test", "build", "lint", "security-scan", "diff", "workflow", "human-approval", "other"]
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "outcome": {
+            "enum": ["pass", "fail", "pending", "observed"]
+          }
+        }
+      }
+    },
+    "authorityImpact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["affected", "domains", "note"],
+      "properties": {
+        "affected": {
+          "type": "boolean"
+        },
+        "domains": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "runtime-certification",
+              "compute-router",
+              "cutover",
+              "provider-secrets",
+              "benchmark-evidence",
+              "upstream-intake",
+              "canonical-git"
+            ]
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rootCauseHint", "safeRetry", "stopCondition"],
+      "properties": {
+        "rootCauseHint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "safeRetry": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "stopCondition": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "error"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["recovery"]
+      }
+    }
+  ]
+}

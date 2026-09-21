@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "profile": "orbi-ecc-creative-studio-v0.6",
-  "status": "context-budget-audited",
+  "profile": "orbi-ecc-creative-studio-v0.7",
+  "status": "agent-harness-contract-defined",
   "enforcement": "non-blocking-security-report",
   "adoptionMode": "curated",
   "upstream": "affaan-m/ECC",
@@ -118,7 +118,7 @@
     "e2e-testing",
     "ai-regression-testing",
     "eval-harness",
-    "agent-harness-construction",
+    "orbi-agent-harness",
     "contract-first",
     "error-handling",
     "frontend-patterns",
@@ -161,7 +161,8 @@
     "projectSkillPaths": [
       ".agents/skills/orbi-verification-loop/SKILL.md",
       ".agents/skills/orbi-security-review/SKILL.md",
-      ".agents/skills/orbi-context-budget/SKILL.md"
+      ".agents/skills/orbi-context-budget/SKILL.md",
+      ".agents/skills/orbi-agent-harness/SKILL.md"
     ]
   },
   "projectSkills": [
@@ -192,6 +193,17 @@
       "authoritative": false,
       "runtimeDependency": false,
       "auditScript": "scripts/ecc-context-budget.mjs"
+    },
+    {
+      "name": "orbi-agent-harness",
+      "path": ".agents/skills/orbi-agent-harness/SKILL.md",
+      "version": "0.1.0",
+      "origin": "ORBI",
+      "upstreamInspiration": "ECC agent-harness-construction 2.2.2",
+      "authoritative": false,
+      "runtimeDependency": false,
+      "contract": ".orbi/agent-observation-v1.schema.json",
+      "validator": "scripts/validate-agent-observation.mjs"
     }
   ],
   "contextBudget": {
@@ -206,5 +218,15 @@
     ],
     "skillsAssumedPersistent": false,
     "mcpSchemaCostAssumedWithoutLiveEvidence": false
+  },
+  "agentHarness": {
+    "enabled": true,
+    "runtimeAgentEnabled": false,
+    "observationSchema": ".orbi/agent-observation-v1.schema.json",
+    "validator": "scripts/validate-agent-observation.mjs",
+    "authoritySeparation": true,
+    "autonomousLoopEnabled": false,
+    "externalWriteGrantedByContract": false,
+    "privilegedWriteGrantedByContract": false
   }
 }
