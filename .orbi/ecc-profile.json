@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "profile": "orbi-ecc-creative-studio-v0.1",
-  "status": "report-only-pilot",
+  "profile": "orbi-ecc-creative-studio-v0.2",
+  "status": "agent-sort-audited",
   "enforcement": "non-blocking-security-report",
   "adoptionMode": "curated",
   "upstream": "affaan-m/ECC",
@@ -9,43 +9,32 @@
   "dailyAgents": [
     "planner",
     "architect",
-    "tdd-guide",
     "code-reviewer",
     "security-reviewer",
-    "build-error-resolver",
-    "e2e-runner",
-    "refactor-cleaner",
+    "tdd-guide",
     "doc-updater",
-    "typescript-reviewer",
-    "harness-optimizer",
-    "loop-operator"
+    "typescript-reviewer"
   ],
   "dailySkills": [
-    "agent-sort",
-    "codebase-onboarding",
     "architecture-decision-records",
     "coding-standards",
-    "tdd-workflow",
-    "ai-regression-testing",
-    "e2e-testing",
-    "verification-loop",
-    "browser-qa",
-    "eval-harness",
     "context-budget",
     "delivery-gate",
     "git-workflow",
-    "security-scan",
-    "agent-harness-construction"
+    "security-review",
+    "tdd-workflow",
+    "verification-loop"
   ],
   "libraryAgents": [
+    "build-error-resolver",
+    "e2e-runner",
     "react-reviewer",
     "react-build-resolver",
     "performance-optimizer",
-    "cpp-reviewer",
-    "cpp-build-resolver",
-    "python-reviewer",
-    "mle-reviewer",
-    "rag-pipeline-reviewer"
+    "refactor-cleaner",
+    "silent-failure-hunter",
+    "harness-optimizer",
+    "loop-operator"
   ],
   "stage2Skills": [
     "continuous-learning-v2",
@@ -58,14 +47,17 @@
     "content-engine"
   ],
   "hooks": {
-    "enabled": false
+    "enabled": false,
+    "reason": "P3 is classification-only; hook compatibility not yet proven"
   },
   "continuousLearning": {
-    "enabled": false
+    "enabled": false,
+    "reason": "Deferred until P4+ after harness instructions are stable"
   },
   "unifiedMemory": {
     "enabled": false,
-    "authoritative": false
+    "authoritative": false,
+    "reason": "Git and governed ORBI evidence remain canonical"
   },
   "agentShield": {
     "mode": "report-only",
@@ -85,5 +77,61 @@
     "eccMayEnableCutover": false,
     "eccMayMergePullRequests": false,
     "eccMayHandleProviderSecrets": false
-  }
+  },
+  "eccReference": {
+    "version": "2.2.2",
+    "repository": "affaan-m/ECC",
+    "commit": "91ba9b4cf6c47c8130829004f8bb64762a76ccbb",
+    "catalog": {
+      "agents": 68,
+      "skills": 292
+    }
+  },
+  "repositoryEvidence": {
+    "snapshotCommit": "8cb8f9357f06731c60cc051fdb9bdd14615cd120",
+    "totalFiles": 513,
+    "javascriptFiles": 210,
+    "esmJavascriptFiles": 51,
+    "jsxFiles": 23,
+    "typescriptFiles": 0,
+    "tsxFiles": 0,
+    "testFiles": 75,
+    "workflowFiles": 70,
+    "docsFiles": 75,
+    "electronFiles": 26,
+    "srcFiles": 78,
+    "appFiles": 26,
+    "packageFiles": 105
+  },
+  "excludedAgents": [
+    "cpp-reviewer",
+    "cpp-build-resolver",
+    "python-reviewer",
+    "mle-reviewer",
+    "rag-pipeline-reviewer"
+  ],
+  "librarySkills": [
+    "agent-sort",
+    "codebase-onboarding",
+    "security-scan",
+    "browser-qa",
+    "e2e-testing",
+    "ai-regression-testing",
+    "eval-harness",
+    "agent-harness-construction",
+    "contract-first",
+    "error-handling",
+    "frontend-patterns",
+    "react-patterns",
+    "react-testing",
+    "react-performance",
+    "vite-patterns",
+    "nextjs-turbopack",
+    "docker-patterns",
+    "deployment-patterns",
+    "benchmark",
+    "benchmark-methodology",
+    "benchmark-optimization-loop"
+  ],
+  "validationBaseCommit": "8cb8f9357f06731c60cc051fdb9bdd14615cd120"
 }
