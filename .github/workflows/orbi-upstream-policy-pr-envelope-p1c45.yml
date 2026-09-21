@@ -1,0 +1,23 @@
+name: ORBI P1C45 Human Policy PR Envelope Validator
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/upstreamPolicyPrEnvelope.mjs'
+      - 'tests/upstreamPolicyPrEnvelope.test.js'
+      - 'docs/PHASE-1C45-HUMAN-POLICY-PR-ENVELOPE-VALIDATOR.md'
+      - '.github/workflows/orbi-upstream-policy-pr-envelope-p1c45.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/upstreamPolicyPrEnvelope.test.js
