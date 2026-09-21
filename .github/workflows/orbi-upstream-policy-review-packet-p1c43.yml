@@ -1,0 +1,23 @@
+name: ORBI P1C43 Human Policy PR Review Packet
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/upstreamPolicyReviewPacket.mjs'
+      - 'tests/upstreamPolicyReviewPacket.test.js'
+      - 'docs/PHASE-1C43-HUMAN-POLICY-PR-REVIEW-PACKET.md'
+      - '.github/workflows/orbi-upstream-policy-review-packet-p1c43.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/upstreamPolicyReviewPacket.test.js
