@@ -45,7 +45,8 @@ These are justified as broad recurring surfaces rather than feature-specific spe
 | `code-reviewer` | large multi-surface JS codebase and gated PR workflow | DAILY |
 | `security-reviewer` | Electron IPC, provider credentials, local inference, upstream intake | DAILY |
 | `tdd-guide` | 74 focused test files and test-first certification phases | DAILY |
-| `doc-updater` | 74 docs files plus evidence/governance documentation | DAILY |\n| `typescript-reviewer` | ECC defines it for **TypeScript/JavaScript** and requires it for JS/TS changes; this repo has 282 JS/MJS/JSX files | DAILY |
+| `doc-updater` | 74 docs files plus evidence/governance documentation | DAILY |
+| `typescript-reviewer` | ECC defines it for **TypeScript/JavaScript** and requires it for JS/TS changes; this repo has 282 JS/MJS/JSX files | DAILY |
 
 ## LIBRARY agents
 
@@ -67,7 +68,6 @@ Useful, but only for matching tasks.
 
 These should not be loaded into the current project profile:
 
-- `typescript-reviewer`: zero TS/TSX source files at the audited snapshot.
 - `cpp-reviewer`, `cpp-build-resolver`: native model engines are external/bundled boundaries; no C++ source is owned in this repo.
 - `python-reviewer`: no Python application source in the audited tree.
 - `mle-reviewer`, `rag-pipeline-reviewer`: useful elsewhere in ORBI, but not recurring Creative Studio code surfaces today.
@@ -149,7 +149,7 @@ This preserves one-variable-at-a-time diagnosis.
 P3 passes when:
 
 - manifest classifications match this document;
-- TypeScript is no longer a DAILY assumption;
+- `typescript-reviewer` is retained for its documented JavaScript scope, not because TypeScript exists in the repo;
 - hooks remain disabled;
 - continuous learning and unified memory remain disabled;
 - no product/runtime source is modified;
