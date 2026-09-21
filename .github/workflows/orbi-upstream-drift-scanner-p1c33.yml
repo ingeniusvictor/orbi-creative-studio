@@ -1,0 +1,74 @@
+name: ORBI P1C33 Upstream Drift Scanner
+
+on:
+  schedule:
+    - cron: '17 08 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - 'integration/orbi-foundation'
+    paths:
+      - 'src/lib/upstreamDriftPolicy.mjs'
+      - 'src/lib/upstreamDriftReport.mjs'
+      - 'scripts/check-upstream-drift.mjs'
+      - 'tests/upstreamDriftPolicy.test.js'
+      - 'tests/upstreamDriftReport.test.js'
+      - 'docs/PHASE-1C33-AUTOMATED-UPSTREAM-DRIFT-SCANNER.md'
+      - '.github/workflows/orbi-upstream-drift-scanner-p1c33.yml'
+  pull_request:
+    paths:
+      - 'src/lib/upstreamDriftPolicy.mjs'
+      - 'src/lib/upstreamDriftReport.mjs'
+      - 'scripts/check-upstream-drift.mjs'
+      - 'tests/upstreamDriftPolicy.test.js'
+      - 'tests/upstreamDriftReport.test.js'
+      - 'docs/PHASE-1C33-AUTOMATED-UPSTREAM-DRIFT-SCANNER.md'
+      - '.github/workflows/orbi-upstream-drift-scanner-p1c33.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: P1C33 deterministic validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate scanner syntax
+        run: node --check scripts/check-upstream-drift.mjs
+
+      - name: Run P1C32/P1C33 policy tests
+        run: node --test tests/upstreamDriftPolicy.test.js tests/upstreamDriftReport.test.js
+
+  live-scan:
+    name: P1C33 live upstream scan
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Scan reviewed upstream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-upstream-drift.mjs
+
+      - name: Upload drift report
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-generative-ai-drift
+          path: artifacts/upstream-drift/
+          if-no-files-found: error
