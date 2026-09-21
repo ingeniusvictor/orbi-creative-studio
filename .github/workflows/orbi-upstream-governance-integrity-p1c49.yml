@@ -1,0 +1,26 @@
+name: ORBI P1C49 Upstream Governance Chain Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/upstream*.mjs'
+      - '.github/workflows/orbi-upstream-*.yml'
+      - '.github/workflows/orbi-foundation-certification.yml'
+      - 'docs/PHASE-1C3*.md'
+      - 'docs/PHASE-1C4*.md'
+      - 'tests/upstreamGovernanceChainIntegrity.test.js'
+      - '.github/workflows/orbi-upstream-governance-integrity-p1c49.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/upstreamGovernanceChainIntegrity.test.js
