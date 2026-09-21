@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "profile": "orbi-ecc-creative-studio-v0.7",
-  "status": "agent-harness-contract-defined",
+  "profile": "orbi-ecc-creative-studio-v1.0",
+  "status": "pilot-certified-selective-adoption",
   "enforcement": "non-blocking-security-report",
   "adoptionMode": "curated",
   "upstream": "affaan-m/ECC",
@@ -228,5 +228,16 @@
     "autonomousLoopEnabled": false,
     "externalWriteGrantedByContract": false,
     "privilegedWriteGrantedByContract": false
+  },
+  "pilotCertification": {
+    "phase": "P9",
+    "portableProfile": ".orbi/ecc-portable-profile.json",
+    "fullInstallApproved": false,
+    "selectiveReuseApproved": true,
+    "hooksApproved": false,
+    "mcpApproved": false,
+    "continuousLearningApproved": false,
+    "unifiedMemoryApproved": false,
+    "autonomousLoopsApproved": false
   }
 }
