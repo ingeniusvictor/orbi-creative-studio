@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/ecc-agentshield-report.yml"
       - ".orbi/**"
+      - ".agents/**"
       - "docs/ecc/**"
       - ".claude/**"
       - ".mcp.json"
