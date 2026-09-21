@@ -64,11 +64,14 @@ An agent recommendation is not evidence and agent memory is not canonical state.
 
 From the root `package.json`:
 
-- lint: `npm run lint`
-- root/CI tests: repository workflows invoke the test surface
-- Next build: `npm run build`
+- install exact graph: `npm ci`
+- Electron syntax: `find electron -type f -name '*.js' -print0 | xargs -0 -n1 node --check` (Linux CI form)
+- lint: `npm run lint -- --max-warnings 10`
+- root tests: `node --test tests/*.test.js`
 - workspace build: `npm run build:packages`
+- Next build: `npm run build`
 - renderer build: `npm run vite:build`
+- production dependency security gate: `npm audit --omit=dev`, blocking on critical/high findings
 - Electron dev: `npm run electron:dev`
 - Windows packaging: `npm run electron:build:win`
 - Linux packaging: `npm run electron:build:linux`
