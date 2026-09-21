@@ -1,0 +1,25 @@
+name: ORBI P1C40 Upstream Policy Handoff
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/upstreamPolicyHandoff.mjs'
+      - 'scripts/build-upstream-policy-handoff.mjs'
+      - 'tests/upstreamPolicyHandoff.test.js'
+      - 'docs/PHASE-1C40-UPSTREAM-POLICY-HANDOFF.md'
+      - '.github/workflows/orbi-upstream-policy-handoff-p1c40.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check scripts/build-upstream-policy-handoff.mjs
+      - run: node --test tests/upstreamPolicyHandoff.test.js
