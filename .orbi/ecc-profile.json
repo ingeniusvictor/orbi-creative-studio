@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "profile": "orbi-ecc-creative-studio-v0.1",
-  "status": "proposed",
-  "enforcement": "documentation-only",
+  "status": "report-only-pilot",
+  "enforcement": "non-blocking-security-report",
   "adoptionMode": "curated",
   "upstream": "affaan-m/ECC",
   "scope": "orbi-creative-studio",
@@ -68,9 +68,16 @@
     "authoritative": false
   },
   "agentShield": {
-    "mode": "disabled-until-reviewed-pin",
+    "mode": "report-only",
+    "package": "ecc-agentshield",
+    "version": "1.6.0",
+    "repository": "affaan-m/agentshield",
+    "commit": "b0891303bdcd6037376a94263d45cfd2ff3dfb98",
     "autoFix": false,
-    "ciEnforced": false
+    "ciEnforced": false,
+    "failOnFindings": false,
+    "onlineSupplyChainLookup": false,
+    "evidenceRetentionDays": 14
   },
   "authority": {
     "eccMayMutateRuntimeCertificationSource": false,
