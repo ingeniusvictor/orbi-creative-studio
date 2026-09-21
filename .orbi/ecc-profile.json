@@ -12,7 +12,8 @@
     "code-reviewer",
     "security-reviewer",
     "tdd-guide",
-    "doc-updater"
+    "doc-updater",
+    "typescript-reviewer"
   ],
   "dailySkills": [
     "architecture-decision-records",
@@ -103,7 +104,6 @@
     "packageFiles": 105
   },
   "excludedAgents": [
-    "typescript-reviewer",
     "cpp-reviewer",
     "cpp-build-resolver",
     "python-reviewer",
