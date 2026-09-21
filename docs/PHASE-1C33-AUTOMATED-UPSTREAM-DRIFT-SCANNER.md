@@ -38,7 +38,7 @@ The JSON output is structured for future ORBI automation. The Markdown output is
 
 ## Schedule
 
-The dedicated workflow runs daily and can also be dispatched manually. Pull requests that modify the scanner or its policy run the deterministic unit tests, but the live network scan is reserved for scheduled/manual runs to avoid making PR validation depend on upstream availability.
+The dedicated workflow runs daily, can be dispatched manually, and runs once after scanner changes are promoted to `integration/orbi-foundation`. Pull requests that modify the scanner or its policy run only the deterministic unit tests; the live network scan is excluded from PR validation so upstream availability cannot make a pull request flaky.
 
 ## Promotion rule
 
