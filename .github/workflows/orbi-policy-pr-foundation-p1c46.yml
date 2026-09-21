@@ -1,0 +1,23 @@
+name: ORBI P1C46 Policy PR Foundation Certification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/orbi-foundation-certification.yml'
+      - 'tests/foundationPolicyPrCertification.test.js'
+      - 'docs/PHASE-1C46-POLICY-PR-FOUNDATION-CERTIFICATION.md'
+      - '.github/workflows/orbi-policy-pr-foundation-p1c46.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/foundationPolicyPrCertification.test.js

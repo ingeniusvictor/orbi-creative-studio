@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - integration/orbi-foundation
+  pull_request:
+    paths:
+      - 'src/lib/upstreamDriftPolicy.mjs'
+      - '.github/workflows/orbi-foundation-certification.yml'
+      - 'tests/foundationPolicyPrCertification.test.js'
+      - 'docs/PHASE-1C46-POLICY-PR-FOUNDATION-CERTIFICATION.md'
   workflow_dispatch:
 
 permissions:
