@@ -421,12 +421,20 @@ export function CinemaStudio() {
             const thumb = document.createElement('div');
             thumb.className = `relative group/thumb cursor-pointer rounded-lg overflow-hidden border-2 transition-all duration-300 aspect-square ${idx === 0 ? 'border-[#22d3ee] shadow-glow-sm' : 'border-white/10 hover:border-white/30'}`;
 
-            thumb.innerHTML = `
-                <img src="${entry.url}" class="w-full h-full object-cover opacity-80 group-hover/thumb:opacity-100 transition-opacity">
-                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
-                    <span class="text-[8px] font-bold text-white uppercase">${t('cinema.load')}</span>
-                </div>
-            `;
+            const image = document.createElement('img');
+            image.src = typeof entry.url === 'string' ? entry.url : '';
+            image.alt = '';
+            image.className = 'w-full h-full object-cover opacity-80 group-hover/thumb:opacity-100 transition-opacity';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'absolute inset-0 bg-black/50 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center';
+
+            const label = document.createElement('span');
+            label.className = 'text-[8px] font-bold text-white uppercase';
+            label.textContent = t('cinema.load');
+
+            overlay.appendChild(label);
+            thumb.append(image, overlay);
 
             thumb.onclick = () => loadHistoryItem(entry, thumb);
             historyList.appendChild(thumb);
