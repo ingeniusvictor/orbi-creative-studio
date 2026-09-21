@@ -36,19 +36,30 @@ export function buildUpstreamDriftReport(compare, options = {}) {
         classifications[file.classification] = (classifications[file.classification] || 0) + 1;
     }
 
-    const headSha = typeof compare?.head_commit?.sha === 'string'
+    const compareHeadSha = typeof compare?.head_commit?.sha === 'string'
         ? compare.head_commit.sha
         : null;
     const baselineSha = OPEN_GENERATIVE_AI_UPSTREAM.baselineSha;
+    const headSha = typeof options.headSha === 'string' && options.headSha
+        ? options.headSha
+        : (compareHeadSha || (compare.status === 'identical' ? baselineSha : null));
+    const headDate = typeof options.headDate === 'string' && options.headDate
+        ? options.headDate
+        : null;
+    const headMessage = typeof options.headMessage === 'string' && options.headMessage
+        ? options.headMessage
+        : null;
     const aheadBy = finiteInteger(compare.ahead_by);
 
     return Object.freeze({
-        schemaVersion: 1,
+        schemaVersion: 2,
         upstream: OPEN_GENERATIVE_AI_UPSTREAM,
         observedAt: options.observedAt || new Date().toISOString(),
         compareStatus: typeof compare.status === 'string' ? compare.status : 'unknown',
         baselineSha,
         headSha,
+        headDate,
+        headMessage,
         aheadBy,
         behindBy: finiteInteger(compare.behind_by),
         totalCommits: finiteInteger(compare.total_commits),
@@ -72,6 +83,8 @@ export function formatUpstreamDriftMarkdown(report) {
         `- Tracked branch: \`${report.upstream.branch}\``,
         `- Baseline: \`${report.baselineSha}\``,
         `- Current upstream head: \`${report.headSha || 'unknown'}\``,
+        `- Upstream head date: ${report.headDate || 'unknown'}`,
+        `- Upstream head message: ${report.headMessage || 'unknown'}`,
         `- Compare status: \`${report.compareStatus}\``,
         `- Commits ahead: **${report.aheadBy}**`,
         `- Changed files: **${report.changedFiles}**`,
