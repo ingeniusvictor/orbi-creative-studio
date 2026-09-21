@@ -143,8 +143,25 @@ jobs:
           $hash=(Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
           Write-Host "FOUNDATION_WINDOWS_INSTALLER_SHA256=$hash"
 
-          $p=Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
-          if($p.ExitCode -ne 0){throw "Installer exit code $($p.ExitCode)"}
+          $transientAccessViolation=-1073741819
+          $installExitCode=$null
+          for($attempt=1;$attempt -le 2;$attempt++){
+            $p=Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
+            $installExitCode=$p.ExitCode
+            if($installExitCode -eq 0){
+              if($attempt -gt 1){Write-Host "FOUNDATION_WINDOWS_INSTALL_RETRY_RECOVERED attempt=$attempt"}
+              break
+            }
+
+            if($installExitCode -ne $transientAccessViolation -or $attempt -eq 2){
+              throw "Installer exit code $installExitCode"
+            }
+
+            Write-Warning "Transient NSIS access violation detected; retrying silent install once."
+            Start-Sleep -Seconds 5
+          }
+
+          if($installExitCode -ne 0){throw "Installer exit code $installExitCode"}
 
           $target=Join-Path $env:LOCALAPPDATA "Open Generative AI"
           $exe=Join-Path $target "Open Generative AI.exe"
