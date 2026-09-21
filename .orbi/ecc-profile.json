@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "profile": "orbi-ecc-creative-studio-v0.2",
-  "status": "agent-sort-audited",
+  "profile": "orbi-ecc-creative-studio-v0.3",
+  "status": "codex-instruction-surface",
   "enforcement": "non-blocking-security-report",
   "adoptionMode": "curated",
   "upstream": "affaan-m/ECC",
@@ -48,11 +48,11 @@
   ],
   "hooks": {
     "enabled": false,
-    "reason": "P3 is classification-only; hook compatibility not yet proven"
+    "reason": "Codex hook parity is not assumed; P4 activates instructions only"
   },
   "continuousLearning": {
     "enabled": false,
-    "reason": "Deferred until P4+ after harness instructions are stable"
+    "reason": "Deferred until the Codex instruction surface is validated and project skills are stable"
   },
   "unifiedMemory": {
     "enabled": false,
@@ -133,5 +133,16 @@
     "benchmark-methodology",
     "benchmark-optimization-loop"
   ],
-  "validationBaseCommit": "8cb8f9357f06731c60cc051fdb9bdd14615cd120"
+  "validationBaseCommit": "8cb8f9357f06731c60cc051fdb9bdd14615cd120",
+  "codexHarness": {
+    "state": "instruction-backed",
+    "rootInstructions": "AGENTS.md",
+    "sourceReference": "ECC 2.2.2 harness adapter compliance",
+    "eccReferenceCommit": "91ba9b4cf6c47c8130829004f8bb64762a76ccbb",
+    "projectSkillsMaterialized": false,
+    "codexConfigAdded": false,
+    "multiAgentEnabled": false,
+    "hooksEnabled": false,
+    "mcpAdded": false
+  }
 }
