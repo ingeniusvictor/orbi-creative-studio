@@ -1,0 +1,23 @@
+name: ORBI P1C47 Human Policy Merge Evidence
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/upstreamPolicyMergeEvidence.mjs'
+      - 'tests/upstreamPolicyMergeEvidence.test.js'
+      - 'docs/PHASE-1C47-HUMAN-POLICY-MERGE-EVIDENCE.md'
+      - '.github/workflows/orbi-upstream-policy-merge-evidence-p1c47.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/upstreamPolicyMergeEvidence.test.js
