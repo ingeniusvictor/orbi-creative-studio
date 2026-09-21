@@ -4,6 +4,17 @@ on:
   schedule:
     - cron: '17 08 * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - 'integration/orbi-foundation'
+    paths:
+      - 'src/lib/upstreamDriftPolicy.mjs'
+      - 'src/lib/upstreamDriftReport.mjs'
+      - 'scripts/check-upstream-drift.mjs'
+      - 'tests/upstreamDriftPolicy.test.js'
+      - 'tests/upstreamDriftReport.test.js'
+      - 'docs/PHASE-1C33-AUTOMATED-UPSTREAM-DRIFT-SCANNER.md'
+      - '.github/workflows/orbi-upstream-drift-scanner-p1c33.yml'
   pull_request:
     paths:
       - 'src/lib/upstreamDriftPolicy.mjs'
