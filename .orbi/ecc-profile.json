@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "profile": "orbi-ecc-creative-studio-v0.4",
-  "status": "project-skill-materialized",
+  "profile": "orbi-ecc-creative-studio-v0.5",
+  "status": "two-project-skills-materialized",
   "enforcement": "non-blocking-security-report",
   "adoptionMode": "curated",
   "upstream": "affaan-m/ECC",
@@ -21,7 +21,7 @@
     "context-budget",
     "delivery-gate",
     "git-workflow",
-    "security-review",
+    "orbi-security-review",
     "tdd-workflow",
     "orbi-verification-loop"
   ],
@@ -159,7 +159,8 @@
       "knownLockfileFalsePositiveFindings": 1161
     },
     "projectSkillPaths": [
-      ".agents/skills/orbi-verification-loop/SKILL.md"
+      ".agents/skills/orbi-verification-loop/SKILL.md",
+      ".agents/skills/orbi-security-review/SKILL.md"
     ]
   },
   "projectSkills": [
@@ -169,6 +170,15 @@
       "version": "0.1.0",
       "origin": "ORBI",
       "upstreamInspiration": "ECC verification-loop 2.2.2",
+      "authoritative": false,
+      "runtimeDependency": false
+    },
+    {
+      "name": "orbi-security-review",
+      "path": ".agents/skills/orbi-security-review/SKILL.md",
+      "version": "0.1.0",
+      "origin": "ORBI",
+      "upstreamInspiration": "ECC security-review 2.2.2",
       "authoritative": false,
       "runtimeDependency": false
     }
