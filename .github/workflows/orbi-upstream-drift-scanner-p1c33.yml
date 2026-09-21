@@ -11,24 +11,30 @@ on:
       - 'src/lib/upstreamDriftPolicy.mjs'
       - 'src/lib/upstreamDriftReport.mjs'
       - 'src/lib/upstreamChangeTriage.mjs'
+      - 'src/lib/upstreamAdoptionManifest.mjs'
       - 'scripts/check-upstream-drift.mjs'
       - 'tests/upstreamDriftPolicy.test.js'
       - 'tests/upstreamDriftReport.test.js'
       - 'tests/upstreamChangeTriage.test.js'
+      - 'tests/upstreamAdoptionManifest.test.js'
       - 'docs/PHASE-1C33-AUTOMATED-UPSTREAM-DRIFT-SCANNER.md'
       - 'docs/PHASE-1C35-UPSTREAM-CHANGE-TRIAGE.md'
+      - 'docs/PHASE-1C36-GOVERNED-UPSTREAM-ADOPTION-MANIFEST.md'
       - '.github/workflows/orbi-upstream-drift-scanner-p1c33.yml'
   pull_request:
     paths:
       - 'src/lib/upstreamDriftPolicy.mjs'
       - 'src/lib/upstreamDriftReport.mjs'
       - 'src/lib/upstreamChangeTriage.mjs'
+      - 'src/lib/upstreamAdoptionManifest.mjs'
       - 'scripts/check-upstream-drift.mjs'
       - 'tests/upstreamDriftPolicy.test.js'
       - 'tests/upstreamDriftReport.test.js'
       - 'tests/upstreamChangeTriage.test.js'
+      - 'tests/upstreamAdoptionManifest.test.js'
       - 'docs/PHASE-1C33-AUTOMATED-UPSTREAM-DRIFT-SCANNER.md'
       - 'docs/PHASE-1C35-UPSTREAM-CHANGE-TRIAGE.md'
+      - 'docs/PHASE-1C36-GOVERNED-UPSTREAM-ADOPTION-MANIFEST.md'
       - '.github/workflows/orbi-upstream-drift-scanner-p1c33.yml'
 
 permissions:
@@ -50,8 +56,8 @@ jobs:
       - name: Validate scanner syntax
         run: node --check scripts/check-upstream-drift.mjs
 
-      - name: Run P1C32-P1C35 upstream governance tests
-        run: node --test tests/upstreamDriftPolicy.test.js tests/upstreamDriftReport.test.js tests/upstreamChangeTriage.test.js
+      - name: Run P1C32-P1C36 upstream governance tests
+        run: node --test tests/upstreamDriftPolicy.test.js tests/upstreamDriftReport.test.js tests/upstreamChangeTriage.test.js tests/upstreamAdoptionManifest.test.js
 
   live-scan:
     name: P1C33 live upstream scan
