@@ -45,7 +45,7 @@ These are justified as broad recurring surfaces rather than feature-specific spe
 | `code-reviewer` | large multi-surface JS codebase and gated PR workflow | DAILY |
 | `security-reviewer` | Electron IPC, provider credentials, local inference, upstream intake | DAILY |
 | `tdd-guide` | 74 focused test files and test-first certification phases | DAILY |
-| `doc-updater` | 74 docs files plus evidence/governance documentation | DAILY |
+| `doc-updater` | 74 docs files plus evidence/governance documentation | DAILY |\n| `typescript-reviewer` | ECC defines it for **TypeScript/JavaScript** and requires it for JS/TS changes; this repo has 282 JS/MJS/JSX files | DAILY |
 
 ## LIBRARY agents
 
@@ -72,7 +72,7 @@ These should not be loaded into the current project profile:
 - `python-reviewer`: no Python application source in the audited tree.
 - `mle-reviewer`, `rag-pipeline-reviewer`: useful elsewhere in ORBI, but not recurring Creative Studio code surfaces today.
 
-The prior v0.1 profile incorrectly placed `typescript-reviewer` in DAILY. P3 corrects that evidence mismatch.
+The zero-TS observation does **not** exclude `typescript-reviewer`: ECC 2.2.2 explicitly defines that agent for TypeScript **and JavaScript** and marks it mandatory for JavaScript/TypeScript projects. P3 therefore retains it in DAILY. React-specific review stays LIBRARY and is invoked when JSX/React scope is present.
 
 ## DAILY skills
 
