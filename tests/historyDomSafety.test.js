@@ -6,8 +6,8 @@ const TARGETS = [
     {
         path: 'src/components/ImageStudio.js',
         required: [
-            "image.src = typeof entry.url === 'string' ? entry.url : '';",
-            "image.alt = typeof entry.prompt === 'string' && entry.prompt ? entry.prompt.substring(0, 30) : 'Generated';",
+            "media.src = typeof entry.url === 'string' ? entry.url : '';",
+            "media.alt = typeof entry.prompt === 'string' && entry.prompt ? entry.prompt.substring(0, 30) : 'Generated';",
         ],
     },
     {
