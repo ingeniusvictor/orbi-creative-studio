@@ -44,6 +44,24 @@ Before P4 can be considered complete:
 4. The integrated repository gate must remain GREEN.
 5. No product/runtime file may change.
 
+## Validation result
+
+AgentShield run `35556389602` completed successfully on the P4 branch.
+
+Evidence:
+
+- registered harness adapters: 9;
+- matched adapters: 1;
+- matched harness: `Codex`;
+- confidence: `strong`;
+- evidence: `AGENTS.md`;
+- new findings outside `package-lock.json`: 0;
+- known npm-integrity/Azure-key false-positive class: 1161;
+- artifact digest: `sha256:5021175d5b253868d43a012c2df43cd25f9d279cb1957655413169d844afbd2c`;
+- evidence-pack digest: `sha256:b1eda524b125bb99868349287dad8caac2cecd177592f9f5f64ad0e3ee284e14`.
+
+This proves the root instruction file is visible as a live Codex harness surface without introducing a new AgentShield finding class.
+
 ## Promotion after P4
 
 If P4 is clean, P5 may introduce the first ORBI-owned Codex skill under `.agents/skills/`.
