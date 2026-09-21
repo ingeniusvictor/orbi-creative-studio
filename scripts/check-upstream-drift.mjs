@@ -11,6 +11,11 @@ import {
     buildUpstreamTriageReport,
     formatUpstreamTriageMarkdown,
 } from '../src/lib/upstreamChangeTriage.mjs';
+import {
+    buildUpstreamAdoptionManifest,
+    formatUpstreamAdoptionManifestMarkdown,
+    validateUpstreamAdoptionManifest,
+} from '../src/lib/upstreamAdoptionManifest.mjs';
 
 const apiBase = process.env.ORBI_UPSTREAM_API_BASE || 'https://api.github.com';
 const outputDir = process.env.ORBI_UPSTREAM_DRIFT_DIR || 'artifacts/upstream-drift';
@@ -67,7 +72,7 @@ function normalizeCompareCommits(compare) {
     }));
 }
 
-async function writeOutputs(report, markdown, triage, triageMarkdown) {
+async function writeOutputs(report, markdown, triage, triageMarkdown, adoptionManifest, adoptionMarkdown) {
     await fs.mkdir(outputDir, { recursive: true });
     await fs.writeFile(
         path.join(outputDir, 'open-generative-ai-drift.json'),
@@ -89,9 +94,23 @@ async function writeOutputs(report, markdown, triage, triageMarkdown) {
         triageMarkdown,
         'utf8',
     );
+    await fs.writeFile(
+        path.join(outputDir, 'open-generative-ai-adoption-manifest.json'),
+        `${JSON.stringify(adoptionManifest, null, 2)}\n`,
+        'utf8',
+    );
+    await fs.writeFile(
+        path.join(outputDir, 'open-generative-ai-adoption-manifest.md'),
+        adoptionMarkdown,
+        'utf8',
+    );
 
     if (process.env.GITHUB_STEP_SUMMARY) {
-        await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n${triageMarkdown}`, 'utf8');
+        await fs.appendFile(
+            process.env.GITHUB_STEP_SUMMARY,
+            `${markdown}\n${triageMarkdown}\n${adoptionMarkdown}`,
+            'utf8',
+        );
     }
 }
 
@@ -112,6 +131,19 @@ const report = buildUpstreamDriftReport(compare, {
 const markdown = formatUpstreamDriftMarkdown(report);
 const triage = buildUpstreamTriageReport(report, normalizeCompareCommits(compare));
 const triageMarkdown = formatUpstreamTriageMarkdown(triage);
-await writeOutputs(report, markdown, triage, triageMarkdown);
+const adoptionManifest = buildUpstreamAdoptionManifest(triage);
+const manifestValidation = validateUpstreamAdoptionManifest(adoptionManifest);
+if (!manifestValidation.valid) {
+    throw new Error(`Generated adoption manifest is invalid: ${manifestValidation.errors.join('; ')}`);
+}
+const adoptionMarkdown = formatUpstreamAdoptionManifestMarkdown(adoptionManifest);
+await writeOutputs(
+    report,
+    markdown,
+    triage,
+    triageMarkdown,
+    adoptionManifest,
+    adoptionMarkdown,
+);
 
-process.stdout.write(`${markdown}\n${triageMarkdown}`);
+process.stdout.write(`${markdown}\n${triageMarkdown}\n${adoptionMarkdown}`);
