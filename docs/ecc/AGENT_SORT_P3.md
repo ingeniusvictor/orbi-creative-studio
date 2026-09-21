@@ -1,7 +1,7 @@
 # P3 — ECC Agent Sort Audit for ORBI Creative Studio
 
 Status: EVIDENCE-BACKED / CLASSIFICATION-ONLY  
-ORBI snapshot: `612c63c16d0f88168aca9808a27d22f37091e6c6`  
+ORBI snapshot: `8cb8f9357f06731c60cc051fdb9bdd14615cd120`  
 ECC reference: `2.2.2 @ 91ba9b4cf6c47c8130829004f8bb64762a76ccbb`
 
 This audit applies the ECC `agent-sort` methodology to the real ORBI Creative Studio repository. It does not claim that the ECC runtime itself executed this classification.
@@ -10,14 +10,14 @@ This audit applies the ECC `agent-sort` methodology to the real ORBI Creative St
 
 Repository evidence at the audited snapshot:
 
-- 510 tracked files.
-- 209 `.js`, 50 `.mjs`, 23 `.jsx`.
+- 513 tracked files.
+- 210 `.js`, 51 `.mjs`, 23 `.jsx`.
 - 0 `.ts` and 0 `.tsx`.
-- 74 files under `tests/`.
+- 75 files under `tests/`.
 - 70 GitHub Actions workflows.
-- 74 files under `docs/`.
+- 75 files under `docs/`.
 - 26 files under `electron/`.
-- 77 files under `src/`.
+- 78 files under `src/`.
 - 26 files under `app/`.
 - 105 files under `packages/`.
 
@@ -44,9 +44,9 @@ These are justified as broad recurring surfaces rather than feature-specific spe
 | `architect` | Electron + Next + Vite + provider + Compute Router boundaries | DAILY |
 | `code-reviewer` | large multi-surface JS codebase and gated PR workflow | DAILY |
 | `security-reviewer` | Electron IPC, provider credentials, local inference, upstream intake | DAILY |
-| `tdd-guide` | 74 focused test files and test-first certification phases | DAILY |
-| `doc-updater` | 74 docs files plus evidence/governance documentation | DAILY |
-| `typescript-reviewer` | ECC defines it for **TypeScript/JavaScript** and requires it for JS/TS changes; this repo has 282 JS/MJS/JSX files | DAILY |
+| `tdd-guide` | 75 focused test files and test-first certification phases | DAILY |
+| `doc-updater` | 75 docs files plus evidence/governance documentation | DAILY |
+| `typescript-reviewer` | ECC defines it for **TypeScript/JavaScript** and requires it for JS/TS changes; this repo has 284 JS/MJS/JSX files | DAILY |
 
 ## LIBRARY agents
 
@@ -79,12 +79,12 @@ The zero-TS observation does **not** exclude `typescript-reviewer`: ECC 2.2.2 ex
 | Skill | Repository evidence |
 |---|---|
 | `architecture-decision-records` | governed architecture and explicit authority boundaries |
-| `coding-standards` | 282 JS/MJS/JSX files across several runtimes |
-| `context-budget` | 510-file monorepo-like surface + submodules |
+| `coding-standards` | 284 JS/MJS/JSX files across several runtimes |
+| `context-budget` | 513-file monorepo-like surface + submodules |
 | `delivery-gate` | 70 workflows and integrated PR certification |
 | `git-workflow` | feature branches, PRs, canonical integration branch |
 | `security-review` | credentials, Electron, local runtime, upstream intake |
-| `tdd-workflow` | 74 focused test files |
+| `tdd-workflow` | 75 focused test files |
 | `verification-loop` | existing plan -> test -> build -> evidence -> merge discipline |
 
 ## LIBRARY skills
@@ -159,3 +159,7 @@ P3 passes when:
 ## Result
 
 The useful ECC surface is substantially smaller than the first manual v0.1 profile. This is expected and is the primary outcome of `agent-sort`: reduce always-loaded context while retaining specialized tools as searchable library components.
+
+## Canonical refresh note
+
+P3 was initially drafted against the prior canonical state. During validation, P1C35 advanced `integration/orbi-foundation`. The evidence inventory was refreshed against `8cb8f9357f06731c60cc051fdb9bdd14615cd120`; the stack classification did not change.
