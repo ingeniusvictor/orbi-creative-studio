@@ -143,6 +143,20 @@
     "codexConfigAdded": false,
     "multiAgentEnabled": false,
     "hooksEnabled": false,
-    "mcpAdded": false
+    "mcpAdded": false,
+    "validation": {
+      "agentShieldRunId": 35556389602,
+      "agentShieldArtifactId": 10620921135,
+      "agentShieldArtifactDigest": "sha256:5021175d5b253868d43a012c2df43cd25f9d279cb1957655413169d844afbd2c",
+      "evidencePackDigest": "sha256:b1eda524b125bb99868349287dad8caac2cecd177592f9f5f64ad0e3ee284e14",
+      "matchedAdapters": "1/9",
+      "codexMatched": true,
+      "codexConfidence": "strong",
+      "codexEvidence": [
+        "AGENTS.md"
+      ],
+      "newNonLockfileFindings": 0,
+      "knownLockfileFalsePositiveFindings": 1161
+    }
   }
 }
