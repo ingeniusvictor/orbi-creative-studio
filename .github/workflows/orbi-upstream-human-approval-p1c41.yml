@@ -1,0 +1,23 @@
+name: ORBI P1C41 Human Approval Validator
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/upstreamPolicyApproval.mjs'
+      - 'tests/upstreamPolicyApproval.test.js'
+      - 'docs/PHASE-1C41-HUMAN-APPROVAL-VALIDATOR.md'
+      - '.github/workflows/orbi-upstream-human-approval-p1c41.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/upstreamPolicyApproval.test.js
