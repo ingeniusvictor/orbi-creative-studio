@@ -38,6 +38,10 @@ function binaryStatus(backend = 'cuda12') {
         installationIntegrity: {
             integrityVerified: true,
         },
+        backendActivation: {
+            verified: true,
+            selectedDeviceName: backend === 'cuda12' ? 'CUDA0' : 'CPU',
+        },
     };
 }
 
@@ -62,7 +66,7 @@ function benchmarkResult(plan) {
             modelId: plan.modelId,
             backend: plan.backend,
             resolution: Object.freeze({ width: plan.width, height: plan.height }),
-            harnessVersion: 'orbi-local-benchmark-harness-0.1.0',
+            harnessVersion: 'orbi-local-benchmark-harness-0.2.0',
             sourceCommit: plan.sourceCommit,
             runtimeIdentity: plan.runtimeIdentity,
             runtimeVersion: plan.runtimeVersion,
@@ -180,6 +184,7 @@ test('P1C20 emits a valid P1C7 run envelope without exposing internal paths', as
     assert.equal(receivedPlan.binaryPath, '/internal/bin/sd-cli');
     assert.equal(receivedPlan.modelPath.includes('/internal/'), true);
     assert.equal(receivedPlan.sourceCommit, SOURCE_COMMIT);
+    assert.equal(receivedPlan.backendDeviceName, 'CUDA0');
 
     const serialized = JSON.stringify(result);
     assert.equal(serialized.includes('/internal/'), false);
@@ -230,6 +235,16 @@ test('P1C20 fails closed when runtime integrity or exact backend is unavailable'
     assert.equal((await badIntegrity.runSample({
         modelId: 'z-image-turbo', backend: 'cuda12', width: 1024, height: 1024, runIndex: 1,
     })).reason, 'BENCHMARK_RUNTIME_INTEGRITY_UNVERIFIED');
+
+    const missingActivation = makeRunner({
+        getBinaryStatus: async () => ({
+            ...binaryStatus(),
+            backendActivation: { verified: false, selectedDeviceName: null },
+        }),
+    });
+    assert.equal((await missingActivation.runSample({
+        modelId: 'z-image-turbo', backend: 'cuda12', width: 1024, height: 1024, runIndex: 1,
+    })).reason, 'BENCHMARK_BACKEND_ACTIVATION_UNVERIFIED');
 
     const mismatch = makeRunner({
         getBinaryStatus: async () => binaryStatus('cpu'),
