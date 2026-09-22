@@ -186,6 +186,25 @@ jobs:
           if($u.ExitCode -ne 0){throw "Uninstaller exit code $($u.ExitCode)"}
           Write-Host "FOUNDATION_WINDOWS_INSTALL_UNINSTALL_PASS"
 
+      - name: Write Windows checksum manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference="Stop"
+          $installer=Get-ChildItem release -Filter "Open Generative AI Setup *.exe" | Select-Object -First 1
+          if(-not $installer){throw "Installer missing"}
+          $hash=(Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($installer.Name)" | Set-Content -Encoding ascii "release/SHA256SUMS-windows.txt"
+
+      - name: Upload certified Windows pilot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbi-foundation-windows-${{ github.sha }}
+          path: |
+            release/Open Generative AI Setup *.exe
+            release/SHA256SUMS-windows.txt
+          if-no-files-found: error
+          retention-days: 14
+
   macos-package:
     runs-on: macos-latest
     timeout-minutes: 45
@@ -217,5 +236,16 @@ jobs:
           set -euo pipefail
           test -f "release/Open Generative AI-2.0.0.dmg"
           test -f "release/Open Generative AI-2.0.0-arm64.dmg"
-          shasum -a 256 "release/Open Generative AI-2.0.0.dmg" "release/Open Generative AI-2.0.0-arm64.dmg"
+          shasum -a 256 "release/Open Generative AI-2.0.0.dmg" "release/Open Generative AI-2.0.0-arm64.dmg" | tee release/SHA256SUMS-macos.txt
           echo "FOUNDATION_MACOS_PACKAGE_PASS"
+
+      - name: Upload certified macOS pilot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbi-foundation-macos-${{ github.sha }}
+          path: |
+            release/Open Generative AI-2.0.0.dmg
+            release/Open Generative AI-2.0.0-arm64.dmg
+            release/SHA256SUMS-macos.txt
+          if-no-files-found: error
+          retention-days: 14
