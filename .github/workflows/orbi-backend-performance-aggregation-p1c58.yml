@@ -1,0 +1,23 @@
+name: ORBI P1C58 Backend Performance Aggregation
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/backendPerformanceAggregation.js'
+      - 'tests/backendPerformanceAggregation.test.js'
+      - 'docs/PHASE-1C58-PERFORMANCE-AGGREGATION-BACKEND-COMPARISON.md'
+      - '.github/workflows/orbi-backend-performance-aggregation-p1c58.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/backendPerformanceAggregation.test.js
