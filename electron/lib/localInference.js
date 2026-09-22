@@ -29,7 +29,10 @@ const {
     installPinnedRuntimeCompanions,
     promoteExtractedRuntime,
 } = require('./runtimePayload');
-const { probeRuntimeBackend } = require('./runtimeBackendProbe');
+const {
+    probeRuntimeBackend,
+    resolveGenerationBackendArgs,
+} = require('./runtimeBackendProbe');
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 // Resolved lazily (from register(), after app.whenReady()) so a failure here
@@ -472,6 +475,28 @@ async function generate(params, mainWindow) {
     const cfgScale = resolveGuidanceScale(params, model);
     const sampler = model.sampler || 'euler_a';
 
+    let backendArgs = [];
+    let runtime = null;
+    try {
+        runtime = resolvePinnedRuntime({
+            platform: process.platform,
+            arch: process.arch,
+            env: process.env,
+        });
+    } catch (error) {
+        if (String(process.env[SD_BACKEND_ENV] || 'auto').trim().toLowerCase() !== 'auto') {
+            throw error;
+        }
+    }
+
+    if (runtime) {
+        const binaryStatus = await getBinaryStatus();
+        backendArgs = resolveGenerationBackendArgs({
+            runtime,
+            activation: binaryStatus.backendActivation,
+        });
+    }
+
     // z-image GGUFs are standalone diffusion transformers loaded via --diffusion-model.
     // -m triggers full-model SD version detection which fails for these files (0 KV metadata).
     const modelFlag = (model.type === 'z-image' || model.type === 'flux')
@@ -488,6 +513,7 @@ async function generate(params, mainWindow) {
         '--cfg-scale', String(cfgScale),
         '--seed', String(seed),
         '--sampling-method', sampler,
+        ...backendArgs,
         '-v',
     ];
 

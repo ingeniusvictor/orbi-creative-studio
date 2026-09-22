@@ -1,0 +1,24 @@
+name: ORBI P1C55 Explicit Backend Selection
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/runtimeBackendProbe.js'
+      - 'electron/lib/localInference.js'
+      - 'tests/runtimeBackendSelection.test.js'
+      - 'docs/PHASE-1C55-EXPLICIT-BACKEND-SELECTION.md'
+      - '.github/workflows/orbi-explicit-backend-selection-p1c55.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/runtimeBackendSelection.test.js
