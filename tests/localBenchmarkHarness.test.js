@@ -123,6 +123,10 @@ test('bounded CUDA12 harness emits a valid P1C5 sample and no routing authority'
         clearIntervalImpl: () => {},
         setTimeoutImpl: () => 456,
         clearTimeoutImpl: () => {},
+        monotonicNowMs: (() => {
+            const values = [1000, 1250];
+            return () => values.shift();
+        })(),
     });
 
     assert.equal(spawnCall.binaryPath, plan.binaryPath);
@@ -133,6 +137,7 @@ test('bounded CUDA12 harness emits a valid P1C5 sample and no routing authority'
     assert.equal(result.sample.modelArtifactSha256, 'c'.repeat(64));
     assert.equal(result.sample.peakSystemRamMiB, 10240);
     assert.equal(result.sample.peakVramMiB, 6144);
+    assert.equal(result.runtimeDurationMs, 250);
     assert.equal(result.benchmarkOnly, true);
     assert.equal(result.productionProfilePromoted, false);
     assert.equal(result.routingEligible, false);
