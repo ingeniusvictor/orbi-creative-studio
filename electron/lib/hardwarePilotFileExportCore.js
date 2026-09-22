@@ -23,6 +23,12 @@ function authorityValid(value) {
         && value?.executionAuthority === 'legacy-dispatcher-only';
 }
 
+function provenanceAuthorityValid(value) {
+    return value?.routingEligible === false
+        && value?.cutoverAuthorized === false
+        && value?.executionAuthority === 'legacy-dispatcher-only';
+}
+
 function sanitizeResolution(value) {
     if (!plain(value)
         || !Number.isInteger(value.width)
@@ -214,7 +220,7 @@ function sanitizeProvenance(value, run) {
         || value.synthetic !== false
         || value.demo !== false
         || value.cryptographicAuthenticityVerified !== false
-        || !authorityValid(value)
+        || !provenanceAuthorityValid(value)
         || !validateProofContext(value, run)) {
         throw new TypeError('hardware pilot provenance is invalid');
     }
