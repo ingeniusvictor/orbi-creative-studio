@@ -96,7 +96,7 @@ test('Router diagnostics keeps validated shadow rendering while P1C16 adds one d
     assert.ok(panel.includes('refresh.onclick = render'));
     assert.ok(panel.includes("refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only'"));
     assert.ok(panel.includes('refreshButton.onclick = onRefresh'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 6);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 7);
 
     for (const token of [
         'localStorage',
