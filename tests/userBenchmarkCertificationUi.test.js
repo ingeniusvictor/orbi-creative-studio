@@ -18,7 +18,7 @@ test('P1C23 Router Diagnostics adds one explicit certification-only action after
     assert.ok(panel.includes('button.onclick = onCertify'));
     assert.ok(panel.includes('benchmarkCertificationRecord = null'));
     assert.ok(panel.includes('benchmarkCertificationSummaryProvider = null'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 6);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 7);
     assert.equal((panel.match(/\.onchange\s*=/g) || []).length, 1);
     assert.equal((panel.match(/\.oninput\s*=/g) || []).length, 1);
 });

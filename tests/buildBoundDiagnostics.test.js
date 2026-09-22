@@ -19,7 +19,7 @@ test('Router diagnostics displays exact build identity and ephemeral session bin
 test('build-bound diagnostics remain read-only with generic refresh plus one P1C16 diagnostic-only action', () => {
     const panel = read('src/components/RouterDiagnosticsPanel.js');
 
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 6);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 7);
     assert.ok(panel.includes('refresh.onclick = render'));
     assert.ok(panel.includes('refreshButton.onclick = onRefresh'));
     assert.ok(panel.includes("refreshButton.dataset.orbiShadowRefresh = 'diagnostic-only'"));
@@ -50,8 +50,12 @@ test('build binding preview remains non-authorizing and non-persistent by contra
     assert.ok(session.includes('bindCurrentStudioParitySessionToBuild'));
     assert.ok(binding.includes('cutoverAuthorized: false'));
     assert.ok(binding.includes("PARITY_BUILD_EXECUTION_AUTHORITY = 'legacy-dispatcher-only'"));
-    assert.equal(panel.includes('save'), false);
+    assert.equal(panel.includes('localStorage'), false);
+    assert.equal(panel.includes('sessionStorage'), false);
+    assert.equal(panel.includes('indexedDB'), false);
+    assert.equal(panel.includes('fs.'), false);
     assert.equal(panel.includes('persist'), false);
+    assert.ok(panel.includes("button.dataset.orbiHardwarePilotExport = 'explicit-user-save'"));
 });
 
 test('new build-bound diagnostics copy exists in English and Chinese', () => {

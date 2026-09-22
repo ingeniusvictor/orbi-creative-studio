@@ -200,7 +200,7 @@ test('P1C17 UI adds a diagnostic-only selector without adding another onclick ac
     assert.ok(panel.includes('select.onchange = () => onTargetChange(select.value)'));
     assert.ok(panel.includes('shadowDiagnosticTargetsProvider = null'));
     assert.ok(panel.includes('normalizeShadowDiagnosticTargets'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 6);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 7);
     assert.equal((panel.match(/\.onchange\s*=/g) || []).length, 1);
 
     assert.ok(settings.includes('listUserShadowDiagnosticTargets'));

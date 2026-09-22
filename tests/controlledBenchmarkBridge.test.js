@@ -48,16 +48,20 @@ test('P1C20 main registers the benchmark bridge but does not auto-run a benchmar
     assert.equal(main.includes('runLocalBenchmark('), false);
 });
 
-test('P1C20 direct benchmark bridge remains absent from Router Diagnostics and generation surfaces', () => {
+test('P1C20 direct benchmark execution bridge remains absent from Router Diagnostics and generation surfaces', () => {
     const settings = read('src/components/SettingsModal.js');
     const panel = read('src/components/RouterDiagnosticsPanel.js');
     const image = read('src/components/ImageStudio.js');
     const video = read('src/components/VideoStudio.js');
 
+    assert.ok(settings.includes('window.orbiBenchmark?.exportPilotBundle(bundle)'));
+    assert.equal(settings.includes('window.orbiBenchmark?.runSample'), false);
+    assert.equal(panel.includes('window.orbiBenchmark'), false);
+
     for (const source of [settings, panel, image, video]) {
-        assert.equal(source.includes('window.orbiBenchmark'), false);
         assert.equal(source.includes('controlledBenchmarkBridge'), false);
         assert.equal(source.includes('CONTROLLED_BENCHMARK_SAMPLE_READY'), false);
+        assert.equal(source.includes('window.orbiBenchmark.runSample'), false);
     }
 });
 
