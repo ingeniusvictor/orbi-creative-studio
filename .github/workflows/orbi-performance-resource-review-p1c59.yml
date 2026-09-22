@@ -1,0 +1,23 @@
+name: ORBI P1C59 Performance Resource Review
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/performanceResourceReview.js'
+      - 'tests/performanceResourceReview.test.js'
+      - 'docs/PHASE-1C59-PERFORMANCE-RESOURCE-REVIEW-CANDIDATE.md'
+      - '.github/workflows/orbi-performance-resource-review-p1c59.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/performanceResourceReview.test.js
