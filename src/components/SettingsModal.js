@@ -27,6 +27,9 @@ import {
     getRuntimeCertificationPromotionSummary,
     prepareRuntimeCertificationPromotion,
 } from '../lib/computeRouter/runtimeCertificationPromotion.mjs';
+import {
+    exportUserHardwarePilotEvidence,
+} from '../lib/computeRouter/userHardwarePilotExport.mjs';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -107,6 +110,7 @@ export function SettingsModal(onClose) {
             runtimeCertificationStatusProvider: getRuntimeCertifiedResourceProfileRegistryStatus,
             benchmarkSampleCapture: captureUserBenchmarkSample,
             benchmarkSessionStateProvider: getUserBenchmarkSessionState,
+            hardwarePilotExport: exportUserHardwarePilotEvidence,
             benchmarkReviewPrepare: prepareUserBenchmarkReview,
             benchmarkReviewSummaryProvider: getUserBenchmarkReviewSummary,
             benchmarkCertificationRecord: recordUserBenchmarkCertification,
