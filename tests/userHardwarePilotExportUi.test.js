@@ -19,7 +19,7 @@ test('P1C64 Router Diagnostics exposes one explicit export button only after a 3
     const panel = read('src/components/RouterDiagnosticsPanel.js');
 
     assert.ok(panel.includes("section.dataset.orbiHardwarePilotExport = 'explicit-user-action'"));
-    assert.ok(panel.includes("button.dataset.orbiHardwarePilotExportAction = 'user-initiated-save'"));
+    assert.ok(panel.includes("button.dataset.orbiHardwarePilotExportAction = 'user-initiated-export'"));
     assert.ok(panel.includes("button.disabled = !ready || actionStatus === 'running'"));
     assert.ok(panel.includes("const ready = Boolean(target) && sessionState?.readyForReview === true"));
     assert.ok(panel.includes('const result = await hardwarePilotExport(selectedBenchmarkTarget)'));
