@@ -1,0 +1,26 @@
+name: ORBI P1C54 Effective Backend Activation
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/runtimeBackendProbe.js'
+      - 'electron/lib/localInference.js'
+      - 'electron/lib/providerReadinessSnapshotCore.js'
+      - 'tests/runtimeBackendProbe.test.js'
+      - 'tests/runtimeBackendReadinessIntegration.test.js'
+      - 'docs/PHASE-1C54-EFFECTIVE-BACKEND-ACTIVATION.md'
+      - '.github/workflows/orbi-effective-backend-activation-p1c54.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/runtimeBackendProbe.test.js tests/runtimeBackendReadinessIntegration.test.js
