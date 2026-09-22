@@ -1220,6 +1220,126 @@ function renderShadowCompatibilitySection(snapshot, {
     return section;
 }
 
+
+function hardwarePilotExportStatusLabel(status) {
+    const key = {
+        running: 'routerDiagnostics.hardwarePilotExportRunning',
+        written: 'routerDiagnostics.hardwarePilotExportWritten',
+        canceled: 'routerDiagnostics.hardwarePilotExportCanceled',
+        rejected: 'routerDiagnostics.hardwarePilotExportRejected',
+    }[status];
+    return key ? t(key) : null;
+}
+
+function normalizeHardwarePilotExportResult(result) {
+    if (!result
+        || typeof result !== 'object'
+        || result.status !== 'HARDWARE_PILOT_EXPORT_WRITTEN'
+        || result.reason !== null
+        || typeof result.fileName !== 'string'
+        || !result.fileName.trim()
+        || /[\\/]/.test(result.fileName)
+        || typeof result.sha256 !== 'string'
+        || !/^[a-f0-9]{64}$/.test(result.sha256)
+        || !Number.isInteger(result.bytes)
+        || result.bytes <= 0
+        || result.routingEligible !== false
+        || result.cutoverAuthorized !== false
+        || result.executionAuthority !== 'legacy-dispatcher-only') {
+        return null;
+    }
+
+    return Object.freeze({
+        fileName: result.fileName,
+        sha256: result.sha256,
+        bytes: result.bytes,
+    });
+}
+
+function renderHardwarePilotExportSection(target, benchmarkState, {
+    onExport = null,
+    actionStatus = 'idle',
+    exportResult = null,
+} = {}) {
+    const section = document.createElement('div');
+    section.dataset.orbiHardwarePilotExport = 'user-initiated-evidence-export';
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(34,211,238,0.14);border-radius:0.75rem;background:rgba(34,211,238,0.025);';
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.hardwarePilotExportTitle'),
+        'font-size:0.72rem;color:rgba(255,255,255,0.68);font-weight:800;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.hardwarePilotExportSubtitle'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+
+    if (exportResult) {
+        const metrics = document.createElement('div');
+        metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.hardwarePilotExportFile'),
+            exportResult.fileName,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.hardwarePilotExportBytes'),
+            exportResult.bytes,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.hardwarePilotExportSha256'),
+            exportResult.sha256,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.executionAuthority'),
+            'legacy-dispatcher-only',
+        ));
+        section.appendChild(metrics);
+    } else {
+        section.appendChild(makeText(
+            'div',
+            benchmarkState?.readyForReview === true
+                ? t('routerDiagnostics.hardwarePilotExportReady')
+                : t('routerDiagnostics.hardwarePilotExportNeedsSamples'),
+            'padding:0.65rem;border-radius:0.6rem;background:rgba(255,255,255,0.025);color:rgba(255,255,255,0.4);font-size:0.68rem;',
+        ));
+    }
+
+    if (typeof onExport === 'function') {
+        const actionWrap = document.createElement('div');
+        actionWrap.style.cssText = 'display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.orbiHardwarePilotExport = 'explicit-user-save';
+        button.textContent = t('routerDiagnostics.hardwarePilotExportAction');
+        button.disabled = actionStatus === 'running' || benchmarkState?.readyForReview !== true;
+        button.style.cssText = 'padding:0.4rem 0.7rem;border-radius:0.5rem;background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.22);color:#a5f3fc;font-size:0.68rem;font-weight:700;cursor:pointer;';
+        button.onclick = onExport;
+        actionWrap.appendChild(button);
+
+        const statusLabel = hardwarePilotExportStatusLabel(actionStatus);
+        if (statusLabel) {
+            actionWrap.appendChild(makeText(
+                'span',
+                statusLabel,
+                'font-size:0.62rem;color:rgba(255,255,255,0.38);',
+            ));
+        }
+
+        section.appendChild(actionWrap);
+    }
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.hardwarePilotExportBoundaryNote'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.24);line-height:1.4;',
+    ));
+
+    return section;
+}
+
 export function RouterDiagnosticsPanel({
     shadowCompatibilitySnapshot = null,
     shadowCompatibilitySnapshotProvider = null,
@@ -1234,6 +1354,8 @@ export function RouterDiagnosticsPanel({
     benchmarkCertificationSummaryProvider = null,
     runtimeCertificationPromotionPrepare = null,
     runtimeCertificationPromotionSummaryProvider = null,
+    hardwarePilotBundleBuild = null,
+    hardwarePilotExport = null,
 } = {}) {
     const panel = document.createElement('div');
     let shadowRefreshStatus = 'idle';
@@ -1248,6 +1370,8 @@ export function RouterDiagnosticsPanel({
     let benchmarkCertificationReviewNote = '';
     let benchmarkCertificationApproved = false;
     let runtimeCertificationPromotionActionStatus = 'idle';
+    let hardwarePilotExportActionStatus = 'idle';
+    let hardwarePilotExportResult = null;
     panel.dataset.orbiRouterDiagnostics = 'read-only';
     panel.style.cssText = 'display:flex;flex-direction:column;gap:1rem;';
 
@@ -1346,6 +1470,8 @@ export function RouterDiagnosticsPanel({
                     benchmarkCertificationReviewerName = '';
                     benchmarkCertificationReviewNote = '';
                     benchmarkCertificationApproved = false;
+                    hardwarePilotExportActionStatus = 'idle';
+                    hardwarePilotExportResult = null;
                     render();
                 },
                 onRefresh: typeof shadowDiagnosticRefresh === 'function'
@@ -1497,6 +1623,71 @@ export function RouterDiagnosticsPanel({
                                 }
                             } catch {
                                 benchmarkActionStatus = 'rejected';
+                            }
+                            render();
+                        }
+                        : null,
+                },
+            ));
+
+            panel.appendChild(renderHardwarePilotExportSection(
+                selectedBenchmarkTarget,
+                benchmarkSessionState,
+                {
+                    actionStatus: hardwarePilotExportActionStatus,
+                    exportResult: hardwarePilotExportResult,
+                    onExport: typeof hardwarePilotBundleBuild === 'function'
+                        && typeof hardwarePilotExport === 'function'
+                        ? async () => {
+                            if (hardwarePilotExportActionStatus === 'running'
+                                || !selectedBenchmarkTarget
+                                || benchmarkSessionState?.readyForReview !== true) {
+                                hardwarePilotExportActionStatus = 'rejected';
+                                render();
+                                return;
+                            }
+
+                            hardwarePilotExportActionStatus = 'running';
+                            hardwarePilotExportResult = null;
+                            render();
+
+                            try {
+                                const pilot = hardwarePilotBundleBuild(selectedBenchmarkTarget);
+                                const validPilot = pilot
+                                    && pilot.status === 'HARDWARE_PILOT_EVIDENCE_READY'
+                                    && pilot.reason === null
+                                    && pilot.bundle
+                                    && pilot.pilotEvidenceOnly === true
+                                    && pilot.requiresHumanReview === true
+                                    && pilot.productionProfilePromoted === false
+                                    && pilot.routingEligible === false
+                                    && pilot.cutoverAuthorized === false
+                                    && pilot.executionAuthority === 'legacy-dispatcher-only';
+
+                                if (!validPilot) {
+                                    hardwarePilotExportActionStatus = 'rejected';
+                                    render();
+                                    return;
+                                }
+
+                                const result = await hardwarePilotExport(pilot.bundle);
+                                if (result?.status === 'HARDWARE_PILOT_EXPORT_CANCELED') {
+                                    hardwarePilotExportActionStatus = 'canceled';
+                                    render();
+                                    return;
+                                }
+
+                                const normalized = normalizeHardwarePilotExportResult(result);
+                                if (!normalized) {
+                                    hardwarePilotExportActionStatus = 'rejected';
+                                    render();
+                                    return;
+                                }
+
+                                hardwarePilotExportResult = normalized;
+                                hardwarePilotExportActionStatus = 'written';
+                            } catch {
+                                hardwarePilotExportActionStatus = 'rejected';
                             }
                             render();
                         }
