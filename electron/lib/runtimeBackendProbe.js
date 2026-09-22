@@ -45,14 +45,40 @@ function evaluateBackendActivation({ backend, stdout, exitCode = 0 } = {}) {
     }
 
     const devices = parseDeviceList(stdout);
-    const matched = devices.some((device) => pattern.test(device.name));
+    const matchedDevice = devices.find((device) => pattern.test(device.name)) || null;
 
     return Object.freeze({
-        verified: matched,
-        reason: matched ? null : 'EXPECTED_BACKEND_DEVICE_NOT_FOUND',
+        verified: Boolean(matchedDevice),
+        reason: matchedDevice ? null : 'EXPECTED_BACKEND_DEVICE_NOT_FOUND',
         backend,
+        selectedDeviceName: matchedDevice?.name || null,
         devices: Object.freeze(devices),
     });
+}
+
+function resolveGenerationBackendArgs({ runtime, activation } = {}) {
+    if (!runtime || runtime.requested === 'auto') {
+        return Object.freeze([]);
+    }
+
+    if (
+        activation?.verified !== true
+        || typeof activation.selectedDeviceName !== 'string'
+        || !activation.selectedDeviceName
+    ) {
+        throw new Error(
+            `Explicit backend "${runtime.backend || runtime.requested || 'unknown'}" is not active in the pinned sd.cpp runtime.`
+        );
+    }
+
+    const pattern = BACKEND_DEVICE_PATTERNS[runtime.backend];
+    if (!pattern || !pattern.test(activation.selectedDeviceName)) {
+        throw new Error(
+            `Explicit backend "${runtime.backend || runtime.requested || 'unknown'}" resolved to an invalid device.`
+        );
+    }
+
+    return Object.freeze(['--backend', activation.selectedDeviceName]);
 }
 
 function probeRuntimeBackend({
@@ -110,4 +136,5 @@ module.exports = {
     evaluateBackendActivation,
     parseDeviceList,
     probeRuntimeBackend,
+    resolveGenerationBackendArgs,
 };
