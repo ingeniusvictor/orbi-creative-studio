@@ -492,7 +492,7 @@ function renderHardwarePilotExportSection(target, sessionState, {
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.dataset.orbiHardwarePilotExportAction = 'user-initiated-save';
+        button.dataset.orbiHardwarePilotExportAction = 'user-initiated-export';
         button.textContent = t('routerDiagnostics.hardwarePilotExportButton');
         button.disabled = !ready || actionStatus === 'running';
         button.style.cssText = 'padding:0.4rem 0.7rem;border-radius:0.5rem;background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.22);color:#a5f3fc;font-size:0.68rem;font-weight:700;cursor:pointer;';
