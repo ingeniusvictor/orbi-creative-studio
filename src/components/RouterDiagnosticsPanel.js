@@ -424,6 +424,101 @@ function renderBenchmarkSessionSection(target, state, {
     return section;
 }
 
+
+function hardwarePilotExportStatusLabel(status) {
+    const key = {
+        running: 'routerDiagnostics.hardwarePilotExportRunning',
+        written: 'routerDiagnostics.hardwarePilotExportWritten',
+        canceled: 'routerDiagnostics.hardwarePilotExportCanceled',
+        rejected: 'routerDiagnostics.hardwarePilotExportRejected',
+    }[status];
+    return key ? t(key) : null;
+}
+
+function renderHardwarePilotExportSection(target, sessionState, {
+    onExport = null,
+    actionStatus = 'idle',
+    summary = null,
+} = {}) {
+    const section = document.createElement('div');
+    section.dataset.orbiHardwarePilotExport = 'explicit-user-action';
+    section.style.cssText = 'display:flex;flex-direction:column;gap:0.6rem;padding:0.85rem;border:1px solid rgba(34,211,238,0.14);border-radius:0.75rem;background:rgba(34,211,238,0.025);';
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.hardwarePilotExportTitle'),
+        'font-size:0.72rem;color:rgba(255,255,255,0.68);font-weight:800;',
+    ));
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.hardwarePilotExportSubtitle'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.3);line-height:1.4;',
+    ));
+
+    const ready = Boolean(target) && sessionState?.readyForReview === true;
+    section.appendChild(makeText(
+        'div',
+        ready
+            ? t('routerDiagnostics.hardwarePilotExportReady')
+            : t('routerDiagnostics.hardwarePilotExportNeedsSamples'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.34);line-height:1.4;',
+    ));
+
+    if (summary) {
+        const metrics = document.createElement('div');
+        metrics.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.6rem;';
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.hardwarePilotExportFile'),
+            summary.fileName,
+        ));
+        metrics.appendChild(makeMetric(
+            t('routerDiagnostics.hardwarePilotExportBytes'),
+            String(summary.bytes),
+        ));
+        section.appendChild(metrics);
+
+        const sha = makeText(
+            'div',
+            `${t('routerDiagnostics.hardwarePilotExportSha256')}: ${summary.sha256}`,
+            'font-size:0.6rem;color:rgba(255,255,255,0.32);line-height:1.4;word-break:break-all;font-family:monospace;',
+        );
+        sha.dataset.orbiHardwarePilotSha256 = 'verified-export-hash';
+        section.appendChild(sha);
+    }
+
+    if (typeof onExport === 'function') {
+        const actionWrap = document.createElement('div');
+        actionWrap.style.cssText = 'display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.orbiHardwarePilotExportAction = 'user-initiated-save';
+        button.textContent = t('routerDiagnostics.hardwarePilotExportButton');
+        button.disabled = !ready || actionStatus === 'running';
+        button.style.cssText = 'padding:0.4rem 0.7rem;border-radius:0.5rem;background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.22);color:#a5f3fc;font-size:0.68rem;font-weight:700;cursor:pointer;';
+        button.onclick = onExport;
+        actionWrap.appendChild(button);
+
+        const label = hardwarePilotExportStatusLabel(actionStatus);
+        if (label) {
+            actionWrap.appendChild(makeText(
+                'span',
+                label,
+                'font-size:0.62rem;color:rgba(255,255,255,0.38);',
+            ));
+        }
+        section.appendChild(actionWrap);
+    }
+
+    section.appendChild(makeText(
+        'div',
+        t('routerDiagnostics.hardwarePilotExportBoundaryNote'),
+        'font-size:0.62rem;color:rgba(255,255,255,0.24);line-height:1.4;',
+    ));
+
+    return section;
+}
+
 function normalizeBenchmarkReviewState(result, target) {
     if (!result
         || typeof result !== 'object'
@@ -1228,6 +1323,7 @@ export function RouterDiagnosticsPanel({
     runtimeCertificationStatusProvider = null,
     benchmarkSampleCapture = null,
     benchmarkSessionStateProvider = null,
+    hardwarePilotExport = null,
     benchmarkReviewPrepare = null,
     benchmarkReviewSummaryProvider = null,
     benchmarkCertificationRecord = null,
@@ -1240,6 +1336,8 @@ export function RouterDiagnosticsPanel({
     let shadowDiagnosticTargets = [];
     let selectedShadowTargetKey = null;
     let benchmarkActionStatus = 'idle';
+    let hardwarePilotExportActionStatus = 'idle';
+    let hardwarePilotExportSummary = null;
     let benchmarkReviewActionStatus = 'idle';
     let benchmarkSafetyMarginPct = '';
     let benchmarkCertificationActionStatus = 'idle';
@@ -1339,6 +1437,8 @@ export function RouterDiagnosticsPanel({
                         : null;
                     shadowRefreshStatus = 'idle';
                     benchmarkActionStatus = 'idle';
+                    hardwarePilotExportActionStatus = 'idle';
+                    hardwarePilotExportSummary = null;
                     benchmarkReviewActionStatus = 'idle';
                     benchmarkSafetyMarginPct = '';
                     benchmarkCertificationActionStatus = 'idle';
@@ -1497,6 +1597,69 @@ export function RouterDiagnosticsPanel({
                                 }
                             } catch {
                                 benchmarkActionStatus = 'rejected';
+                            }
+                            render();
+                        }
+                        : null,
+                },
+            ));
+
+            panel.appendChild(renderHardwarePilotExportSection(
+                selectedBenchmarkTarget,
+                benchmarkSessionState,
+                {
+                    actionStatus: hardwarePilotExportActionStatus,
+                    summary: hardwarePilotExportSummary,
+                    onExport: typeof hardwarePilotExport === 'function'
+                        ? async () => {
+                            if (hardwarePilotExportActionStatus === 'running'
+                                || !selectedBenchmarkTarget
+                                || benchmarkSessionState?.readyForReview !== true) {
+                                hardwarePilotExportActionStatus = 'rejected';
+                                hardwarePilotExportSummary = null;
+                                render();
+                                return;
+                            }
+
+                            hardwarePilotExportActionStatus = 'running';
+                            hardwarePilotExportSummary = null;
+                            render();
+                            try {
+                                const result = await hardwarePilotExport(selectedBenchmarkTarget);
+                                const authorityValid = result
+                                    && result.exportOnly === true
+                                    && result.productionProfilePromoted === false
+                                    && result.routingEligible === false
+                                    && result.cutoverAuthorized === false
+                                    && result.executionAuthority === 'legacy-dispatcher-only'
+                                    && sameDiagnosticTarget(result.context, selectedBenchmarkTarget);
+
+                                if (!authorityValid) {
+                                    hardwarePilotExportActionStatus = 'rejected';
+                                } else if (result.status === 'USER_HARDWARE_PILOT_EXPORT_WRITTEN'
+                                    && result.reason === null
+                                    && result.summary
+                                    && typeof result.summary.fileName === 'string'
+                                    && result.summary.fileName.length > 0
+                                    && typeof result.summary.sha256 === 'string'
+                                    && /^[a-f0-9]{64}$/.test(result.summary.sha256)
+                                    && Number.isInteger(result.summary.bytes)
+                                    && result.summary.bytes > 0) {
+                                    hardwarePilotExportActionStatus = 'written';
+                                    hardwarePilotExportSummary = Object.freeze({
+                                        fileName: result.summary.fileName,
+                                        sha256: result.summary.sha256,
+                                        bytes: result.summary.bytes,
+                                    });
+                                } else if (result.status === 'USER_HARDWARE_PILOT_EXPORT_CANCELED'
+                                    && result.reason === null
+                                    && result.summary === null) {
+                                    hardwarePilotExportActionStatus = 'canceled';
+                                } else {
+                                    hardwarePilotExportActionStatus = 'rejected';
+                                }
+                            } catch {
+                                hardwarePilotExportActionStatus = 'rejected';
                             }
                             render();
                         }
