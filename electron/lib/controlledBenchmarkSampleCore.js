@@ -14,6 +14,7 @@ const REQUEST_KEYS = new Set(['modelId', 'backend', 'width', 'height', 'runIndex
 const ALLOWED_EXECUTION_ERROR_CODES = new Set([
     'BENCHMARK_FILE_MISSING',
     'BENCHMARK_BINARY_NOT_ALLOWED',
+    'BENCHMARK_BACKEND_DEVICE_INVALID',
     'BENCHMARK_TIMEOUT',
     'BENCHMARK_RUNTIME_FAILED',
     'BENCHMARK_VRAM_NOT_MEASURED',
@@ -122,6 +123,11 @@ async function resolveBenchmarkPlan(request, {
     if (binaryStatus.installationIntegrity?.integrityVerified !== true) {
         return Object.freeze({ ok: false, reason: 'BENCHMARK_RUNTIME_INTEGRITY_UNVERIFIED', plan: null, auxiliaryPaths: null });
     }
+    if (binaryStatus.backendActivation?.verified !== true
+        || typeof binaryStatus.backendActivation?.selectedDeviceName !== 'string'
+        || !binaryStatus.backendActivation.selectedDeviceName) {
+        return Object.freeze({ ok: false, reason: 'BENCHMARK_BACKEND_ACTIVATION_UNVERIFIED', plan: null, auxiliaryPaths: null });
+    }
 
     if (!Array.isArray(installedModels)) {
         return Object.freeze({ ok: false, reason: 'BENCHMARK_MODEL_STATE_INVALID', plan: null, auxiliaryPaths: null });
@@ -179,6 +185,7 @@ async function resolveBenchmarkPlan(request, {
         runIndex: request.runIndex,
         modelId: request.modelId,
         backend: request.backend,
+        backendDeviceName: binaryStatus.backendActivation.selectedDeviceName,
         width: request.width,
         height: request.height,
         sourceCommit: buildIdentity.sourceCommit,

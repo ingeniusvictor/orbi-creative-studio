@@ -5,9 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
 const { sha256File } = require('./fileIntegrity');
+const { resolveGenerationBackendArgs } = require('./runtimeBackendProbe');
 
 const PROTOCOL_VERSION = 'p1c5-v1';
-const HARNESS_VERSION = 'orbi-local-benchmark-harness-0.1.0';
+const HARNESS_VERSION = 'orbi-local-benchmark-harness-0.2.0';
 const DEFAULT_SAMPLE_INTERVAL_MS = 250;
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 const MAX_TIMEOUT_MS = 30 * 60 * 1000;
@@ -51,6 +52,19 @@ function validatePlan(plan) {
     if (typeof plan.runtimeIdentity !== 'string' || !plan.runtimeIdentity.trim()) throw new TypeError('benchmark runtimeIdentity is required');
     if (typeof plan.runtimeVersion !== 'string' || !plan.runtimeVersion.trim()) throw new TypeError('benchmark runtimeVersion is required');
     if (typeof plan.modelType !== 'string' || !plan.modelType.trim()) throw new TypeError('benchmark modelType is required');
+    try {
+        resolveGenerationBackendArgs({
+            runtime: { requested: plan.backend, backend: plan.backend },
+            activation: {
+                verified: true,
+                selectedDeviceName: plan.backendDeviceName,
+            },
+        });
+    } catch {
+        const error = new Error('benchmark backend device is invalid for the selected backend');
+        error.code = 'BENCHMARK_BACKEND_DEVICE_INVALID';
+        throw error;
+    }
 
     assertExistingFile(plan.binaryPath, 'benchmark binaryPath');
     if (!ALLOWED_BINARY_NAMES.has(path.basename(plan.binaryPath))) {
@@ -72,6 +86,13 @@ function buildControlledBenchmarkArgs(plan, outputPath) {
     const modelFlag = (plan.modelType === 'z-image' || plan.modelType === 'flux')
         ? '--diffusion-model'
         : '-m';
+    const backendArgs = resolveGenerationBackendArgs({
+        runtime: { requested: plan.backend, backend: plan.backend },
+        activation: {
+            verified: true,
+            selectedDeviceName: plan.backendDeviceName,
+        },
+    });
     const args = [
         modelFlag, plan.modelPath,
         '-p', CONTROLLED_PROMPT,
@@ -82,17 +103,12 @@ function buildControlledBenchmarkArgs(plan, outputPath) {
         '--cfg-scale', String(Number.isFinite(plan.guidanceScale) ? plan.guidanceScale : 1),
         '--seed', '1',
         '--sampling-method', typeof plan.sampler === 'string' && plan.sampler.trim() ? plan.sampler : 'euler',
+        ...backendArgs,
     ];
 
     if (plan.modelType === 'z-image') {
         args.push('--llm', plan.llmPath, '--vae', plan.vaePath);
         if (typeof plan.scheduler === 'string' && plan.scheduler.trim()) args.push('--scheduler', plan.scheduler);
-    } else if (plan.modelType === 'sdxl') {
-        args.push('--sd-version', 'sdxl');
-    } else if (plan.modelType === 'sd2') {
-        args.push('--sd-version', 'sd2');
-    } else if (plan.modelType === 'flux') {
-        args.push('--flux');
     }
 
     return args;

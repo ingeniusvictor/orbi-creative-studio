@@ -21,6 +21,7 @@ function fixture() {
             runIndex: 1,
             modelId: 'z-image-turbo',
             backend: 'cuda12',
+            backendDeviceName: 'CUDA0',
             width: 1024,
             height: 1024,
             sourceCommit: 'a'.repeat(40),
@@ -81,6 +82,10 @@ test('controlled args use fixed benchmark prompt, seed and exact resolution', ()
     assert.equal(args[args.indexOf('-H') + 1], '1024');
     assert.equal(args.includes('--llm'), true);
     assert.equal(args.includes('--vae'), true);
+    assert.equal(args.includes('--backend'), true);
+    assert.equal(args[args.indexOf('--backend') + 1], 'CUDA0');
+    assert.equal(args.includes('--sd-version'), false);
+    assert.equal(args.includes('--flux'), false);
 });
 
 test('NVIDIA compute parser totals only the target pid', () => {
@@ -123,7 +128,7 @@ test('bounded CUDA12 harness emits a valid P1C5 sample and no routing authority'
     assert.equal(spawnCall.binaryPath, plan.binaryPath);
     assert.equal(spawnCall.options.shell, false);
     assert.equal(result.sample.protocolVersion, 'p1c5-v1');
-    assert.equal(result.sample.harnessVersion, 'orbi-local-benchmark-harness-0.1.0');
+    assert.equal(result.sample.harnessVersion, 'orbi-local-benchmark-harness-0.2.0');
     assert.equal(result.sample.runtimeBinarySha256, 'b'.repeat(64));
     assert.equal(result.sample.modelArtifactSha256, 'c'.repeat(64));
     assert.equal(result.sample.peakSystemRamMiB, 10240);
@@ -140,7 +145,7 @@ test('bounded CUDA12 harness emits a valid P1C5 sample and no routing authority'
 
 test('CPU harness emits null VRAM and does not invoke nvidia-smi', async () => {
     const { plan } = fixture();
-    const cpuPlan = { ...plan, backend: 'cpu' };
+    const cpuPlan = { ...plan, backend: 'cpu', backendDeviceName: 'CPU' };
     let nvidiaCalled = false;
 
     const result = await harness.runLocalBenchmark(cpuPlan, {
@@ -194,5 +199,14 @@ test('benchmark bounds sampling interval and timeout', async () => {
     await assert.rejects(
         harness.runLocalBenchmark({ ...plan, timeoutMs: harness.MAX_TIMEOUT_MS + 1 }, { sha256FileImpl: async () => 'f'.repeat(64) }),
         /timeoutMs/,
+    );
+});
+
+
+test('P1C56 rejects a benchmark plan whose device does not match the declared backend', () => {
+    const { plan } = fixture();
+    assert.throws(
+        () => harness.validatePlan({ ...plan, backendDeviceName: 'CPU' }),
+        (error) => error.code === 'BENCHMARK_BACKEND_DEVICE_INVALID',
     );
 });
