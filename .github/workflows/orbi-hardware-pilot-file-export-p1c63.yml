@@ -1,0 +1,27 @@
+name: ORBI P1C63 Hardware Pilot File Export
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/hardwarePilotFileExportCore.js'
+      - 'electron/lib/hardwarePilotFileExportBridge.js'
+      - 'electron/preload.js'
+      - 'electron/main.js'
+      - 'tests/hardwarePilotFileExportCore.test.js'
+      - 'tests/hardwarePilotFileExportBridge.test.js'
+      - 'docs/PHASE-1C63-HARDWARE-PILOT-FILE-EXPORT.md'
+      - '.github/workflows/orbi-hardware-pilot-file-export-p1c63.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/hardwarePilotFileExportCore.test.js tests/hardwarePilotFileExportBridge.test.js
