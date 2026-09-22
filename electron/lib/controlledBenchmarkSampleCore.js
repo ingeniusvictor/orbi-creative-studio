@@ -3,6 +3,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { LOCAL_MODEL_CATALOG, ZIMAGE_AUXILIARY } = require('./modelCatalog');
+const {
+    buildBackendPerformanceEvidence,
+    performanceEvidenceMatchesSample,
+} = require('./backendPerformanceEvidence');
 
 const CONTROLLED_BENCHMARK_SAMPLE_STATUS = Object.freeze({
     READY: 'CONTROLLED_BENCHMARK_SAMPLE_READY',
@@ -338,6 +342,20 @@ function createControlledBenchmarkSampleRunner({
                 return rejected('BENCHMARK_RESULT_INVALID');
             }
 
+            let performanceEvidence;
+            try {
+                performanceEvidence = buildBackendPerformanceEvidence({
+                    sample: benchmark.sample,
+                    auxiliaryArtifacts,
+                    durationMs: benchmark.runtimeDurationMs,
+                });
+            } catch {
+                return rejected('BENCHMARK_PERFORMANCE_EVIDENCE_INVALID');
+            }
+            if (!performanceEvidenceMatchesSample(performanceEvidence, benchmark.sample)) {
+                return rejected('BENCHMARK_PERFORMANCE_EVIDENCE_INVALID');
+            }
+
             const runEvidence = Object.freeze({
                 schemaVersion: 1,
                 evidenceType: 'p1c7-benchmark-run-evidence',
@@ -357,6 +375,7 @@ function createControlledBenchmarkSampleRunner({
                 reason: null,
                 runEvidence,
                 provenance,
+                performanceEvidence,
                 benchmarkOnly: true,
                 productionProfilePromoted: false,
                 routingEligible: false,
