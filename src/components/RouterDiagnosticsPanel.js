@@ -1235,7 +1235,6 @@ function normalizeHardwarePilotExportResult(result) {
     if (!result
         || typeof result !== 'object'
         || result.status !== 'HARDWARE_PILOT_EXPORT_WRITTEN'
-        || result.reason !== null
         || typeof result.fileName !== 'string'
         || !result.fileName.trim()
         || /[\\/]/.test(result.fileName)
