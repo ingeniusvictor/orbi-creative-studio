@@ -66,6 +66,34 @@ function readyResult(runIndex, overrides = {}) {
     };
 }
 
+function performanceEvidence(runIndex, overrides = {}) {
+    const evidence = runEvidence(runIndex, overrides);
+    const sample = evidence.sample;
+    return {
+        schemaVersion: 1,
+        evidenceType: 'p1c57-backend-performance-observation',
+        protocolVersion: sample.protocolVersion,
+        runIndex: sample.runIndex,
+        modelId: sample.modelId,
+        backend: sample.backend,
+        resolution: { ...sample.resolution },
+        harnessVersion: sample.harnessVersion,
+        sourceCommit: sample.sourceCommit,
+        runtimeIdentity: sample.runtimeIdentity,
+        runtimeVersion: sample.runtimeVersion,
+        runtimeBinarySha256: sample.runtimeBinarySha256,
+        modelArtifactSha256: sample.modelArtifactSha256,
+        auxiliaryArtifacts: evidence.auxiliaryArtifacts.map((artifact) => ({ ...artifact })),
+        measuredAt: sample.measuredAt,
+        durationMs: 1500 + runIndex,
+        benchmarkOnly: true,
+        productionProfilePromoted: false,
+        routingEligible: false,
+        cutoverAuthorized: false,
+        executionAuthority: 'legacy-dispatcher-only',
+    };
+}
+
 function provenance(runIndex, overrides = {}) {
     return {
         schemaVersion: 1,
@@ -111,6 +139,7 @@ function realReadyResult(runIndex, overrides = {}) {
     return {
         ...readyResult(runIndex, overrides),
         provenance: provenance(runIndex, overrides.provenance || {}),
+        performanceEvidence: performanceEvidence(runIndex, overrides.performance || {}),
     };
 }
 
@@ -505,4 +534,115 @@ test('P1C21 source remains in-memory, explicit, and non-certifying', () => {
     assert.ok(source.includes('routingEligible: false'));
     assert.ok(source.includes('cutoverAuthorized: false'));
     assert.ok(source.includes("executionAuthority: 'legacy-dispatcher-only'"));
+});
+
+
+test('P1C61 retains real P1C57 performance sidecars separately from P1C7 review evidence', async () => {
+    const benchmarkSession = await loadModule();
+    const session = benchmarkSession.createUserBenchmarkSession({
+        sessionStore: new Map(),
+        provenanceStore: new Map(),
+        performanceStore: new Map(),
+        getBridge: () => ({
+            isElectron: true,
+            runSample: async (request) => realReadyResult(request.runIndex),
+        }),
+    });
+
+    await session.capture(TARGET);
+    await session.capture(TARGET);
+    await session.capture(TARGET);
+
+    const performance = session.readPerformance(TARGET);
+    assert.equal(performance.length, 3);
+    assert.deepEqual(performance.map((entry) => entry.runIndex), [1, 2, 3]);
+    assert.deepEqual(performance.map((entry) => entry.durationMs), [1501, 1502, 1503]);
+    assert.equal(Object.isFrozen(performance), true);
+    assert.equal(Object.isFrozen(performance[0]), true);
+    assert.equal(Object.isFrozen(performance[0].resolution), true);
+    assert.equal(Object.isFrozen(performance[0].auxiliaryArtifacts), true);
+    assert.equal(performance[0].evidenceType, 'p1c57-backend-performance-observation');
+    assert.equal(performance[0].routingEligible, false);
+
+    const reviewEvidence = session.readEvidence(TARGET);
+    assert.equal(reviewEvidence.length, 3);
+    assert.equal('durationMs' in reviewEvidence[0], false);
+    assert.equal('performanceEvidence' in reviewEvidence[0], false);
+});
+
+test('P1C61 rejects real provenance when performance evidence is missing', async () => {
+    const benchmarkSession = await loadModule();
+    const session = benchmarkSession.createUserBenchmarkSession({
+        sessionStore: new Map(),
+        provenanceStore: new Map(),
+        performanceStore: new Map(),
+        getBridge: () => ({
+            isElectron: true,
+            runSample: async (request) => {
+                const result = realReadyResult(request.runIndex);
+                delete result.performanceEvidence;
+                return result;
+            },
+        }),
+    });
+
+    const result = await session.capture(TARGET);
+    assert.equal(result.status, 'USER_BENCHMARK_SESSION_REJECTED');
+    assert.equal(result.reason, 'USER_BENCHMARK_PERFORMANCE_EVIDENCE_MISSING');
+    assert.equal(session.getState(TARGET).sampleCount, 0);
+    assert.deepEqual(session.readProvenance(TARGET), []);
+    assert.deepEqual(session.readPerformance(TARGET), []);
+});
+
+test('P1C61 rejects mismatched performance evidence atomically', async () => {
+    const benchmarkSession = await loadModule();
+    const session = benchmarkSession.createUserBenchmarkSession({
+        sessionStore: new Map(),
+        provenanceStore: new Map(),
+        performanceStore: new Map(),
+        getBridge: () => ({
+            isElectron: true,
+            runSample: async (request) => realReadyResult(request.runIndex, {
+                performance: {
+                    sample: { modelArtifactSha256: 'f'.repeat(64) },
+                },
+            }),
+        }),
+    });
+
+    const result = await session.capture(TARGET);
+    assert.equal(result.status, 'USER_BENCHMARK_SESSION_REJECTED');
+    assert.equal(result.reason, 'USER_BENCHMARK_PERFORMANCE_EVIDENCE_INVALID');
+    assert.equal(session.getState(TARGET).sampleCount, 0);
+    assert.deepEqual(session.readEvidence(TARGET), []);
+    assert.deepEqual(session.readProvenance(TARGET), []);
+    assert.deepEqual(session.readPerformance(TARGET), []);
+});
+
+test('P1C61 legacy fixture results remain usable without gaining performance evidence', async () => {
+    const benchmarkSession = await loadModule();
+    const session = benchmarkSession.createUserBenchmarkSession({
+        sessionStore: new Map(),
+        provenanceStore: new Map(),
+        performanceStore: new Map(),
+        getBridge: () => ({
+            isElectron: true,
+            runSample: async (request) => readyResult(request.runIndex),
+        }),
+    });
+
+    assert.equal((await session.capture(TARGET)).sampleCount, 1);
+    assert.deepEqual(session.readPerformance(TARGET), []);
+});
+
+test('P1C61 source keeps performance evidence in-memory and non-routing', () => {
+    const source = fs.readFileSync('src/lib/computeRouter/userBenchmarkSession.mjs', 'utf8');
+
+    assert.ok(source.includes('const performanceRecords = new Map()'));
+    assert.ok(source.includes('readPerformance'));
+    assert.ok(source.includes('USER_BENCHMARK_PERFORMANCE_EVIDENCE_MISSING'));
+    assert.ok(source.includes('USER_BENCHMARK_PERFORMANCE_EVIDENCE_INVALID'));
+    assert.equal(source.includes('performanceStore.set('), true);
+    assert.equal(source.includes('routingEligible: true'), false);
+    assert.equal(source.includes('cutoverAuthorized: true'), false);
 });
