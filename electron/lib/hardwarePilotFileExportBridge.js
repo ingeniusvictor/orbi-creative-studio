@@ -81,7 +81,8 @@ function register({
                 encoding: 'utf8',
                 flag: 'wx',
             });
-            await fsImpl.promises.rename(tempPath, destination);
+            await fsImpl.promises.link(tempPath, destination);
+            await fsImpl.promises.unlink(tempPath);
 
             const actualSha256 = await sha256FileImpl(destination);
             if (actualSha256 !== plan.sha256) {
