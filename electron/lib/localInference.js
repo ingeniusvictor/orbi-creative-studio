@@ -29,6 +29,7 @@ const {
     installPinnedRuntimeCompanions,
     promoteExtractedRuntime,
 } = require('./runtimePayload');
+const { probeRuntimeBackend } = require('./runtimeBackendProbe');
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 // Resolved lazily (from register(), after app.whenReady()) so a failure here
@@ -154,6 +155,38 @@ async function getBinaryStatus() {
         }
     }
 
+    let backendActivation = null;
+    if (exists && runtime) {
+        if (installationIntegrity?.integrityVerified === true) {
+            try {
+                backendActivation = await probeRuntimeBackend({
+                    binaryPath: BINARY_PATH,
+                    backend: runtime.backend,
+                    env: {
+                        ...process.env,
+                        DYLD_LIBRARY_PATH: BIN_DIR,
+                        LD_LIBRARY_PATH: BIN_DIR,
+                    },
+                    execFileImpl: execFile,
+                });
+            } catch {
+                backendActivation = Object.freeze({
+                    verified: false,
+                    reason: 'BACKEND_DEVICE_PROBE_FAILED',
+                    backend: runtime.backend,
+                    devices: Object.freeze([]),
+                });
+            }
+        } else {
+            backendActivation = Object.freeze({
+                verified: false,
+                reason: 'INSTALLATION_INTEGRITY_REQUIRED',
+                backend: runtime.backend,
+                devices: Object.freeze([]),
+            });
+        }
+    }
+
     return {
         exists,
         path: BINARY_PATH,
@@ -170,6 +203,7 @@ async function getBinaryStatus() {
             manifestPinned: true,
         } : null,
         installationIntegrity,
+        backendActivation,
     };
 }
 
@@ -319,6 +353,7 @@ async function getReadinessEvidence() {
             backend: binaryStatus.runtime.backend,
             manifestPinned: binaryStatus.runtime.manifestPinned === true,
             installationIntegrityVerified: binaryStatus.installationIntegrity?.integrityVerified === true,
+            backendActivationVerified: binaryStatus.backendActivation?.verified === true,
         })
         : undefined;
 

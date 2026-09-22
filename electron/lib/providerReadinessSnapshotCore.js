@@ -21,6 +21,7 @@ function sanitizeSdCppEvidence(evidence) {
                 : undefined,
             manifestPinned: evidence.binaryStatus.runtime.manifestPinned === true,
             installationIntegrityVerified: evidence.binaryStatus.runtime.installationIntegrityVerified === true,
+            backendActivationVerified: evidence.binaryStatus.runtime.backendActivationVerified === true,
         })
         : undefined;
 
