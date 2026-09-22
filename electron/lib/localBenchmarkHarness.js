@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
+const { performance } = require('node:perf_hooks');
 const { sha256File } = require('./fileIntegrity');
 const { resolveGenerationBackendArgs } = require('./runtimeBackendProbe');
 
@@ -175,6 +176,7 @@ async function runLocalBenchmark(plan, {
     clearIntervalImpl = clearInterval,
     setTimeoutImpl = setTimeout,
     clearTimeoutImpl = clearTimeout,
+    monotonicNowMs = () => performance.now(),
 } = {}) {
     validatePlan(plan);
 
@@ -206,11 +208,14 @@ async function runLocalBenchmark(plan, {
 
     let peakSystemRamMiB = usedSystemMemoryMiB(osImpl);
     let peakVramMiB = plan.backend === 'cuda12' ? 0 : null;
+    let runtimeStartedAtMs = null;
+    let runtimeFinishedAtMs = null;
     let interval = null;
     let timeout = null;
     let sampling = false;
 
     try {
+        runtimeStartedAtMs = monotonicNowMs();
         const child = spawnImpl(plan.binaryPath, args, {
             env: spawnEnv,
             shell: false,
@@ -253,6 +258,7 @@ async function runLocalBenchmark(plan, {
             child.once('close', (code) => resolve(code));
         });
 
+        runtimeFinishedAtMs = monotonicNowMs();
         await sampleResources();
         if (exitCode !== 0) {
             const error = new Error(`controlled benchmark runtime exited with code ${exitCode ?? 'signal'}`);
@@ -264,6 +270,11 @@ async function runLocalBenchmark(plan, {
             error.code = 'BENCHMARK_VRAM_NOT_MEASURED';
             throw error;
         }
+
+        const runtimeDurationMs = Math.max(
+            0.001,
+            Number(runtimeFinishedAtMs) - Number(runtimeStartedAtMs),
+        );
 
         return Object.freeze({
             sample: Object.freeze({
@@ -283,6 +294,7 @@ async function runLocalBenchmark(plan, {
                 peakSystemRamMiB: Math.ceil(peakSystemRamMiB),
                 peakVramMiB: plan.backend === 'cuda12' ? Math.ceil(peakVramMiB) : null,
             }),
+            runtimeDurationMs,
             benchmarkOnly: true,
             productionProfilePromoted: false,
             routingEligible: false,

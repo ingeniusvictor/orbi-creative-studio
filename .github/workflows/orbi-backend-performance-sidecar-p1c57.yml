@@ -1,0 +1,27 @@
+name: ORBI P1C57 Backend Performance Sidecar
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/localBenchmarkHarness.js'
+      - 'electron/lib/controlledBenchmarkSampleCore.js'
+      - 'electron/lib/backendPerformanceEvidence.js'
+      - 'tests/localBenchmarkHarness.test.js'
+      - 'tests/controlledBenchmarkSampleCore.test.js'
+      - 'tests/backendPerformanceEvidence.test.js'
+      - 'docs/PHASE-1C57-BACKEND-PERFORMANCE-SIDECAR.md'
+      - '.github/workflows/orbi-backend-performance-sidecar-p1c57.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/localBenchmarkHarness.test.js tests/controlledBenchmarkSampleCore.test.js tests/backendPerformanceEvidence.test.js

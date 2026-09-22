@@ -76,6 +76,7 @@ function benchmarkResult(plan) {
             peakSystemRamMiB: 12000,
             peakVramMiB: plan.backend === 'cuda12' ? 7000 : null,
         }),
+        runtimeDurationMs: 1500,
         benchmarkOnly: true,
         productionProfilePromoted: false,
         routingEligible: false,
@@ -191,6 +192,15 @@ test('P1C20 emits a valid P1C7 run envelope without exposing internal paths', as
     assert.equal(serialized.includes('binaryPath'), false);
     assert.equal(serialized.includes('modelPath'), false);
     assert.deepEqual(result.runEvidence.auxiliaryArtifacts, [
+        { role: 'llm', sha256: LLM_SHA },
+        { role: 'vae', sha256: VAE_SHA },
+    ]);
+    assert.equal(Object.hasOwn(result.runEvidence, 'performanceEvidence'), false);
+    assert.equal(result.performanceEvidence.evidenceType, 'p1c57-backend-performance-observation');
+    assert.equal(result.performanceEvidence.durationMs, 1500);
+    assert.equal(result.performanceEvidence.modelId, 'z-image-turbo');
+    assert.equal(result.performanceEvidence.backend, 'cuda12');
+    assert.deepEqual(result.performanceEvidence.auxiliaryArtifacts, [
         { role: 'llm', sha256: LLM_SHA },
         { role: 'vae', sha256: VAE_SHA },
     ]);
