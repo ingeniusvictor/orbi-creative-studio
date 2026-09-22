@@ -1,0 +1,23 @@
+name: ORBI P1C61 User Benchmark Performance Binding
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/computeRouter/userBenchmarkSession.mjs'
+      - 'tests/userBenchmarkSession.test.js'
+      - 'docs/PHASE-1C61-USER-BENCHMARK-PERFORMANCE-SESSION-BINDING.md'
+      - '.github/workflows/orbi-user-benchmark-performance-p1c61.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/userBenchmarkSession.test.js
