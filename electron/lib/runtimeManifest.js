@@ -48,6 +48,19 @@ const RUNTIME_MANIFEST = {
             url: 'https://github.com/leejet/stable-diffusion.cpp/releases/download/master-859-7f410a3/sd-master-7f410a3-bin-win-cuda12-x64.zip',
             size: 336517170,
             sha256: 'b97beb83f471138d63d48354e006067a9d0e52fea47f6d20b3b45a3105062eb9',
+            companions: [
+                {
+                    assetName: 'cudart-sd-bin-win-cu12-x64.zip',
+                    url: 'https://github.com/leejet/stable-diffusion.cpp/releases/download/master-859-7f410a3/cudart-sd-bin-win-cu12-x64.zip',
+                    size: 563452046,
+                    sha256: 'fe20366827d357c00797eebb58244dddab7fd9a348d70090c3871004c320f38d',
+                    requiredFiles: [
+                        'cudart64_12.dll',
+                        'cublas64_12.dll',
+                        'cublasLt64_12.dll',
+                    ],
+                },
+            ],
         },
         vulkan: {
             backend: 'vulkan',

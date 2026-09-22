@@ -1,0 +1,26 @@
+name: ORBI P1C52 Pinned CUDA Companion Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/runtimeManifest.js'
+      - 'electron/lib/runtimePayload.js'
+      - 'electron/lib/localInference.js'
+      - 'electron/lib/runtimeInstallationEvidence.js'
+      - 'tests/pinnedCudaCompanion.test.js'
+      - 'docs/PHASE-1C52-PINNED-CUDA-COMPANION-INTEGRITY.md'
+      - '.github/workflows/orbi-pinned-cuda-companion-p1c52.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/pinnedCudaCompanion.test.js tests/runtimeInstallationEvidence.test.js tests/runtimeProvenance.test.js

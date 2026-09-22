@@ -23,6 +23,10 @@ const {
     LOCAL_AI_DIR_ENV,
     resolveLocalAiPaths,
 } = require('./localInferencePaths');
+const {
+    installPinnedRuntimeCompanions,
+    promoteExtractedRuntime,
+} = require('./runtimePayload');
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 // Resolved lazily (from register(), after app.whenReady()) so a failure here
@@ -246,12 +250,16 @@ async function getBinaryStatus() {
 }
 
 async function downloadBinary(mainWindow) {
+    ensureLocalAiPaths();
     const send = (data) => mainWindow?.webContents.send('local-ai:download-progress', { id: '__binary__', ...data });
 
     try {
         send({ phase: 'fetching-release', progress: 0 });
 
-        if (ensureBundledBinaryInstalled()) {
+        // A bundled runtime is only copied when no runtime exists yet. If a binary
+        // already exists, continue through the pinned download path so an incomplete
+        // or stale CUDA installation can be repaired instead of returning early.
+        if (!fs.existsSync(BINARY_PATH) && ensureBundledBinaryInstalled()) {
             send({ phase: 'done', progress: 1 });
             return { ok: true, source: 'bundled' };
         }
@@ -263,34 +271,48 @@ async function downloadBinary(mainWindow) {
         });
         const downloadUrl = runtime.url;
         const zipName = runtime.assetName;
+        const installToken = `${process.pid}-${Date.now()}`;
+        const zipPath = path.join(TMP_DIR, `${installToken}-${zipName}`);
+        const extractDir = path.join(TMP_DIR, `${installToken}-runtime`);
 
-        send({ phase: 'downloading', progress: 0 });
-        const zipPath = path.join(BIN_DIR, zipName);
-        await downloadFile(downloadUrl, zipPath, (p) => {
-            send({ phase: 'downloading', progress: p });
+        let integrity;
+        try {
+            send({ phase: 'downloading', progress: 0 });
+            await downloadFile(downloadUrl, zipPath, (p) => {
+                send({ phase: 'downloading', progress: p });
+            });
+
+            send({ phase: 'verifying', progress: 0.94 });
+            integrity = await verifyFileSha256(zipPath, runtime.sha256);
+            if (!integrity.ok) {
+                throw new Error(
+                    `Runtime archive integrity check failed for ${runtime.assetName}: expected ${integrity.expected}, got ${integrity.actual}`
+                );
+            }
+
+            send({ phase: 'extracting', progress: 0.95 });
+            fs.mkdirSync(extractDir, { recursive: true });
+            await extractZip(zipPath, extractDir);
+
+            promoteExtractedRuntime({
+                extractDir,
+                binDir: BIN_DIR,
+                binaryName: BINARY_NAME,
+            });
+        } finally {
+            try { fs.rmSync(zipPath, { force: true }); } catch {}
+            try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch {}
+        }
+
+        const companionInstallations = await installPinnedRuntimeCompanions({
+            runtime,
+            binDir: BIN_DIR,
+            tmpDir: TMP_DIR,
+            downloadFile,
+            verifyFileSha256,
+            extractZip,
+            send,
         });
-
-        send({ phase: 'verifying', progress: 0.94 });
-        const integrity = await verifyFileSha256(zipPath, runtime.sha256);
-        if (!integrity.ok) {
-            try { fs.unlinkSync(zipPath); } catch {}
-            throw new Error(
-                `Runtime archive integrity check failed for ${runtime.assetName}: expected ${integrity.expected}, got ${integrity.actual}`
-            );
-        }
-
-        send({ phase: 'extracting', progress: 0.95 });
-        await extractZip(zipPath, BIN_DIR);
-        fs.unlinkSync(zipPath);
-
-        // The zip may extract into a subdirectory — find the binary wherever it landed
-        const foundBinary = findFile(BIN_DIR, BINARY_NAME);
-        if (!foundBinary) throw new Error(`Extracted archive but could not find "${BINARY_NAME}" inside ${BIN_DIR}`);
-
-        // Move it to the expected root location if it's nested
-        if (foundBinary !== BINARY_PATH) {
-            fs.renameSync(foundBinary, BINARY_PATH);
-        }
 
         ensureBinaryPermissions();
 
@@ -304,6 +326,7 @@ async function downloadBinary(mainWindow) {
             binaryPath: BINARY_PATH,
             runtime,
             archiveSha256: integrity.actual,
+            companionInstallations,
         });
         const installationIntegrity = await inspectPinnedRuntimeInstallation({
             binDir: BIN_DIR,
@@ -323,6 +346,7 @@ async function downloadBinary(mainWindow) {
             upstreamCommit: runtime.upstreamCommit,
             assetName: runtime.assetName,
             sha256: runtime.sha256,
+            companionAssetsVerified: companionInstallations.length,
             installationIntegrityVerified: true,
         };
     } catch (err) {

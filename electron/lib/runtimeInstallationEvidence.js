@@ -16,6 +16,28 @@ function nonEmptyString(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function normalizeRequiredFiles(value) {
+    if (!Array.isArray(value) || value.length === 0) return null;
+    const files = [...new Set(value.map(nonEmptyString).filter(Boolean))].sort();
+    return files.length > 0 ? Object.freeze(files) : null;
+}
+
+function normalizeCompanionDefinition(companion) {
+    if (!companion || typeof companion !== 'object') return null;
+
+    const assetName = nonEmptyString(companion.assetName);
+    const archiveSha256 = normalizeSha256(companion.sha256 || companion.archiveSha256);
+    const requiredFiles = normalizeRequiredFiles(companion.requiredFiles);
+
+    if (!assetName || !archiveSha256 || !requiredFiles) return null;
+
+    return Object.freeze({
+        assetName,
+        archiveSha256,
+        requiredFiles,
+    });
+}
+
 function evidencePath(binDir) {
     return path.join(binDir, RUNTIME_INSTALLATION_EVIDENCE_FILE);
 }
@@ -28,12 +50,18 @@ function runtimeIdentity(runtime) {
     const archiveSha256 = normalizeSha256(runtime.sha256);
     if (!backend || !release || !assetName || !archiveSha256) return null;
 
+    const companionDefinitions = Array.isArray(runtime.companions)
+        ? runtime.companions.map(normalizeCompanionDefinition)
+        : [];
+    if (companionDefinitions.some((entry) => !entry)) return null;
+
     return Object.freeze({
         backend,
         release,
         upstreamCommit: nonEmptyString(runtime.upstreamCommit),
         assetName,
         archiveSha256,
+        companions: Object.freeze(companionDefinitions),
     });
 }
 
@@ -45,6 +73,28 @@ function stableFailure(reason) {
         reason,
         evidenceSource: 'pinned-archive-installation-receipt',
         tamperResistance: 'local-receipt-not-tamper-proof',
+    });
+}
+
+function parseCompanionReceipt(value) {
+    if (!value || typeof value !== 'object') return null;
+    const assetName = nonEmptyString(value.assetName);
+    const archiveSha256 = normalizeSha256(value.archiveSha256);
+    if (!assetName || !archiveSha256 || !Array.isArray(value.files)) return null;
+
+    const files = [];
+    for (const entry of value.files) {
+        const name = nonEmptyString(entry?.name);
+        const fileSha256 = normalizeSha256(entry?.sha256);
+        if (!name || !fileSha256) return null;
+        files.push(Object.freeze({ name, sha256: fileSha256 }));
+    }
+
+    files.sort((left, right) => left.name.localeCompare(right.name));
+    return Object.freeze({
+        assetName,
+        archiveSha256,
+        files: Object.freeze(files),
     });
 }
 
@@ -68,6 +118,11 @@ function parseReceipt(raw) {
     if (!backend || !release || !assetName || !binaryName || !archiveSha256 || !binarySha256) return null;
     if (!Number.isFinite(installedAt) || installedAt <= 0) return null;
 
+    const rawCompanions = receipt.companions === undefined ? [] : receipt.companions;
+    if (!Array.isArray(rawCompanions)) return null;
+    const companions = rawCompanions.map(parseCompanionReceipt);
+    if (companions.some((entry) => !entry)) return null;
+
     return Object.freeze({
         schemaVersion: 1,
         source: receipt.source === 'pinned-archive' ? 'pinned-archive' : null,
@@ -79,8 +134,31 @@ function parseReceipt(raw) {
         binaryName,
         binarySha256,
         installedAt,
+        companions: Object.freeze(companions),
         authenticityVerified: false,
     });
+}
+
+function normalizeObservedCompanionInstallations(value) {
+    if (value === undefined) return [];
+    if (!Array.isArray(value)) return null;
+
+    const normalized = [];
+    for (const entry of value) {
+        const definition = normalizeCompanionDefinition({
+            assetName: entry?.assetName,
+            archiveSha256: entry?.archiveSha256,
+            requiredFiles: entry?.requiredFiles,
+        });
+        if (!definition) return null;
+        normalized.push(definition);
+    }
+    return normalized;
+}
+
+function sameStringSet(left, right) {
+    if (left.length !== right.length) return false;
+    return left.every((value, index) => value === right[index]);
 }
 
 async function recordPinnedRuntimeInstallation({
@@ -88,6 +166,7 @@ async function recordPinnedRuntimeInstallation({
     binaryPath,
     runtime,
     archiveSha256,
+    companionInstallations,
     now = Date.now,
     fsImpl = fs,
     sha256FileImpl = sha256File,
@@ -107,8 +186,46 @@ async function recordPinnedRuntimeInstallation({
         throw new Error('Installed runtime binary is missing');
     }
 
+    const observedCompanions = normalizeObservedCompanionInstallations(companionInstallations);
+    if (!observedCompanions) {
+        throw new Error('Verified runtime companion evidence is invalid');
+    }
+    if (observedCompanions.length !== identity.companions.length) {
+        throw new Error('Verified runtime companion count does not match pinned runtime manifest');
+    }
+
     const binarySha256 = normalizeSha256(await sha256FileImpl(binaryPath));
     if (!binarySha256) throw new Error('Installed runtime binary SHA-256 is invalid');
+
+    const companionReceipts = [];
+    for (const expected of identity.companions) {
+        const observed = observedCompanions.find((entry) => entry.assetName === expected.assetName);
+        if (!observed || observed.archiveSha256 !== expected.archiveSha256) {
+            throw new Error(`Verified companion archive does not match pinned runtime manifest: ${expected.assetName}`);
+        }
+        if (!sameStringSet(observed.requiredFiles, expected.requiredFiles)) {
+            throw new Error(`Verified companion required files do not match pinned runtime manifest: ${expected.assetName}`);
+        }
+
+        const files = [];
+        for (const fileName of expected.requiredFiles) {
+            const filePath = path.join(binDir, fileName);
+            if (!fsImpl.existsSync(filePath)) {
+                throw new Error(`Installed runtime support file is missing: ${fileName}`);
+            }
+            const fileSha256 = normalizeSha256(await sha256FileImpl(filePath));
+            if (!fileSha256) {
+                throw new Error(`Installed runtime support file SHA-256 is invalid: ${fileName}`);
+            }
+            files.push(Object.freeze({ name: fileName, sha256: fileSha256 }));
+        }
+
+        companionReceipts.push(Object.freeze({
+            assetName: expected.assetName,
+            archiveSha256: expected.archiveSha256,
+            files: Object.freeze(files),
+        }));
+    }
 
     const receipt = Object.freeze({
         schemaVersion: 1,
@@ -120,6 +237,7 @@ async function recordPinnedRuntimeInstallation({
         archiveSha256: identity.archiveSha256,
         binaryName: path.basename(binaryPath),
         binarySha256,
+        companions: Object.freeze(companionReceipts),
         installedAt: Number(now()),
         authenticityVerified: false,
     });
@@ -187,6 +305,40 @@ async function inspectPinnedRuntimeInstallation({
         return stableFailure('INSTALLATION_RECEIPT_MANIFEST_MISMATCH');
     }
 
+    if (receipt.companions.length !== identity.companions.length) {
+        return stableFailure('INSTALLATION_RECEIPT_COMPANION_MISMATCH');
+    }
+
+    for (const expected of identity.companions) {
+        const recorded = receipt.companions.find((entry) => entry.assetName === expected.assetName);
+        if (!recorded || recorded.archiveSha256 !== expected.archiveSha256) {
+            return stableFailure('INSTALLATION_RECEIPT_COMPANION_MISMATCH');
+        }
+
+        const recordedNames = recorded.files.map((entry) => entry.name).sort();
+        if (!sameStringSet(recordedNames, expected.requiredFiles)) {
+            return stableFailure('INSTALLATION_RECEIPT_COMPANION_MISMATCH');
+        }
+
+        for (const file of recorded.files) {
+            const filePath = path.join(binDir, file.name);
+            if (!fsImpl.existsSync(filePath)) {
+                return stableFailure('RUNTIME_SUPPORT_FILE_MISSING');
+            }
+
+            let currentSha256;
+            try {
+                currentSha256 = normalizeSha256(await sha256FileImpl(filePath));
+            } catch {
+                return stableFailure('RUNTIME_SUPPORT_FILE_HASH_FAILED');
+            }
+            if (!currentSha256) return stableFailure('RUNTIME_SUPPORT_FILE_HASH_INVALID');
+            if (currentSha256 !== file.sha256) {
+                return stableFailure('RUNTIME_SUPPORT_FILE_CHANGED_AFTER_INSTALL');
+            }
+        }
+    }
+
     let currentBinarySha256;
     try {
         currentBinarySha256 = normalizeSha256(await sha256FileImpl(binaryPath));
@@ -209,6 +361,8 @@ async function inspectPinnedRuntimeInstallation({
         assetName: identity.assetName,
         archiveManifestMatch: true,
         binaryReceiptMatch: true,
+        companionReceiptMatch: true,
+        supportFilesVerified: true,
         tamperResistance: 'local-receipt-not-tamper-proof',
     });
 }
@@ -217,6 +371,7 @@ module.exports = {
     MAX_EVIDENCE_BYTES,
     RUNTIME_INSTALLATION_EVIDENCE_FILE,
     inspectPinnedRuntimeInstallation,
+    normalizeCompanionDefinition,
     parseReceipt,
     recordPinnedRuntimeInstallation,
     runtimeIdentity,
