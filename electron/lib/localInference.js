@@ -520,12 +520,6 @@ async function generate(params, mainWindow) {
         args.push('--llm', llmPath);
         args.push('--vae', vaePath);
         if (model.scheduler) args.push('--scheduler', model.scheduler);
-    } else if (model.type === 'sdxl') {
-        args.push('--sd-version', 'sdxl');
-    } else if (model.type === 'sd2') {
-        args.push('--sd-version', 'sd2');
-    } else if (model.type === 'flux') {
-        args.push('--flux');
     }
 
     return new Promise((resolve, reject) => {

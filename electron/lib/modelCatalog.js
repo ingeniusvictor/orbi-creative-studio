@@ -125,7 +125,7 @@ const LOCAL_MODEL_CATALOG = [
         defaultHeight: 1024,
         defaultSteps: 30,
         defaultGuidance: 7.5,
-        sampler: 'dpmpp2m',
+        sampler: 'dpm++2m',
         tags: ['sdxl', 'high-quality', 'versatile'],
     },
 ];
