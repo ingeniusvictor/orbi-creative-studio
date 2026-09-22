@@ -27,6 +27,7 @@ import {
     getRuntimeCertificationPromotionSummary,
     prepareRuntimeCertificationPromotion,
 } from '../lib/computeRouter/runtimeCertificationPromotion.mjs';
+import { buildUserHardwarePilotEvidenceBundle } from '../lib/computeRouter/hardwarePilotEvidenceBundle.mjs';
 
 export function SettingsModal(onClose) {
     const overlay = document.createElement('div');
@@ -113,6 +114,8 @@ export function SettingsModal(onClose) {
             benchmarkCertificationSummaryProvider: getUserBenchmarkCertificationSummary,
             runtimeCertificationPromotionPrepare: prepareRuntimeCertificationPromotion,
             runtimeCertificationPromotionSummaryProvider: getRuntimeCertificationPromotionSummary,
+            hardwarePilotBundleBuild: buildUserHardwarePilotEvidenceBundle,
+            hardwarePilotExport: (bundle) => window.orbiBenchmark?.exportPilotBundle(bundle),
         })
         : null;
 
