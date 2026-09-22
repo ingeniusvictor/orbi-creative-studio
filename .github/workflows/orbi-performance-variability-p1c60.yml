@@ -1,0 +1,23 @@
+name: ORBI P1C60 Performance Variability Evidence
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/backendPerformanceVariability.js'
+      - 'tests/backendPerformanceVariability.test.js'
+      - 'docs/PHASE-1C60-PERFORMANCE-VARIABILITY-EVIDENCE.md'
+      - '.github/workflows/orbi-performance-variability-p1c60.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/backendPerformanceVariability.test.js
