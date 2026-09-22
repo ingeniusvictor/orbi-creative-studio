@@ -1,0 +1,29 @@
+name: ORBI P1C64 Router Hardware Pilot Export
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/computeRouter/userHardwarePilotExport.mjs'
+      - 'src/components/RouterDiagnosticsPanel.js'
+      - 'src/components/SettingsModal.js'
+      - 'src/lib/i18n.js'
+      - 'tests/userHardwarePilotExport.test.js'
+      - 'tests/userHardwarePilotExportUi.test.js'
+      - 'tests/userBenchmarkSessionUi.test.js'
+      - 'tests/routerDiagnosticsPanel.test.js'
+      - 'docs/PHASE-1C64-ROUTER-HARDWARE-PILOT-EXPORT-ACTION.md'
+      - '.github/workflows/orbi-router-hardware-pilot-export-p1c64.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/userHardwarePilotExport.test.js tests/userHardwarePilotExportUi.test.js tests/userBenchmarkSessionUi.test.js tests/routerDiagnosticsPanel.test.js
