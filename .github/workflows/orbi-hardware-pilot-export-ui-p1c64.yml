@@ -1,0 +1,27 @@
+name: ORBI P1C64 Hardware Pilot Export UI
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/RouterDiagnosticsPanel.js'
+      - 'src/components/SettingsModal.js'
+      - 'src/lib/i18n.js'
+      - 'tests/hardwarePilotExportUi.test.js'
+      - 'tests/routerDiagnosticsPanel.test.js'
+      - 'tests/userBenchmarkSessionUi.test.js'
+      - 'docs/PHASE-1C64-HARDWARE-PILOT-EXPORT-UI.md'
+      - '.github/workflows/orbi-hardware-pilot-export-ui-p1c64.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/hardwarePilotExportUi.test.js tests/routerDiagnosticsPanel.test.js tests/userBenchmarkSessionUi.test.js
