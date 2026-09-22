@@ -185,7 +185,14 @@ async function installPinnedRuntimeCompanions({
             }
             throw error;
         } finally {
-            try { fsImpl.rmSync(archivePath, { force: true }); } catch {}
+            for (const artifact of [
+                archivePath,
+                archivePath + '.part',
+                archivePath + '.part.meta.json',
+                archivePath + '.part.fresh',
+            ]) {
+                try { fsImpl.rmSync(artifact, { force: true }); } catch {}
+            }
             try { fsImpl.rmSync(extractDir, { recursive: true, force: true }); } catch {}
         }
     }
