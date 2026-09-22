@@ -1,0 +1,23 @@
+name: ORBI P1C62 Hardware Pilot Evidence Bundle
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/computeRouter/hardwarePilotEvidenceBundle.mjs'
+      - 'tests/hardwarePilotEvidenceBundle.test.js'
+      - 'docs/PHASE-1C62-HARDWARE-PILOT-EVIDENCE-BUNDLE.md'
+      - '.github/workflows/orbi-hardware-pilot-evidence-p1c62.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/hardwarePilotEvidenceBundle.test.js
