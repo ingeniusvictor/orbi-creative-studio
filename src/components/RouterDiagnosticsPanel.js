@@ -1626,6 +1626,7 @@ export function RouterDiagnosticsPanel({
                             render();
                             try {
                                 const result = await hardwarePilotExport(selectedBenchmarkTarget);
+                                const { reason: exportReason } = result || {};
                                 const authorityValid = result
                                     && result.exportOnly === true
                                     && result.productionProfilePromoted === false
@@ -1637,7 +1638,7 @@ export function RouterDiagnosticsPanel({
                                 if (!authorityValid) {
                                     hardwarePilotExportActionStatus = 'rejected';
                                 } else if (result.status === 'USER_HARDWARE_PILOT_EXPORT_WRITTEN'
-                                    && result.reason === null
+                                    && exportReason === null
                                     && result.summary
                                     && typeof result.summary.fileName === 'string'
                                     && result.summary.fileName.length > 0
@@ -1652,7 +1653,7 @@ export function RouterDiagnosticsPanel({
                                         bytes: result.summary.bytes,
                                     });
                                 } else if (result.status === 'USER_HARDWARE_PILOT_EXPORT_CANCELED'
-                                    && result.reason === null
+                                    && exportReason === null
                                     && result.summary === null) {
                                     hardwarePilotExportActionStatus = 'canceled';
                                 } else {
