@@ -16,7 +16,7 @@ test('P1C24 Router Diagnostics adds one explicit promotion-only action after P1C
     assert.ok(panel.includes('runtimeCertificationPromotionSummaryProvider = null'));
     assert.ok(panel.includes('resolveRuntimeCertificationPromotionState'));
     assert.ok(panel.includes('renderRuntimeCertificationPromotionSection'));
-    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 6);
+    assert.equal((panel.match(/\.onclick\s*=/g) || []).length, 7);
     assert.equal((panel.match(/\.onchange\s*=/g) || []).length, 1);
     assert.equal((panel.match(/\.oninput\s*=/g) || []).length, 1);
 });
