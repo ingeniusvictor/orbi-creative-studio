@@ -1,0 +1,25 @@
+name: ORBI P1C53 Verified Resumable Downloads
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/localInferenceDownload.js'
+      - 'electron/lib/localInference.js'
+      - 'electron/lib/runtimePayload.js'
+      - 'tests/localInferenceDownload.test.js'
+      - 'docs/PHASE-1C53-VERIFIED-RESUMABLE-LOCAL-DOWNLOADS.md'
+      - '.github/workflows/orbi-verified-resumable-downloads-p1c53.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/localInferenceDownload.test.js tests/pinnedCudaCompanion.test.js
