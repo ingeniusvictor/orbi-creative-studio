@@ -1,0 +1,25 @@
+name: ORBI P1C56 Controlled Benchmark Backend Binding
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/localBenchmarkHarness.js'
+      - 'electron/lib/controlledBenchmarkSampleCore.js'
+      - 'tests/localBenchmarkHarness.test.js'
+      - 'tests/controlledBenchmarkSampleCore.test.js'
+      - 'docs/PHASE-1C56-CONTROLLED-BENCHMARK-BACKEND-BINDING.md'
+      - '.github/workflows/orbi-controlled-benchmark-backend-p1c56.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/localBenchmarkHarness.test.js tests/controlledBenchmarkSampleCore.test.js
