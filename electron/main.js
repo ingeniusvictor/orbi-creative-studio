@@ -6,6 +6,7 @@ const { register: registerProviderCredentials } = require('./lib/providerCredent
 const { register: registerMuapiTransport } = require('./lib/muapiTransport');
 const { register: registerReadinessSnapshot } = require('./lib/providerReadinessSnapshotBridge');
 const { register: registerControlledBenchmark } = require('./lib/controlledBenchmarkBridge');
+const { register: registerHardwarePilotExport } = require('./lib/hardwarePilotFileExportBridge');
 const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
 process.on('uncaughtException', (err) => {
@@ -106,6 +107,12 @@ app.whenReady().then(() => {
         registerControlledBenchmark();
     } catch (err) {
         console.error('Failed to register controlled benchmark bridge:', err);
+    }
+
+    try {
+        registerHardwarePilotExport();
+    } catch (err) {
+        console.error('Failed to register hardware pilot export bridge:', err);
     }
 
     if (providerSecretStore) {
