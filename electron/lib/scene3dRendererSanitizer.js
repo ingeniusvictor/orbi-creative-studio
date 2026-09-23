@@ -86,7 +86,26 @@ function sanitizeReconciliationHistory(value) {
     if (!Array.isArray(value)) {
         throw new TypeError('Scene3D reconciliation history must be an array');
     }
-    return Object.freeze(value.map((item) => Object.freeze({ ...item })));
+
+    return Object.freeze(value.map((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+            throw new TypeError('Scene3D reconciliation record must be an object');
+        }
+
+        return Object.freeze({
+            schema: item.schema ?? null,
+            reconciliation_sequence: item.reconciliation_sequence ?? null,
+            execution_sequence: item.execution_sequence ?? null,
+            request_id: item.request_id ?? null,
+            request_fingerprint: item.request_fingerprint ?? null,
+            resolution: item.resolution ?? null,
+            actor: item.actor ?? null,
+            evidence_sha256: item.evidence_sha256 ?? null,
+            final: Boolean(item.final),
+            reservation_released: Boolean(item.reservation_released),
+            retry_semantics: item.retry_semantics ?? null,
+        });
+    }));
 }
 
 module.exports = {
