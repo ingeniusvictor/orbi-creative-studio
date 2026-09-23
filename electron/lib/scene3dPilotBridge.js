@@ -43,6 +43,17 @@ function disabled() {
     });
 }
 
+function executionDisabled() {
+    return Object.freeze({
+        ok: false,
+        error: Object.freeze({
+            code: 'SCENE3D_EXECUTION_DISABLED',
+            message: 'ORBI Scene3D governed execution is disabled',
+            retryable: false,
+        }),
+    });
+}
+
 function invalid(message) {
     return Object.freeze({
         ok: false,
@@ -186,6 +197,7 @@ function register({
     ipcMainImpl.handle(CHANNELS.dryRunRecipe, withTrust(async (value) => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
+        if (!config.executionEnabled) return executionDisabled();
 
         let request;
         try {
@@ -208,6 +220,7 @@ function register({
     ipcMainImpl.handle(CHANNELS.executeRecipe, withTrust(async (value) => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
+        if (!config.executionEnabled) return executionDisabled();
 
         let request;
         try {
@@ -266,6 +279,7 @@ function register({
         computeRouterAuthorityChanged: false,
         mhsActuationEnabled: false,
         productionCutoverAuthorized: false,
+        executionEnabled: Boolean(config.executionEnabled),
     });
 }
 
