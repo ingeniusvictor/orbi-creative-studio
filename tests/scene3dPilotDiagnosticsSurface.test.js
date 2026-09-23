@@ -122,3 +122,20 @@ test('QB-17 provider-touching actions are fail-closed until enabled status arriv
     assert.ok(initialDisable >= 0);
     assert.ok(automaticStatus > initialDisable);
 });
+
+
+test('QB-17 Settings integration cannot call Scene3D execution methods', () => {
+    const sources = [
+        read('src/components/Scene3DPilotDiagnosticsPanel.js'),
+        read('src/components/SettingsModal.js'),
+    ].join('\n');
+
+    for (const forbidden of [
+        'orbiScene3D.executeRecipe',
+        'orbiScene3D.dryRunRecipe',
+        'scene3d.executeRecipe',
+        'scene3d.dryRunRecipe',
+    ]) {
+        assert.equal(sources.includes(forbidden), false, forbidden);
+    }
+});
