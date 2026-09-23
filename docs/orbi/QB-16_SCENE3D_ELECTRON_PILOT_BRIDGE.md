@@ -261,9 +261,10 @@ tests/scene3dPilotPolicy.test.js
 tests/scene3dSidecarClient.test.js
 tests/scene3dPilotBridge.test.js
 tests/scene3dRendererSanitizer.test.js
+tests/scene3dPilotBridgeRuntime.test.js
 ```
 
-New QB-16 tests: **37**.
+New QB-16 tests: **46**.
 
 They cover:
 
@@ -342,13 +343,14 @@ node --test \
   tests/scene3dPilotPolicy.test.js \
   tests/scene3dSidecarClient.test.js \
   tests/scene3dPilotBridge.test.js \
-  tests/scene3dRendererSanitizer.test.js
+  tests/scene3dRendererSanitizer.test.js \
+  tests/scene3dPilotBridgeRuntime.test.js
 ```
 
 Expected:
 
 ```text
-37 tests passed
+46 tests passed
 ```
 
 ## Production boundary
