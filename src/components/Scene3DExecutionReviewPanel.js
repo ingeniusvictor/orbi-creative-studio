@@ -13,6 +13,37 @@ function makeButton(label) {
     return node;
 }
 
+const MAX_EXECUTION_OUTPUT_CHARS = 65536;
+
+function formatOutput(value) {
+    let text;
+    try {
+        text = JSON.stringify(value, null, 2);
+    } catch {
+        text = JSON.stringify({
+            ok: false,
+            error: {
+                code: 'SCENE3D_EXECUTION_FORMAT_FAILED',
+                message: 'Scene3D execution output could not be formatted',
+            },
+        }, null, 2);
+    }
+
+    if (typeof text !== 'string') {
+        text = JSON.stringify({
+            ok: false,
+            error: {
+                code: 'SCENE3D_EXECUTION_EMPTY_RESULT',
+                message: 'Scene3D execution returned no serializable result',
+            },
+        }, null, 2);
+    }
+
+    if (text.length <= MAX_EXECUTION_OUTPUT_CHARS) return text;
+    return `${text.slice(0, MAX_EXECUTION_OUTPUT_CHARS)}
+… [execution output truncated]`;
+}
+
 function boundedNumber(input, label, min, max) {
     const value = Number(input.value);
     if (!Number.isFinite(value) || value < min || value > max) {
@@ -233,7 +264,7 @@ export function Scene3DExecutionReviewPanel({ scene3d }) {
         try {
             const response = await scene3d.dryRunRecipe(payload);
             if (!response || response.ok !== true || !response.review?.token) {
-                evidence.textContent = JSON.stringify(response, null, 2);
+                evidence.textContent = formatOutput(response);
                 return;
             }
 
@@ -246,7 +277,7 @@ export function Scene3DExecutionReviewPanel({ scene3d }) {
                 expiresAt: response.review.expiresAt ?? null,
             });
 
-            evidence.textContent = JSON.stringify({
+            evidence.textContent = formatOutput({
                 recipeId: review.recipeId,
                 parameters: review.parameters,
                 fingerprint: review.fingerprint,
@@ -256,7 +287,7 @@ export function Scene3DExecutionReviewPanel({ scene3d }) {
                 providerCalled: response.data?.providerCalled ?? null,
                 networkAllowed: response.data?.recipe?.network_allowed ?? null,
                 filesystemScope: response.data?.recipe?.filesystem_scope ?? null,
-            }, null, 2);
+            });
         } catch {
             evidence.textContent = 'Dry-run review failed.';
         } finally {
@@ -288,15 +319,15 @@ export function Scene3DExecutionReviewPanel({ scene3d }) {
                 confirmed: true,
                 reviewToken: token,
             });
-            result.textContent = JSON.stringify(response, null, 2);
+            result.textContent = formatOutput(response);
         } catch {
-            result.textContent = JSON.stringify({
+            result.textContent = formatOutput({
                 ok: false,
                 error: {
                     code: 'SCENE3D_EXECUTION_CALL_FAILED',
                     message: 'Execution result is uncertain. Inspect pending recoveries; do not retry automatically.',
                 },
-            }, null, 2);
+            });
         } finally {
             setBusy(false);
         }
