@@ -108,6 +108,9 @@ test('QB-17 provider-touching actions are fail-closed until enabled status arriv
     const source = read('src/components/Scene3DPilotDiagnosticsPanel.js');
 
     assert.ok(source.includes('function setEnabledActions(enabled)'));
+    assert.ok(source.includes('objectInput.disabled = !enabled'));
+    assert.ok(source.includes("actions.querySelectorAll('[data-requires-enabled=\"true\"]')"));
+    assert.ok(source.includes('node.disabled = !enabled'));
     assert.ok(source.includes('setEnabledActions(false);'));
     assert.ok(source.includes(
         "const enabled = Boolean(value && value.ok === true && value.status?.enabled === true)"
