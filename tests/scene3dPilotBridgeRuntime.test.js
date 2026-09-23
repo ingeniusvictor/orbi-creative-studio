@@ -54,7 +54,7 @@ function providerResult({
     return result;
 }
 
-function createHarness({ enabled = true, responses = [] } = {}) {
+function createHarness({ enabled = true, executionEnabled = true, responses = [] } = {}) {
     const ipc = createIpc();
     const requests = [];
     let createClientCalls = 0;
@@ -106,6 +106,7 @@ function createHarness({ enabled = true, responses = [] } = {}) {
             args: [],
             cwd: null,
             ledgerPath: enabled ? '/private/ledger.sqlite3' : null,
+            executionEnabled: enabled && executionEnabled,
         }),
         diagnostic: () => {},
     });
@@ -306,4 +307,62 @@ test('QB-16 transport exception is sanitized and does not expose local paths', a
     assert.equal(response.error.code, 'SCENE3D_SIDECAR_START_FAILED');
     assert.equal(response.error.message, 'Scene3D sidecar failed to start');
     assert.equal(JSON.stringify(response).includes('/private'), false);
+});
+
+
+test('QB-18 enabled pilot remains read-only when execution authority is OFF', async () => {
+    const harness = createHarness({ enabled: true, executionEnabled: false });
+
+    const status = await harness.invoke(CHANNELS.status);
+    assert.equal(status.ok, true);
+    assert.equal(status.status.enabled, true);
+    assert.equal(status.status.executionEnabled, false);
+
+    const scene = await harness.invoke(CHANNELS.sceneInfo);
+    assert.equal(scene.ok, true);
+    assert.equal(harness.requests.length, 1);
+    assert.equal(harness.requests[0].operation, 'scene_info');
+
+    const dry = await harness.invoke(CHANNELS.dryRunRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+    });
+    const execute = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+    });
+
+    assert.equal(dry.ok, false);
+    assert.equal(dry.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(execute.ok, false);
+    assert.equal(execute.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(harness.requests.length, 1);
+});
+
+test('QB-18 execution-disabled calls do not create or start the sidecar client', async () => {
+    const harness = createHarness({ enabled: true, executionEnabled: false });
+
+    const dry = await harness.invoke(CHANNELS.dryRunRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+    });
+    const execute = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+    });
+
+    assert.equal(dry.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(execute.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(harness.createClientCalls, 0);
+    assert.equal(harness.requests.length, 0);
+});
+
+test('QB-18 execution authority must be resolved in main and is never renderer supplied', () => {
+    const bridge = require('node:fs').readFileSync('electron/lib/scene3dPilotBridge.js', 'utf8');
+    const preload = require('node:fs').readFileSync('electron/preload.js', 'utf8');
+
+    assert.ok(bridge.includes('config.executionEnabled'));
+    assert.ok(bridge.includes('SCENE3D_EXECUTION_DISABLED'));
+    assert.equal(preload.includes('setExecutionEnabled'), false);
+    assert.equal(preload.includes('ORBI_SCENE3D_EXECUTION_ENABLED'), false);
 });
