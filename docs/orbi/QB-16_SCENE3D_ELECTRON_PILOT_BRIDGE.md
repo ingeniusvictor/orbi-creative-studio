@@ -264,12 +264,13 @@ tests/scene3dRendererSanitizer.test.js
 tests/scene3dPilotBridgeRuntime.test.js
 ```
 
-New QB-16 tests: **46**.
+New QB-16 tests: **47**.
 
 They cover:
 
 - default-OFF behavior,
 - native launch configuration,
+- absolute native Python executable enforcement,
 - Windows→WSL launch configuration,
 - hiding privileged launch details,
 - exact recipe allowlist,
@@ -280,7 +281,7 @@ They cover:
 - `shell:false`,
 - single-process reuse,
 - timeout with no retry,
-- invalid JSON handling,
+- invalid JSON handling with fail-closed sidecar termination,
 - unmatched response IDs,
 - graceful EOF shutdown,
 - outbound message size limit,
@@ -291,6 +292,7 @@ They cover:
 - raw provider-result/tool-name stripping,
 - provider exception/path sanitization,
 - recovery receipt provider-metadata stripping,
+- raw operator reconciliation evidence kept out of renderer,
 - no current UI usage,
 - no Compute Router/MHS authority expansion.
 
@@ -350,7 +352,7 @@ node --test \
 Expected:
 
 ```text
-46 tests passed
+47 tests passed
 ```
 
 ## Production boundary
