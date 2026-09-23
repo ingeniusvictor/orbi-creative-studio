@@ -97,4 +97,6 @@ contextBridge.exposeInMainWorld('orbiScene3D', {
     pendingRecoveries: () => ipcRenderer.invoke('orbi-scene3d:pending-recoveries'),
     reconciliationHistory: (requestId) =>
         ipcRenderer.invoke('orbi-scene3d:reconciliation-history', requestId),
+    exportRecoveryEvidence: () =>
+        ipcRenderer.invoke('orbi-scene3d:recovery-export'),
 });
