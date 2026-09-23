@@ -264,13 +264,15 @@ tests/scene3dRendererSanitizer.test.js
 tests/scene3dPilotBridgeRuntime.test.js
 ```
 
-New QB-16 tests: **47**.
+New QB-16 tests: **50**.
 
 They cover:
 
 - default-OFF behavior,
 - native launch configuration,
 - absolute native Python executable enforcement,
+- WSL executable pinned to trusted `SystemRoot\\System32\\wsl.exe`,
+- sidecar child environment allowlisting with PATH/provider-secret stripping,
 - Windows→WSL launch configuration,
 - hiding privileged launch details,
 - exact recipe allowlist,
@@ -352,7 +354,7 @@ node --test \
 Expected:
 
 ```text
-47 tests passed
+50 tests passed
 ```
 
 ## Production boundary
