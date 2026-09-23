@@ -547,3 +547,189 @@ test('QB-19 shutdown invalidates outstanding review capabilities', () => {
     registration.shutdown();
     assert.equal(invalidated, 1);
 });
+
+
+test('QB-19 malformed object and recipe requests do not start the sidecar', async () => {
+    const harness = createHarness();
+
+    const object = await harness.invoke(CHANNELS.objectInfo, '');
+    const dry = await harness.invoke(CHANNELS.dryRunRecipe, {
+        recipeId: 'not.allowlisted',
+        parameters: {},
+    });
+    const execute = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+        confirmed: true,
+    });
+
+    assert.equal(object.error.code, 'SCENE3D_PILOT_REQUEST_INVALID');
+    assert.equal(dry.error.code, 'SCENE3D_PILOT_REQUEST_INVALID');
+    assert.equal(execute.error.code, 'SCENE3D_PILOT_REQUEST_INVALID');
+    assert.equal(harness.createClientCalls, 0);
+    assert.equal(harness.requests.length, 0);
+});
+
+test('QB-19 real review registry binds successful dry-run payload to execution', async () => {
+    const ipc = createIpc();
+    const requests = [];
+    let requestId = 0;
+    let reviewId = 0;
+
+    register({
+        appImpl: { getPath: () => '/tmp/orbi' },
+        ipcMainImpl: ipc,
+        assertTrustedSenderImpl: () => {},
+        randomUUIDImpl: () => `main-request-${++requestId}`,
+        reviewTokenImpl: () => `review-token-${++reviewId}`,
+        createClientImpl: () => ({
+            request: async (operation, input, options = {}) => {
+                requests.push({ operation, input, options });
+
+                if (operation === 'dry_run_recipe') {
+                    return {
+                        protocol: 'orbi.scene3d-sidecar/v1',
+                        id: 'transport-dry',
+                        ok: true,
+                        result: providerResult({
+                            requestId: options.requestId,
+                            operation: 'execute_recipe',
+                            data: {
+                                execution: 'dry-run',
+                                recipe: {
+                                    recipe_id: input.recipe_id,
+                                    version: '1.0.0',
+                                    parameters: input.parameters,
+                                    code_sha256: 'b'.repeat(64),
+                                    filesystem_scope: [],
+                                    network_allowed: false,
+                                },
+                                audit: {
+                                    provider_tool: 'execute_blender_code',
+                                    provider_called: false,
+                                },
+                            },
+                            audit: {
+                                schema: 'orbi.execution-audit/v1',
+                                provider_called: false,
+                            },
+                        }),
+                    };
+                }
+
+                return {
+                    protocol: 'orbi.scene3d-sidecar/v1',
+                    id: 'transport-exec',
+                    ok: true,
+                    result: providerResult({
+                        requestId: options.requestId,
+                        operation: 'execute_recipe',
+                        data: {
+                            execution: 'executed',
+                            recipe: {
+                                recipe_id: input.recipe_id,
+                                version: '1.0.0',
+                                parameters: input.parameters,
+                                code_sha256: 'b'.repeat(64),
+                                filesystem_scope: [],
+                                network_allowed: false,
+                            },
+                            audit: {
+                                provider_tool: 'execute_blender_code',
+                                provider_called: true,
+                            },
+                        },
+                        audit: {
+                            schema: 'orbi.execution-audit/v1',
+                            provider_called: true,
+                        },
+                    }),
+                };
+            },
+            close() {},
+            isStarted: () => true,
+        }),
+        resolveConfigImpl: () => ({
+            enabled: true,
+            executionEnabled: true,
+            mode: 'native',
+            command: '/opt/python',
+            args: [],
+            cwd: '/opt',
+            ledgerPath: '/private/ledger.sqlite3',
+        }),
+        diagnostic: () => {},
+    });
+
+    const parameters = {
+        name: 'ReviewedCube',
+        size: 1,
+        location: [0, 0, 0],
+    };
+
+    const dry = await ipc.handlers.get(CHANNELS.dryRunRecipe)(
+        {},
+        {
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters,
+        },
+    );
+
+    assert.equal(dry.ok, true);
+    assert.equal(dry.review.token, 'review-token-1');
+    assert.equal(dry.review.oneShot, true);
+    assert.equal(dry.review.codeSha256, 'b'.repeat(64));
+
+    const mismatch = await ipc.handlers.get(CHANNELS.executeRecipe)(
+        {},
+        {
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters: { ...parameters, size: 2 },
+            confirmed: true,
+            reviewToken: dry.review.token,
+        },
+    );
+
+    assert.equal(mismatch.ok, false);
+    assert.equal(mismatch.error.code, 'SCENE3D_REVIEW_MISMATCH');
+    assert.equal(requests.length, 1);
+
+    const reused = await ipc.handlers.get(CHANNELS.executeRecipe)(
+        {},
+        {
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters,
+            confirmed: true,
+            reviewToken: dry.review.token,
+        },
+    );
+    assert.equal(reused.ok, false);
+    assert.equal(reused.error.code, 'SCENE3D_REVIEW_REQUIRED');
+    assert.equal(requests.length, 1);
+
+    const dry2 = await ipc.handlers.get(CHANNELS.dryRunRecipe)(
+        {},
+        {
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters,
+        },
+    );
+
+    const executed = await ipc.handlers.get(CHANNELS.executeRecipe)(
+        {},
+        {
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters,
+            confirmed: true,
+            reviewToken: dry2.review.token,
+        },
+    );
+
+    assert.equal(executed.ok, true);
+    assert.equal(requests.length, 3);
+    assert.equal(requests[2].operation, 'execute_recipe');
+    assert.deepEqual(requests[2].input, {
+        recipe_id: 'orbi.blender.create_cube.v1',
+        parameters,
+    });
+});
