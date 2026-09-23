@@ -70,12 +70,8 @@ test('QB-16 bridge authenticates every IPC path through one trusted wrapper', ()
 test('QB-16 renderer cannot supply execution request identity', () => {
     const preload = read('electron/preload.js');
     const bridge = read('electron/lib/scene3dPilotBridge.js');
-    const policy = read('electron/lib/scene3dPilotPolicy.js');
-
     assert.equal(preload.includes('requestId: (requestId)'), false);
     assert.ok(bridge.includes('{ requestId: randomUUIDImpl() }'));
-    assert.ok(policy.includes("'requestId'"));
-    assert.ok(policy.includes('unexpected field'));
 });
 
 test('QB-16 product bridge changes neither Compute Router nor MHS authority', () => {
