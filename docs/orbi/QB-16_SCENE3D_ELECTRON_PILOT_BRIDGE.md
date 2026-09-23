@@ -260,9 +260,10 @@ tests/scene3dPilotConfig.test.js
 tests/scene3dPilotPolicy.test.js
 tests/scene3dSidecarClient.test.js
 tests/scene3dPilotBridge.test.js
+tests/scene3dRendererSanitizer.test.js
 ```
 
-New QB-16 tests: **29**.
+New QB-16 tests: **37**.
 
 They cover:
 
@@ -285,6 +286,10 @@ They cover:
 - narrow preload API,
 - trusted IPC wrapper,
 - no Qwen imports in Creative Studio,
+- renderer-bound provider/provenance stripping,
+- raw provider-result/tool-name stripping,
+- provider exception/path sanitization,
+- recovery receipt provider-metadata stripping,
 - no current UI usage,
 - no Compute Router/MHS authority expansion.
 
@@ -336,13 +341,14 @@ node --test \
   tests/scene3dPilotConfig.test.js \
   tests/scene3dPilotPolicy.test.js \
   tests/scene3dSidecarClient.test.js \
-  tests/scene3dPilotBridge.test.js
+  tests/scene3dPilotBridge.test.js \
+  tests/scene3dRendererSanitizer.test.js
 ```
 
 Expected:
 
 ```text
-29 tests passed
+37 tests passed
 ```
 
 ## Production boundary
