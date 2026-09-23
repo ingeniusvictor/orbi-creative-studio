@@ -111,10 +111,21 @@ function resolveScene3DPilotConfig({
             ledgerPath,
         );
 
+        const systemRoot = requireAbsolute(
+            env.SystemRoot || env.WINDIR,
+            'SystemRoot',
+            pathImpl.win32,
+        );
+        const wslExecutable = pathImpl.win32.join(
+            systemRoot,
+            'System32',
+            'wsl.exe',
+        );
+
         return Object.freeze({
             enabled: true,
             mode: 'wsl',
-            command: 'wsl.exe',
+            command: wslExecutable,
             args: Object.freeze(args),
             cwd: null,
             ledgerPath,
