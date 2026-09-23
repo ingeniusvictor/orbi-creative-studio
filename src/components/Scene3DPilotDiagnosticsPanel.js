@@ -90,7 +90,7 @@ export function Scene3DPilotDiagnosticsPanel({
         ));
         statusBox.appendChild(textNode(
             'div',
-            `mode=${value.status.mode} · processStarted=${Boolean(value.status.processStarted)} · automaticR2Retry=${Boolean(value.status.automaticR2Retry)}`,
+            `mode=${value.status.mode} · processStarted=${Boolean(value.status.processStarted)} · executionEnabled=${Boolean(value.status.executionEnabled)} · automaticR2Retry=${Boolean(value.status.automaticR2Retry)}`,
             'font-size:0.64rem;color:rgba(255,255,255,0.42);margin-top:0.35rem;',
         ));
 
