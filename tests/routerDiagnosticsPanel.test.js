@@ -58,7 +58,13 @@ test('Settings exposes diagnostics exactly once and only inside the Electron-onl
     assert.ok(settings.includes("from '../lib/computeRouter/userShadowDiagnosticRefresh.mjs'"));
     assert.ok(settings.includes("from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs'"));
     assert.equal(settings.includes('publishShadowCompatibilitySnapshot'), false);
-    assert.ok(settings.includes("if (id === 'diagnostics' && diagnosticsPanel) body.appendChild(diagnosticsPanel);"));
+
+    // QB-17 keeps the canonical RouterDiagnosticsPanel exactly once, then mounts it
+    // inside one diagnostics-only container beside the hidden/default-off Scene3D panel.
+    assert.ok(settings.includes("const diagnosticsContainer = diagnosticsPanel"));
+    assert.ok(settings.includes('diagnosticsContainer.appendChild(diagnosticsPanel)'));
+    assert.ok(settings.includes('diagnosticsContainer.appendChild(scene3dDiagnosticsPanel)'));
+    assert.ok(settings.includes("if (id === 'diagnostics' && diagnosticsContainer) body.appendChild(diagnosticsContainer);"));
 });
 
 test('diagnostics UI copy exists in both English and Chinese dictionaries', () => {
