@@ -100,3 +100,19 @@ test('QB-21 live smoke owns its side effects and never retries execution', () =>
     assert.ok(smoke.includes('SCENE3D_REVIEW_MISMATCH'));
     assert.ok(smoke.includes('SCENE3D_REVIEW_REQUIRED'));
 });
+
+
+test('QB-21 execution bridge revalidates reviewed code before side effect', () => {
+    const bridge = read('electron/lib/scene3dPilotBridge.js');
+
+    const consumeIndex = bridge.indexOf('const reviewed = reviewRegistry.consume');
+    const verifyIndex = bridge.indexOf("'dry_run_recipe'", consumeIndex);
+    const codeCheckIndex = bridge.indexOf('currentEvidence.codeSha256 !== reviewed.codeSha256', verifyIndex);
+    const executeIndex = bridge.indexOf("'execute_recipe'", codeCheckIndex);
+
+    assert.ok(consumeIndex >= 0);
+    assert.ok(verifyIndex > consumeIndex);
+    assert.ok(codeCheckIndex > verifyIndex);
+    assert.ok(executeIndex > codeCheckIndex);
+    assert.ok(bridge.includes('SCENE3D_REVIEW_CODE_CHANGED'));
+});
