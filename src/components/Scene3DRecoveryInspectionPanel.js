@@ -293,6 +293,9 @@ export function Scene3DRecoveryInspectionPanel({
             if (loading) return;
             loading = true;
             action.disabled = true;
+            exportReady = false;
+            exportButton.disabled = true;
+            exportResult.innerHTML = '';
             output.innerHTML = '';
             output.appendChild(textNode(
                 'div',
@@ -310,6 +313,8 @@ export function Scene3DRecoveryInspectionPanel({
 
                 output.innerHTML = '';
                 if (!pending || !history) {
+                    exportReady = false;
+                    exportButton.disabled = true;
                     renderEmpty(output, t('scene3dRecovery.unavailable'));
                     return;
                 }
