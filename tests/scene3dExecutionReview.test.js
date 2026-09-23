@@ -244,3 +244,26 @@ test('QB-19 invalidateAll revokes outstanding review capabilities', () => {
     registry.invalidateAll();
     assert.equal(registry.size(), 0);
 });
+
+
+test('QB-19 canonical JSON handles __proto__ as data without prototype mutation', () => {
+    const input = JSON.parse('{"__proto__":{"polluted":true},"name":"Cube"}');
+    const normalized = normalizeJson(input);
+
+    assert.equal(Object.getPrototypeOf(normalized), null);
+    assert.equal(Object.prototype.polluted, undefined);
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(normalized)),
+        {
+            __proto__: { polluted: true },
+            name: 'Cube',
+        },
+    );
+
+    const fingerprint = executionFingerprint(
+        'orbi.blender.create_cube.v1',
+        input,
+    );
+    assert.equal(fingerprint.length, 64);
+    assert.equal(Object.prototype.polluted, undefined);
+});
