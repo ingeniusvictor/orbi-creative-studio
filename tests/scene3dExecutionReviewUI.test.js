@@ -72,8 +72,8 @@ test('QB-20 renderer sends confirmation and opaque review token but no request i
 test('QB-20 review evidence never renders the opaque review token', () => {
     const source = read('src/components/Scene3DExecutionReviewPanel.js');
 
-    const evidenceStart = source.indexOf('evidence.textContent = JSON.stringify({');
-    const evidenceEnd = source.indexOf('}, null, 2);', evidenceStart);
+    const evidenceStart = source.indexOf('evidence.textContent = formatOutput({');
+    const evidenceEnd = source.indexOf('});', evidenceStart);
     assert.ok(evidenceStart >= 0);
     assert.ok(evidenceEnd > evidenceStart);
 
@@ -109,11 +109,38 @@ test('QB-20 execution controls render only when main status says executionEnable
     assert.ok(source.includes('Governed execution controls are disabled by main-process policy.'));
 });
 
-test('QB-20 provider-derived result and evidence use textContent only', () => {
+test('QB-20 provider-derived result and evidence use bounded textContent only', () => {
     const source = read('src/components/Scene3DExecutionReviewPanel.js');
 
-    assert.ok(source.includes('evidence.textContent = JSON.stringify('));
-    assert.ok(source.includes('result.textContent = JSON.stringify('));
+    assert.ok(source.includes('evidence.textContent = formatOutput('));
+    assert.ok(source.includes('result.textContent = formatOutput('));
     assert.equal(source.includes('evidence.innerHTML'), false);
     assert.equal(source.includes('result.innerHTML'), false);
+    assert.ok(source.includes('const MAX_EXECUTION_OUTPUT_CHARS = 65536'));
+    assert.ok(source.includes('text.slice(0, MAX_EXECUTION_OUTPUT_CHARS)'));
+    assert.ok(source.includes('[execution output truncated]'));
+});
+
+
+test('QB-20 formatter handles empty or unserializable output without exposing a raw exception', () => {
+    const source = read('src/components/Scene3DExecutionReviewPanel.js');
+
+    assert.ok(source.includes('SCENE3D_EXECUTION_FORMAT_FAILED'));
+    assert.ok(source.includes('SCENE3D_EXECUTION_EMPTY_RESULT'));
+    assert.ok(source.includes("typeof text !== 'string'"));
+});
+
+test('QB-20 execution UI has no retry loop or authority mutation surface', () => {
+    const source = read('src/components/Scene3DExecutionReviewPanel.js');
+
+    for (const forbidden of [
+        'setExecutionEnabled',
+        'retryExecution',
+        'releaseReservation',
+        'reconcilePending',
+        'setProvider',
+        'setLedgerPath',
+    ]) {
+        assert.equal(source.includes(forbidden), false, forbidden);
+    }
 });
