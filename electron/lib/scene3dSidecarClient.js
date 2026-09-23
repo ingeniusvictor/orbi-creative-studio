@@ -8,6 +8,39 @@ const MAX_REQUEST_BYTES = 262144;
 const MAX_RESPONSE_BYTES = 1048576;
 const DEFAULT_TIMEOUT_MS = 15000;
 
+const CHILD_ENV_ALLOWLIST = Object.freeze([
+    'SystemRoot',
+    'WINDIR',
+    'COMSPEC',
+    'USERPROFILE',
+    'HOMEDRIVE',
+    'HOMEPATH',
+    'HOME',
+    'USER',
+    'LOGNAME',
+    'TEMP',
+    'TMP',
+    'TMPDIR',
+    'LANG',
+    'LC_ALL',
+    'DISPLAY',
+    'WAYLAND_DISPLAY',
+    'XDG_RUNTIME_DIR',
+    'DBUS_SESSION_BUS_ADDRESS',
+    'WSLENV',
+]);
+
+function buildScene3DChildEnv(env = process.env) {
+    const childEnv = {};
+    for (const key of CHILD_ENV_ALLOWLIST) {
+        const value = env && env[key];
+        if (typeof value === 'string' && value.length > 0) {
+            childEnv[key] = value;
+        }
+    }
+    return Object.freeze(childEnv);
+}
+
 function createError(code, message) {
     const error = new Error(message);
     error.code = code;
@@ -20,6 +53,7 @@ function createScene3DSidecarClient({
     randomUUIDImpl = randomUUID,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     onDiagnostic = () => {},
+    childEnv = buildScene3DChildEnv(process.env),
 } = {}) {
     if (!config || config.enabled !== true) {
         throw createError('SCENE3D_PILOT_DISABLED', 'Scene3D pilot is disabled');
@@ -103,6 +137,7 @@ function createScene3DSidecarClient({
             shell: false,
             windowsHide: true,
             stdio: ['pipe', 'pipe', 'pipe'],
+            env: childEnv,
         });
 
         child.stdout.on('data', onStdout);
@@ -198,5 +233,7 @@ module.exports = {
     MAX_REQUEST_BYTES,
     MAX_RESPONSE_BYTES,
     PROTOCOL,
+    CHILD_ENV_ALLOWLIST,
+    buildScene3DChildEnv,
     createScene3DSidecarClient,
 };
