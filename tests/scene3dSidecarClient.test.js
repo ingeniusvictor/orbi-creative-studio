@@ -154,6 +154,7 @@ test('QB-16 invalid sidecar JSON rejects pending requests', async () => {
         promise,
         (error) => error && error.code === 'SCENE3D_SIDECAR_PROTOCOL_ERROR',
     );
+    assert.equal(children[0].killCalls, 1);
 });
 
 test('QB-16 unmatched response does not resolve another request', async () => {
