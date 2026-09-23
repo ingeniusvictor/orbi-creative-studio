@@ -55,11 +55,23 @@ function invalid(message) {
 }
 
 function sanitizeTransportError(error) {
+    const code = error && error.code ? String(error.code) : 'SCENE3D_TRANSPORT_ERROR';
+    const messages = {
+        SCENE3D_PILOT_DISABLED: 'ORBI Scene3D pilot is disabled',
+        SCENE3D_SIDECAR_TIMEOUT: 'Scene3D provider request timed out',
+        SCENE3D_SIDECAR_START_FAILED: 'Scene3D sidecar failed to start',
+        SCENE3D_SIDECAR_EXITED: 'Scene3D sidecar exited unexpectedly',
+        SCENE3D_SIDECAR_WRITE_FAILED: 'Scene3D sidecar communication failed',
+        SCENE3D_SIDECAR_PROTOCOL_ERROR: 'Scene3D sidecar protocol error',
+        SCENE3D_SIDECAR_RESPONSE_TOO_LARGE: 'Scene3D sidecar response exceeded the allowed size',
+        SCENE3D_REQUEST_TOO_LARGE: 'Scene3D request exceeded the allowed size',
+    };
+
     return Object.freeze({
         ok: false,
         error: Object.freeze({
-            code: error && error.code ? String(error.code) : 'SCENE3D_TRANSPORT_ERROR',
-            message: error && error.message ? String(error.message) : 'Scene3D transport failed',
+            code,
+            message: messages[code] || 'Scene3D transport failed',
             retryable: false,
         }),
     });
