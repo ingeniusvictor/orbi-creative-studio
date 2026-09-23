@@ -45,10 +45,11 @@ function resolveScene3DPilotConfig({
             'ORBI_SCENE3D_SIDECAR_PATH',
             pathImpl,
         );
-        const pythonExecutable = String(env.ORBI_SCENE3D_PYTHON || 'python').trim();
-        if (!pythonExecutable) {
-            throw new Error('ORBI_SCENE3D_PYTHON must not be empty');
-        }
+        const pythonExecutable = requireAbsolute(
+            env.ORBI_SCENE3D_PYTHON,
+            'ORBI_SCENE3D_PYTHON',
+            pathImpl,
+        );
 
         const root = requireAbsolute(userDataPath, 'userDataPath', pathImpl);
         const ledgerPath = pathImpl.join(
