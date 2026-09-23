@@ -92,3 +92,12 @@ test('QB-17 diagnostics panel never changes Compute Router or MHS authority', ()
     assert.equal(source.includes('orbiBenchmark'), false);
     assert.equal(source.includes('mhs'), false);
 });
+
+
+test('QB-18 diagnostics may display execution authority but cannot mutate it', () => {
+    const source = read('src/components/Scene3DPilotDiagnosticsPanel.js');
+
+    assert.ok(source.includes('executionEnabled='));
+    assert.equal(source.includes('setExecutionEnabled'), false);
+    assert.equal(source.includes('ORBI_SCENE3D_EXECUTION_ENABLED'), false);
+});
