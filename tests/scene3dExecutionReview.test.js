@@ -246,6 +246,26 @@ test('QB-19 invalidateAll revokes outstanding review capabilities', () => {
 });
 
 
+test('QB-19 canonical JSON handles __proto__ as data without prototype mutation', () => {
+    const input = JSON.parse('{"__proto__":{"polluted":true},"name":"Cube"}');
+    const normalized = normalizeJson(input);
+
+    assert.equal(Object.getPrototypeOf(normalized), null);
+    assert.equal(Object.prototype.polluted, undefined);
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(normalized)),
+        JSON.parse('{"__proto__":{"polluted":true},"name":"Cube"}'),
+    );
+
+    const fingerprint = executionFingerprint(
+        'orbi.blender.create_cube.v1',
+        input,
+    );
+    assert.equal(fingerprint.length, 64);
+    assert.equal(Object.prototype.polluted, undefined);
+});
+
+
 test('QB-21 dry-run review rejects mismatched or privileged recipe evidence', () => {
     let id = 0;
     const registry = createScene3DExecutionReviewRegistry({
@@ -301,6 +321,61 @@ test('QB-21 dry-run review rejects mismatched or privileged recipe evidence', ()
             (error) => error
                 && error.code === 'SCENE3D_REVIEW_EVIDENCE_INVALID',
             item.label,
+        );
+    }
+
+    assert.equal(registry.size(), 0);
+});
+
+test('QB-21 malformed dry-run recipe evidence fails with stable evidence error', () => {
+    let id = 0;
+    const registry = createScene3DExecutionReviewRegistry({
+        randomUUIDImpl: () => `malformed-review-${++id}`,
+        nowImpl: () => 1000,
+    });
+    const recipeId = 'orbi.blender.create_cube.v1';
+    const parameters = { name: 'Cube', size: 1, location: [0, 0, 0] };
+
+    const malformed = [
+        { ok: true, data: { execution: 'dry-run', providerCalled: false, recipe: null } },
+        {
+            ok: true,
+            data: {
+                execution: 'dry-run',
+                providerCalled: false,
+                recipe: {
+                    recipe_id: recipeId,
+                    parameters: { size: Number.NaN },
+                    code_sha256: 'a'.repeat(64),
+                    filesystem_scope: [],
+                    network_allowed: false,
+                },
+            },
+        },
+        {
+            ok: true,
+            data: {
+                execution: 'dry-run',
+                providerCalled: false,
+                recipe: {
+                    recipe_id: recipeId,
+                    code_sha256: 'a'.repeat(64),
+                    filesystem_scope: [],
+                    network_allowed: false,
+                },
+            },
+        },
+    ];
+
+    for (const response of malformed) {
+        assert.throws(
+            () => registry.issue({
+                recipeId,
+                parameters,
+                dryRunResponse: response,
+            }),
+            (error) => error
+                && error.code === 'SCENE3D_REVIEW_EVIDENCE_INVALID',
         );
     }
 
