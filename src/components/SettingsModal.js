@@ -3,6 +3,7 @@ import { isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { t } from '../lib/i18n.js';
 import { getMuapiKey, setMuapiCredential } from '../lib/providerCredentials.mjs';
 import { RouterDiagnosticsPanel } from './RouterDiagnosticsPanel.js';
+import { Scene3DPilotDiagnosticsPanel } from './Scene3DPilotDiagnosticsPanel.js';
 import { readShadowCompatibilitySnapshot } from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs';
 import {
     getRuntimeCertifiedResourceProfileRegistryStatus,
@@ -48,11 +49,17 @@ export function SettingsModal(onClose) {
     modal.appendChild(header);
 
     // ── Tabs ──────────────────────────────────────────────────────────────────
+    const hasScene3DDiagnostics = typeof window !== 'undefined'
+        && Boolean(window.orbiScene3D?.isElectron);
+
     const TABS = [
         { id: 'api', label: t('settings.apiKey') },
         ...(isLocalAIAvailable() ? [
             { id: 'local', label: t('settings.localModels') },
             { id: 'diagnostics', label: t('settings.routerDiagnostics') },
+        ] : []),
+        ...(hasScene3DDiagnostics ? [
+            { id: 'scene3d', label: 'Scene3D' },
         ] : []),
     ];
 
@@ -118,6 +125,9 @@ export function SettingsModal(onClose) {
             hardwarePilotExport: (bundle) => window.orbiBenchmark?.exportPilotBundle(bundle),
         })
         : null;
+    const scene3dDiagnosticsPanel = hasScene3DDiagnostics
+        ? Scene3DPilotDiagnosticsPanel({ scene3d: window.orbiScene3D })
+        : null;
 
     // ── Tab switching ─────────────────────────────────────────────────────────
     const switchTab = (id) => {
@@ -138,6 +148,7 @@ export function SettingsModal(onClose) {
         if (id === 'api') body.appendChild(apiPanel);
         if (id === 'local') body.appendChild(localPanel);
         if (id === 'diagnostics' && diagnosticsPanel) body.appendChild(diagnosticsPanel);
+        if (id === 'scene3d' && scene3dDiagnosticsPanel) body.appendChild(scene3dDiagnosticsPanel);
     };
 
     switchTab('api');
