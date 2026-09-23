@@ -13,9 +13,22 @@ function makeButton(label) {
     return node;
 }
 
-function numberValue(input, fallback = 0) {
+function boundedNumber(input, label, min, max) {
     const value = Number(input.value);
-    return Number.isFinite(value) ? value : fallback;
+    if (!Number.isFinite(value) || value < min || value > max) {
+        throw new TypeError(`${label} must be between ${min} and ${max}`);
+    }
+    return value;
+}
+
+function governedObjectName(input) {
+    const value = input.value.trim();
+    if (!/^[A-Za-z0-9_.-]{1,64}$/.test(value)) {
+        throw new TypeError(
+            'Object name must use 1-64 characters from A-Z, a-z, 0-9, _, ., or -',
+        );
+    }
+    return value;
 }
 
 export function Scene3DExecutionReviewPanel({ scene3d }) {
@@ -138,11 +151,7 @@ export function Scene3DExecutionReviewPanel({ scene3d }) {
 
     function currentPayload() {
         const recipeId = recipe.value;
-        const name = objectName.value.trim();
-
-        if (!name) {
-            throw new TypeError('Object name is required');
-        }
+        const name = governedObjectName(objectName);
 
         if (recipeId === 'orbi.blender.delete_object.v1') {
             return {
@@ -155,11 +164,11 @@ export function Scene3DExecutionReviewPanel({ scene3d }) {
             recipeId,
             parameters: {
                 name,
-                size: numberValue(numericFields.size, Number.NaN),
+                size: boundedNumber(numericFields.size, 'Size', 0.01, 1000),
                 location: [
-                    numberValue(numericFields.x, Number.NaN),
-                    numberValue(numericFields.y, Number.NaN),
-                    numberValue(numericFields.z, Number.NaN),
+                    boundedNumber(numericFields.x, 'X', -10000, 10000),
+                    boundedNumber(numericFields.y, 'Y', -10000, 10000),
+                    boundedNumber(numericFields.z, 'Z', -10000, 10000),
                 ],
             },
         };
