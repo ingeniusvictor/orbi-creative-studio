@@ -222,3 +222,20 @@ test('QB-18 renderer cannot enable execution through public config mutation', ()
     assert.equal('setExecutionEnabled' in publicConfig, false);
     assert.equal('executionEnv' in publicConfig, false);
 });
+
+
+test('QB-18 non-explicit execution flag values remain disabled', () => {
+    for (const value of [undefined, '', '0', 'false', 'on', 'enabled', '2']) {
+        const config = resolveScene3DPilotConfig({
+            env: {
+                ORBI_SCENE3D_PILOT_ENABLED: '1',
+                ORBI_SCENE3D_EXECUTION_ENABLED: value,
+                ORBI_SCENE3D_SIDECAR_PATH: '/opt/orbi/qb15_scene3d_sidecar.py',
+                ORBI_SCENE3D_PYTHON: '/opt/orbi/.venv/bin/python',
+            },
+            userDataPath: '/tmp/orbi',
+            platform: 'linux',
+        });
+        assert.equal(config.executionEnabled, false, String(value));
+    }
+});
