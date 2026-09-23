@@ -80,3 +80,23 @@ test('QB-21 review token and execution request identity have separate ownership'
     assert.ok(ui.includes('reviewToken: token'));
     assert.equal(ui.includes('requestId:'), false);
 });
+
+
+test('QB-21 live smoke owns its side effects and never retries execution', () => {
+    const smoke = read('scripts/qb21-scene3d-governed-e2e-smoke.js');
+
+    assert.ok(smoke.includes("const NAME = 'ORBI_QB21_Cube'"));
+    assert.ok(smoke.includes('let created = false'));
+    assert.ok(smoke.includes('created = true'));
+    assert.ok(smoke.includes('if (created)'));
+    assert.ok(smoke.includes('already exists; refusing to touch it'));
+
+    assert.equal(smoke.includes('retryExecution'), false);
+    assert.equal(smoke.includes('setInterval('), false);
+    assert.equal(smoke.includes('while ('), false);
+
+    const executeCalls = smoke.match(/ipc\.invoke\(CHANNELS\.executeRecipe/g) || [];
+    assert.ok(executeCalls.length >= 3);
+    assert.ok(smoke.includes('SCENE3D_REVIEW_MISMATCH'));
+    assert.ok(smoke.includes('SCENE3D_REVIEW_REQUIRED'));
+});
