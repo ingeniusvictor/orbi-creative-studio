@@ -83,3 +83,20 @@ contextBridge.exposeInMainWorld('orbiBenchmark', {
 // Build identity is generated before packaging and exposed as immutable,
  // non-sensitive metadata. It carries no execution or provider authority.
 contextBridge.exposeInMainWorld('orbiBuildIdentity', getBuildIdentity());
+
+
+// ORBI Scene3D pilot is a narrow provider-neutral bridge.
+// Renderer code cannot configure providers, paths, Python, SQLite, retries, or reconciliation.
+contextBridge.exposeInMainWorld('orbiScene3D', {
+    isElectron: true,
+    getStatus: () => ipcRenderer.invoke('orbi-scene3d:status'),
+    sceneInfo: () => ipcRenderer.invoke('orbi-scene3d:scene-info'),
+    objectInfo: (objectName) => ipcRenderer.invoke('orbi-scene3d:object-info', objectName),
+    dryRunRecipe: (request) => ipcRenderer.invoke('orbi-scene3d:dry-run-recipe', request),
+    executeRecipe: (request) => ipcRenderer.invoke('orbi-scene3d:execute-recipe', request),
+    pendingRecoveries: () => ipcRenderer.invoke('orbi-scene3d:pending-recoveries'),
+    reconciliationHistory: (requestId) =>
+        ipcRenderer.invoke('orbi-scene3d:reconciliation-history', requestId),
+    exportRecoveryEvidence: () =>
+        ipcRenderer.invoke('orbi-scene3d:recovery-export'),
+});
