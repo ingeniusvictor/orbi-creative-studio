@@ -21,6 +21,10 @@ const {
     sanitizePendingRecoveries,
     sanitizeReconciliationHistory,
 } = require('./scene3dRendererSanitizer');
+const {
+    exportScene3DRecoveryEvidence,
+    rejected: rejectRecoveryExport,
+} = require('./scene3dRecoveryFileExport');
 
 const CHANNELS = Object.freeze({
     status: 'orbi-scene3d:status',
@@ -30,6 +34,7 @@ const CHANNELS = Object.freeze({
     executeRecipe: 'orbi-scene3d:execute-recipe',
     pendingRecoveries: 'orbi-scene3d:pending-recoveries',
     reconciliationHistory: 'orbi-scene3d:reconciliation-history',
+    recoveryExport: 'orbi-scene3d:recovery-export',
 });
 
 function disabled() {
@@ -100,6 +105,8 @@ function register({
     randomUUIDImpl = randomUUID,
     createClientImpl = createScene3DSidecarClient,
     resolveConfigImpl = resolveScene3DPilotConfig,
+    exportRecoveryEvidenceImpl = exportScene3DRecoveryEvidence,
+    clockImpl = () => new Date(),
     diagnostic = (message) => console.error('[ORBI Scene3D]', message),
 } = {}) {
     if (!appImpl || typeof appImpl.getPath !== 'function') {
@@ -253,6 +260,28 @@ function register({
             await sidecar.request('reconciliation_history', input),
             sanitizeReconciliationHistory,
         );
+    }));
+
+    ipcMainImpl.handle(CHANNELS.recoveryExport, withTrust(async () => {
+        const sidecar = getClient();
+        if (!sidecar) return disabled();
+
+        const [pendingResponse, historyResponse] = await Promise.all([
+            sidecar.request('pending_recoveries', {}),
+            sidecar.request('reconciliation_history', {}),
+        ]);
+
+        if (!pendingResponse || pendingResponse.ok !== true
+            || !historyResponse || historyResponse.ok !== true) {
+            return rejectRecoveryExport('SCENE3D_RECOVERY_EXPORT_SOURCE_UNAVAILABLE');
+        }
+
+        const capturedAt = clockImpl().toISOString();
+        return exportRecoveryEvidenceImpl({
+            capturedAt,
+            pending: pendingResponse.result,
+            history: historyResponse.result,
+        });
     }));
 
     return Object.freeze({
