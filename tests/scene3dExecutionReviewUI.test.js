@@ -22,12 +22,18 @@ test('QB-20 execution UI exposes only the two certified recipes', () => {
         'execute_python',
         'executeBlenderCode',
         'executePython',
-        'provider',
+        'providerSelector',
+        'providerId',
+        'qwen_mm_plugins',
+        'qwen-mm-plugins',
         'ledgerPath',
         'setProvider',
     ]) {
         assert.equal(source.includes(forbidden), false, forbidden);
     }
+
+    // A sanitized boolean is review evidence, not provider identity/configuration.
+    assert.ok(source.includes('providerCalled: response.data?.providerCalled ?? null'));
 });
 
 test('QB-20 UI requires dry-run review before execution', () => {
