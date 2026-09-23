@@ -733,3 +733,37 @@ test('QB-19 real review registry binds successful dry-run payload to execution',
         parameters,
     });
 });
+
+
+test('QB-18 renderer arguments cannot elevate execution authority', async () => {
+    const harness = createHarness({ enabled: true, executionEnabled: false });
+
+    const denied = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+        executionEnabled: true,
+    });
+
+    assert.equal(denied.ok, false);
+    assert.equal(
+        ['SCENE3D_EXECUTION_DISABLED', 'SCENE3D_PILOT_REQUEST_INVALID'].includes(denied.error.code),
+        true,
+    );
+    assert.equal(harness.createClientCalls, 0);
+    assert.equal(harness.requests.length, 0);
+});
+
+test('QB-18 public renderer bridge exposes no execution-authority mutation channel', () => {
+    const preload = require('node:fs').readFileSync('electron/preload.js', 'utf8');
+    const bridge = require('node:fs').readFileSync('electron/lib/scene3dPilotBridge.js', 'utf8');
+
+    for (const forbidden of [
+        'setExecutionEnabled',
+        'orbi-scene3d:set-execution-enabled',
+        'ORBI_SCENE3D_EXECUTION_ENABLED',
+    ]) {
+        assert.equal(preload.includes(forbidden), false, forbidden);
+    }
+
+    assert.equal(bridge.includes("CHANNELS.setExecutionEnabled"), false);
+});
