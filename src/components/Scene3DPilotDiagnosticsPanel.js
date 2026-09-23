@@ -1,5 +1,10 @@
 import { t } from '../lib/i18n.js';
 
+const CERTIFIED_RECIPES = Object.freeze([
+    'orbi.blender.create_cube.v1',
+    'orbi.blender.delete_object.v1',
+]);
+
 function textNode(tag, text, style = '') {
     const node = document.createElement(tag);
     node.textContent = text;
@@ -36,7 +41,9 @@ export function normalizeScene3DStatus(response) {
         || response.status.reconciliationMutation !== false
         || typeof response.status.processStarted !== 'boolean'
         || !Array.isArray(response.status.recipes)
-        || response.status.recipes.some((value) => typeof value !== 'string' || !value)) {
+        || response.status.recipes.length !== CERTIFIED_RECIPES.length
+        || response.status.recipes.some((value) => typeof value !== 'string' || !value)
+        || CERTIFIED_RECIPES.some((recipe) => !response.status.recipes.includes(recipe))) {
         return null;
     }
 
