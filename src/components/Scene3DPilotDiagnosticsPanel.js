@@ -1,3 +1,5 @@
+import { Scene3DExecutionReviewPanel } from './Scene3DExecutionReviewPanel.js';
+
 function textNode(tag, text, style = '') {
     const node = document.createElement(tag);
     node.textContent = text;
@@ -39,6 +41,10 @@ export function Scene3DPilotDiagnosticsPanel({
     const statusBox = document.createElement('div');
     statusBox.style.cssText = 'padding:0.8rem;border:1px solid rgba(255,255,255,0.08);border-radius:0.75rem;background:rgba(255,255,255,0.025);';
     root.appendChild(statusBox);
+
+    const executionHost = document.createElement('div');
+    executionHost.dataset.orbiScene3dExecutionHost = 'main-authority-gated';
+    root.appendChild(executionHost);
 
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;';
@@ -98,6 +104,19 @@ export function Scene3DPilotDiagnosticsPanel({
         for (const node of actions.querySelectorAll('[data-requires-enabled="true"]')) {
             node.disabled = !enabled;
             node.style.opacity = enabled ? '1' : '0.45';
+        }
+
+        executionHost.innerHTML = '';
+        if (enabled && value.status.executionEnabled === true) {
+            executionHost.appendChild(Scene3DExecutionReviewPanel({ scene3d }));
+        } else {
+            executionHost.appendChild(textNode(
+                'div',
+                enabled
+                    ? 'Governed execution controls are disabled by main-process policy.'
+                    : 'Governed execution controls are unavailable while the pilot is disabled.',
+                'font-size:0.64rem;color:rgba(255,255,255,0.35);line-height:1.4;',
+            ));
         }
     }
 
