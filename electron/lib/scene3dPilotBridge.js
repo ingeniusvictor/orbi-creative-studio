@@ -10,6 +10,12 @@ const {
 const {
     createScene3DSidecarClient,
 } = require('./scene3dSidecarClient');
+const {
+    ALLOWED_RECIPES,
+    validateHistoryRequestId,
+    validateObjectName,
+    validateRecipeRequest,
+} = require('./scene3dPilotPolicy');
 
 const CHANNELS = Object.freeze({
     status: 'orbi-scene3d:status',
@@ -20,12 +26,6 @@ const CHANNELS = Object.freeze({
     pendingRecoveries: 'orbi-scene3d:pending-recoveries',
     reconciliationHistory: 'orbi-scene3d:reconciliation-history',
 });
-
-const DELETE_RECIPE = 'orbi.blender.delete_object.v1';
-const ALLOWED_RECIPES = new Set([
-    'orbi.blender.create_cube.v1',
-    DELETE_RECIPE,
-]);
 
 function disabled() {
     return Object.freeze({
@@ -170,7 +170,7 @@ function register({
             status: Object.freeze({
                 ...publicScene3DConfig(config),
                 processStarted: Boolean(client && client.isStarted()),
-                recipes: Object.freeze([...ALLOWED_RECIPES]),
+                recipes: ALLOWED_RECIPES,
             }),
         });
     }));
@@ -191,9 +191,11 @@ function register({
         const sidecar = getClient();
         if (!sidecar) return disabled();
 
-        const name = typeof objectName === 'string' ? objectName.trim() : '';
-        if (!name || name.length > 128) {
-            return invalid('objectName must be a non-empty string up to 128 characters');
+        let name;
+        try {
+            name = validateObjectName(objectName);
+        } catch (error) {
+            return invalid(error.message);
         }
 
         const response = await sidecar.request(
@@ -259,14 +261,13 @@ function register({
         const sidecar = getClient();
         if (!sidecar) return disabled();
 
-        let input = {};
-        if (requestId !== undefined && requestId !== null) {
-            const value = typeof requestId === 'string' ? requestId.trim() : '';
-            if (!value || value.length > 256) {
-                return invalid('requestId must be a non-empty string up to 256 characters');
-            }
-            input = { request_id: value };
+        let value;
+        try {
+            value = validateHistoryRequestId(requestId);
+        } catch (error) {
+            return invalid(error.message);
         }
+        const input = value === null ? {} : { request_id: value };
 
         return unwrapTransport(await sidecar.request('reconciliation_history', input));
     }));
@@ -286,9 +287,6 @@ function register({
 }
 
 module.exports = {
-    ALLOWED_RECIPES,
     CHANNELS,
-    DELETE_RECIPE,
     register,
-    validateRecipeRequest,
 };
