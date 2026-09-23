@@ -22,12 +22,9 @@ function sanitizeError(error) {
 function sanitizeAudit(audit) {
     if (!audit || typeof audit !== 'object' || Array.isArray(audit)) return null;
 
-    const {
-        provider: _provider,
-        ...rest
-    } = audit;
-
-    return Object.freeze({ ...rest });
+    const rest = { ...audit };
+    delete rest.provider;
+    return Object.freeze(rest);
 }
 
 function sanitizeExecutionData(data) {
@@ -73,12 +70,9 @@ function sanitizePendingReceipt(receipt) {
         throw new TypeError('Scene3D pending receipt must be an object');
     }
 
-    const {
-        provider: _provider,
-        ...rest
-    } = receipt;
-
-    return Object.freeze({ ...rest });
+    const rest = { ...receipt };
+    delete rest.provider;
+    return Object.freeze(rest);
 }
 
 function sanitizePendingRecoveries(value) {
