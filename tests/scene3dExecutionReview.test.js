@@ -254,10 +254,7 @@ test('QB-19 canonical JSON handles __proto__ as data without prototype mutation'
     assert.equal(Object.prototype.polluted, undefined);
     assert.deepEqual(
         JSON.parse(JSON.stringify(normalized)),
-        {
-            __proto__: { polluted: true },
-            name: 'Cube',
-        },
+        JSON.parse('{"__proto__":{"polluted":true},"name":"Cube"}'),
     );
 
     const fingerprint = executionFingerprint(
