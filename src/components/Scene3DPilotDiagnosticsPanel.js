@@ -79,6 +79,9 @@ export function Scene3DPilotDiagnosticsPanel({
 
     let status = null;
 
+    function setEnabledActions(enabled) {
+    }
+
     function setBusy(value) {
         for (const node of actions.querySelectorAll('button')) {
             node.disabled = value;
@@ -90,6 +93,9 @@ export function Scene3DPilotDiagnosticsPanel({
         status = value;
         statusBox.replaceChildren();
 
+        const enabled = Boolean(value && value.ok === true && value.status?.enabled === true);
+        setEnabledActions(enabled);
+
         if (!value || value.ok !== true || !value.status) {
             statusBox.appendChild(textNode(
                 'div',
@@ -98,8 +104,6 @@ export function Scene3DPilotDiagnosticsPanel({
             ));
             return;
         }
-
-        const enabled = value.status.enabled === true;
         statusBox.appendChild(textNode(
             'div',
             enabled ? 'Pilot enabled' : 'Pilot disabled',
@@ -137,10 +141,7 @@ export function Scene3DPilotDiagnosticsPanel({
         } finally {
             setBusy(false);
             if (status?.status?.enabled !== true) {
-                for (const node of actions.querySelectorAll('[data-requires-enabled="true"]')) {
-                    node.disabled = true;
-                    node.style.opacity = '0.45';
-                }
+                setEnabledActions(false);
             }
         }
     }
@@ -186,6 +187,10 @@ export function Scene3DPilotDiagnosticsPanel({
     });
     objectLookup.dataset.requiresEnabled = 'true';
     objectRow.appendChild(objectLookup);
+
+    // All provider-touching diagnostics are fail-closed until getStatus explicitly
+    // confirms that the pilot is enabled.
+    setEnabledActions(false);
 
     if (!scene3d?.getStatus) {
         renderStatus(null);
