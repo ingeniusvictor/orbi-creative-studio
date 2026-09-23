@@ -129,3 +129,20 @@ test('QB-16 public config never exposes command args or ledger paths', () => {
     assert.equal('args' in publicConfig, false);
     assert.equal('ledgerPath' in publicConfig, false);
 });
+
+
+test('QB-16 enabled native mode requires an absolute Python executable', () => {
+    assert.throws(
+        () => resolveScene3DPilotConfig({
+            env: {
+                ORBI_SCENE3D_PILOT_ENABLED: '1',
+                ORBI_SCENE3D_LAUNCHER_MODE: 'native',
+                ORBI_SCENE3D_SIDECAR_PATH: '/opt/orbi/qb15_scene3d_sidecar.py',
+                ORBI_SCENE3D_PYTHON: 'python',
+            },
+            userDataPath: '/tmp/app',
+            platform: 'linux',
+        }),
+        /ORBI_SCENE3D_PYTHON must be an absolute path/,
+    );
+});
