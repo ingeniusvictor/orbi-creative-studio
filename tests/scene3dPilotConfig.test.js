@@ -53,6 +53,7 @@ test('QB-16 WSL mode launches wsl.exe without shell-owned command text', () => {
         env: {
             ORBI_SCENE3D_PILOT_ENABLED: 'true',
             ORBI_SCENE3D_LAUNCHER_MODE: 'wsl',
+            SystemRoot: 'C:\\Windows',
             ORBI_SCENE3D_WSL_DISTRO: 'Ubuntu-26.04',
             ORBI_SCENE3D_WSL_REPO: '/home/user/code/orbi-qwen-mm-plugins-lab',
             ORBI_SCENE3D_WSL_PYTHON: '/home/user/code/orbi-qwen-mm-plugins-lab/.venv/bin/python',
@@ -64,7 +65,7 @@ test('QB-16 WSL mode launches wsl.exe without shell-owned command text', () => {
 
     assert.equal(config.enabled, true);
     assert.equal(config.mode, 'wsl');
-    assert.equal(config.command, 'wsl.exe');
+    assert.equal(config.command, 'C:\\Windows\\System32\\wsl.exe');
     assert.deepEqual(config.args, [
         '--distribution',
         'Ubuntu-26.04',
@@ -144,5 +145,23 @@ test('QB-16 enabled native mode requires an absolute Python executable', () => {
             platform: 'linux',
         }),
         /ORBI_SCENE3D_PYTHON must be an absolute path/,
+    );
+});
+
+
+test('QB-16 WSL mode requires trusted absolute SystemRoot', () => {
+    assert.throws(
+        () => resolveScene3DPilotConfig({
+            env: {
+                ORBI_SCENE3D_PILOT_ENABLED: '1',
+                ORBI_SCENE3D_LAUNCHER_MODE: 'wsl',
+                ORBI_SCENE3D_WSL_REPO: '/home/user/code/orbi-qwen-mm-plugins-lab',
+                ORBI_SCENE3D_WSL_PYTHON: '/home/user/code/orbi-qwen-mm-plugins-lab/.venv/bin/python',
+                ORBI_SCENE3D_WSL_LEDGER: '/home/user/.local/share/orbi/scene3d.sqlite3',
+            },
+            userDataPath: 'C:\\Users\\User\\AppData\\Roaming\\orbi',
+            platform: 'win32',
+        }),
+        /SystemRoot must be an absolute path/,
     );
 });
