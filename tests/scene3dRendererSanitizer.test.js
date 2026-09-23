@@ -165,23 +165,32 @@ test('QB-16 pending recovery sanitizer strips provider metadata', () => {
     assert.equal('provider' in pending[0], false);
 });
 
-test('QB-16 reconciliation history remains structured and provider-neutral', () => {
+test('QB-16 reconciliation history exposes metadata but hides raw operator evidence', () => {
     const history = sanitizeReconciliationHistory([
         {
             schema: 'orbi.execution-reconciliation/v1',
+            reconciliation_sequence: 9,
+            execution_sequence: 8,
             request_id: 'pending-1',
+            request_fingerprint: 'f'.repeat(64),
             resolution: 'applied',
             actor: 'operator',
             evidence: {
                 source: 'blender-object-info',
                 exists: true,
+                privatePath: '/home/user/private/project.blend',
             },
+            evidence_sha256: 'e'.repeat(64),
             final: true,
+            reservation_released: false,
+            retry_semantics: 'original-request-id-remains-reserved;new-request-id-required',
         },
     ]);
 
     assert.equal(history[0].resolution, 'applied');
-    assert.equal(history[0].evidence.exists, true);
+    assert.equal(history[0].evidence_sha256, 'e'.repeat(64));
+    assert.equal('evidence' in history[0], false);
+    assert.equal(JSON.stringify(history).includes('/home/user/private'), false);
     assert.equal(JSON.stringify(history).includes('qwen'), false);
 });
 
