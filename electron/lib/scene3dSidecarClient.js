@@ -48,6 +48,7 @@ function createScene3DSidecarClient({
                 'SCENE3D_SIDECAR_PROTOCOL_ERROR',
                 'Scene3D sidecar emitted invalid JSON',
             ));
+            if (child && !child.killed) child.kill();
             return;
         }
 
