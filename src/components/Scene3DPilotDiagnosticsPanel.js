@@ -80,6 +80,11 @@ export function Scene3DPilotDiagnosticsPanel({
     let status = null;
 
     function setEnabledActions(enabled) {
+        objectInput.disabled = !enabled;
+        for (const node of actions.querySelectorAll('[data-requires-enabled="true"]')) {
+            node.disabled = !enabled;
+            node.style.opacity = enabled ? '1' : '0.45';
+        }
     }
 
     function setBusy(value) {
@@ -114,12 +119,6 @@ export function Scene3DPilotDiagnosticsPanel({
             `mode=${value.status.mode} · processStarted=${Boolean(value.status.processStarted)} · automaticR2Retry=${Boolean(value.status.automaticR2Retry)}`,
             'font-size:0.64rem;color:rgba(255,255,255,0.42);margin-top:0.35rem;',
         ));
-
-        objectInput.disabled = !enabled;
-        for (const node of actions.querySelectorAll('[data-requires-enabled="true"]')) {
-            node.disabled = !enabled;
-            node.style.opacity = enabled ? '1' : '0.45';
-        }
     }
 
     async function run(label, fn) {
