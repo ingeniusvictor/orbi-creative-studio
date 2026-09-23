@@ -85,10 +85,22 @@ function createScene3DExecutionReviewRegistry({
         }
 
         const fingerprint = executionFingerprint(recipeId, parameters);
-        const recipeEvidence = dryRunResponse.data.recipe || {};
-        const codeSha256 = typeof recipeEvidence.code_sha256 === 'string'
-            ? recipeEvidence.code_sha256
-            : null;
+        const recipeEvidence = dryRunResponse.data.recipe;
+        if (!recipeEvidence
+            || typeof recipeEvidence !== 'object'
+            || Array.isArray(recipeEvidence)
+            || recipeEvidence.recipe_id !== recipeId
+            || !/^[0-9a-f]{64}$/.test(String(recipeEvidence.code_sha256 || ''))
+            || recipeEvidence.network_allowed !== false
+            || !Array.isArray(recipeEvidence.filesystem_scope)
+            || recipeEvidence.filesystem_scope.length !== 0
+            || executionFingerprint(recipeId, recipeEvidence.parameters) !== fingerprint) {
+            throw createReviewError(
+                'SCENE3D_REVIEW_EVIDENCE_INVALID',
+                'Dry-run recipe evidence does not match the requested governed execution',
+            );
+        }
+        const codeSha256 = recipeEvidence.code_sha256;
 
         pruneExpired();
         if (reviews.size >= maxReviews) {
