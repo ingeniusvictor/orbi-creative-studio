@@ -82,7 +82,17 @@ test('QB-17 diagnostics output is text-only and never uses innerHTML for provide
 
     assert.ok(source.includes("output.textContent = pretty(result)"));
     assert.equal(source.includes('output.innerHTML'), false);
+    assert.equal(source.includes('statusBox.innerHTML'), false);
+    assert.ok(source.includes('statusBox.replaceChildren()'));
     assert.ok(source.includes("output.dataset.orbiScene3dOutput = 'sanitized'"));
+});
+
+test('QB-17 diagnostics output is bounded to protect renderer memory', () => {
+    const source = read('src/components/Scene3DPilotDiagnosticsPanel.js');
+
+    assert.ok(source.includes('const MAX_DIAGNOSTIC_CHARS = 65536'));
+    assert.ok(source.includes('text.slice(0, MAX_DIAGNOSTIC_CHARS)'));
+    assert.ok(source.includes('[diagnostic output truncated]'));
 });
 
 test('QB-17 diagnostics panel never changes Compute Router or MHS authority', () => {
@@ -91,6 +101,43 @@ test('QB-17 diagnostics panel never changes Compute Router or MHS authority', ()
     assert.equal(source.includes('orbiComputeRouter'), false);
     assert.equal(source.includes('orbiBenchmark'), false);
     assert.equal(source.includes('mhs'), false);
+});
+
+
+test('QB-17 provider-touching actions are fail-closed until enabled status arrives', () => {
+    const source = read('src/components/Scene3DPilotDiagnosticsPanel.js');
+
+    assert.ok(source.includes('function setEnabledActions(enabled)'));
+    assert.ok(source.includes('objectInput.disabled = !enabled'));
+    assert.ok(source.includes("actions.querySelectorAll('[data-requires-enabled=\"true\"]')"));
+    assert.ok(source.includes('node.disabled = !enabled'));
+    assert.ok(source.includes('setEnabledActions(false);'));
+    assert.ok(source.includes(
+        "const enabled = Boolean(value && value.ok === true && value.status?.enabled === true)"
+    ));
+    assert.ok(source.includes('setEnabledActions(enabled);'));
+
+    const initialDisable = source.indexOf('setEnabledActions(false);');
+    const automaticStatus = source.indexOf('scene3d.getStatus()');
+    assert.ok(initialDisable >= 0);
+    assert.ok(automaticStatus > initialDisable);
+});
+
+
+test('QB-17 Settings integration cannot call Scene3D execution methods', () => {
+    const sources = [
+        read('src/components/Scene3DPilotDiagnosticsPanel.js'),
+        read('src/components/SettingsModal.js'),
+    ].join('\n');
+
+    for (const forbidden of [
+        'orbiScene3D.executeRecipe',
+        'orbiScene3D.dryRunRecipe',
+        'scene3d.executeRecipe',
+        'scene3d.dryRunRecipe',
+    ]) {
+        assert.equal(sources.includes(forbidden), false, forbidden);
+    }
 });
 
 
