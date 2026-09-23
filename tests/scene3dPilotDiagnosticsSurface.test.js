@@ -82,7 +82,17 @@ test('QB-17 diagnostics output is text-only and never uses innerHTML for provide
 
     assert.ok(source.includes("output.textContent = pretty(result)"));
     assert.equal(source.includes('output.innerHTML'), false);
+    assert.equal(source.includes('statusBox.innerHTML'), false);
+    assert.ok(source.includes('statusBox.replaceChildren()'));
     assert.ok(source.includes("output.dataset.orbiScene3dOutput = 'sanitized'"));
+});
+
+test('QB-17 diagnostics output is bounded to protect renderer memory', () => {
+    const source = read('src/components/Scene3DPilotDiagnosticsPanel.js');
+
+    assert.ok(source.includes('const MAX_DIAGNOSTIC_CHARS = 65536'));
+    assert.ok(source.includes('text.slice(0, MAX_DIAGNOSTIC_CHARS)'));
+    assert.ok(source.includes('[diagnostic output truncated]'));
 });
 
 test('QB-17 diagnostics panel never changes Compute Router or MHS authority', () => {
