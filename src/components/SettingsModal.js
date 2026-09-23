@@ -4,6 +4,7 @@ import { t } from '../lib/i18n.js';
 import { getMuapiKey, setMuapiCredential } from '../lib/providerCredentials.mjs';
 import { RouterDiagnosticsPanel } from './RouterDiagnosticsPanel.js';
 import { Scene3DPilotDiagnosticsPanel } from './Scene3DPilotDiagnosticsPanel.js';
+import { Scene3DRecoveryInspectionPanel } from './Scene3DRecoveryInspectionPanel.js';
 import { readShadowCompatibilitySnapshot } from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs';
 import {
     getRuntimeCertifiedResourceProfileRegistryStatus,
@@ -124,6 +125,10 @@ export function SettingsModal(onClose) {
         ? Scene3DPilotDiagnosticsPanel()
         : null;
 
+    const scene3dRecoveryInspectionPanel = isLocalAIAvailable()
+        ? Scene3DRecoveryInspectionPanel()
+        : null;
+
     const diagnosticsContainer = diagnosticsPanel
         ? document.createElement('div')
         : null;
@@ -132,6 +137,9 @@ export function SettingsModal(onClose) {
         diagnosticsContainer.appendChild(diagnosticsPanel);
         if (scene3dDiagnosticsPanel) {
             diagnosticsContainer.appendChild(scene3dDiagnosticsPanel);
+        }
+        if (scene3dRecoveryInspectionPanel) {
+            diagnosticsContainer.appendChild(scene3dRecoveryInspectionPanel);
         }
     }
 
