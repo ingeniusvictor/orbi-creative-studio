@@ -16,18 +16,38 @@ test('QB-16 product allowlist is exactly the certified QB-10 pair', () => {
     ]);
 });
 
-test('QB-16 create recipe accepts governed parameters without confirmation', () => {
+test('QB-19 every execution requires explicit confirmation and review token', () => {
+    assert.throws(
+        () => validateRecipeRequest({
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters: { name: 'Cube', size: 1, location: [0, 0, 0] },
+        }, { execution: true }),
+        /explicit product confirmation/,
+    );
+
+    assert.throws(
+        () => validateRecipeRequest({
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters: { name: 'Cube', size: 1, location: [0, 0, 0] },
+            confirmed: true,
+        }, { execution: true }),
+        /dry-run review token/,
+    );
+
     const request = validateRecipeRequest({
         recipeId: 'orbi.blender.create_cube.v1',
         parameters: { name: 'Cube', size: 1, location: [0, 0, 0] },
+        confirmed: true,
+        reviewToken: 'review-token',
     }, { execution: true });
 
     assert.equal(request.recipeId, 'orbi.blender.create_cube.v1');
     assert.equal(request.parameters.name, 'Cube');
+    assert.equal(request.reviewToken, 'review-token');
     assert.equal('confirmed' in request, false);
 });
 
-test('QB-16 delete execution requires explicit product confirmation', () => {
+test('QB-19 delete execution requires confirmation and reviewed dry-run token', () => {
     assert.throws(
         () => validateRecipeRequest({
             recipeId: DELETE_RECIPE,
@@ -40,10 +60,12 @@ test('QB-16 delete execution requires explicit product confirmation', () => {
         recipeId: DELETE_RECIPE,
         parameters: { name: 'Cube' },
         confirmed: true,
+        reviewToken: 'delete-review-token',
     }, { execution: true });
 
     assert.equal(request.recipeId, DELETE_RECIPE);
     assert.deepEqual(request.parameters, { name: 'Cube' });
+    assert.equal(request.reviewToken, 'delete-review-token');
     assert.equal('confirmed' in request, false);
 });
 
