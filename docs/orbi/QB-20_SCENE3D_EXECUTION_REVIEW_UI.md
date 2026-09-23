@@ -2,6 +2,8 @@
 
 Status: **IMPLEMENTATION CANDIDATE — GOVERNED UI ONLY**
 
+QB-20 inherits QB-19's prototype-safe canonical review fingerprinting (`__proto__` is treated as data, never as object prototype mutation).
+
 ## Dependency chain
 
 QB-20 is stacked on QB-19 and inherits the full QB-12 → QB-19 dependency chain.
@@ -124,6 +126,10 @@ There is no automatic retry.
 Dry-run evidence and execution responses use `textContent`, never provider-controlled
 `innerHTML`.
 
+Both execution evidence and execution results are bounded to **65,536 characters**. Larger values are truncated with an explicit marker. Formatting failures and non-serializable/empty results are converted to generic renderer-safe messages rather than raw exceptions.
+
+The parent diagnostics host is also fail-closed: it clears any existing execution panel before evaluating each new status response. If status becomes unavailable, disabled, or loses execution authority, stale execution controls are removed immediately.
+
 ## Files
 
 Implementation:
@@ -139,7 +145,7 @@ Tests:
 tests/scene3dExecutionReviewUI.test.js
 ```
 
-New QB-20 tests: **10**.
+New QB-20 tests: **14**.
 
 ## Production boundary
 
