@@ -1,0 +1,354 @@
+'use strict';
+
+const { randomUUID } = require('node:crypto');
+const { ipcMain } = require('electron');
+const { assertTrustedSender } = require('./providerCredentials');
+const {
+    publicScene3DConfig,
+    resolveScene3DPilotConfig,
+} = require('./scene3dPilotConfig');
+const {
+    createScene3DSidecarClient,
+} = require('./scene3dSidecarClient');
+const {
+    createScene3DExecutionReviewRegistry,
+    validateDryRunEvidence,
+} = require('./scene3dExecutionReview');
+const {
+    ALLOWED_RECIPES,
+    validateHistoryRequestId,
+    validateObjectName,
+    validateRecipeRequest,
+} = require('./scene3dPilotPolicy');
+const {
+    sanitizeOrbiResponse,
+    sanitizePendingRecoveries,
+    sanitizeReconciliationHistory,
+} = require('./scene3dRendererSanitizer');
+
+const CHANNELS = Object.freeze({
+    status: 'orbi-scene3d:status',
+    sceneInfo: 'orbi-scene3d:scene-info',
+    objectInfo: 'orbi-scene3d:object-info',
+    dryRunRecipe: 'orbi-scene3d:dry-run-recipe',
+    executeRecipe: 'orbi-scene3d:execute-recipe',
+    pendingRecoveries: 'orbi-scene3d:pending-recoveries',
+    reconciliationHistory: 'orbi-scene3d:reconciliation-history',
+});
+
+function disabled() {
+    return Object.freeze({
+        ok: false,
+        error: Object.freeze({
+            code: 'SCENE3D_PILOT_DISABLED',
+            message: 'ORBI Scene3D pilot is disabled',
+            retryable: false,
+        }),
+    });
+}
+
+function executionDisabled() {
+    return Object.freeze({
+        ok: false,
+        error: Object.freeze({
+            code: 'SCENE3D_EXECUTION_DISABLED',
+            message: 'ORBI Scene3D governed execution is disabled',
+            retryable: false,
+        }),
+    });
+}
+
+function invalid(message) {
+    return Object.freeze({
+        ok: false,
+        error: Object.freeze({
+            code: 'SCENE3D_PILOT_REQUEST_INVALID',
+            message,
+            retryable: false,
+        }),
+    });
+}
+
+function sanitizeTransportError(error) {
+    const code = error && error.code ? String(error.code) : 'SCENE3D_TRANSPORT_ERROR';
+    const messages = {
+        SCENE3D_PILOT_DISABLED: 'ORBI Scene3D pilot is disabled',
+        SCENE3D_SIDECAR_TIMEOUT: 'Scene3D provider request timed out',
+        SCENE3D_SIDECAR_START_FAILED: 'Scene3D sidecar failed to start',
+        SCENE3D_SIDECAR_EXITED: 'Scene3D sidecar exited unexpectedly',
+        SCENE3D_SIDECAR_WRITE_FAILED: 'Scene3D sidecar communication failed',
+        SCENE3D_SIDECAR_PROTOCOL_ERROR: 'Scene3D sidecar protocol error',
+        SCENE3D_SIDECAR_RESPONSE_TOO_LARGE: 'Scene3D sidecar response exceeded the allowed size',
+        SCENE3D_REQUEST_TOO_LARGE: 'Scene3D request exceeded the allowed size',
+        SCENE3D_REVIEW_REQUIRED: 'Scene3D execution requires a fresh dry-run review',
+        SCENE3D_REVIEW_EXPIRED: 'Scene3D dry-run review expired',
+        SCENE3D_REVIEW_MISMATCH: 'Scene3D execution differs from the reviewed dry-run',
+        SCENE3D_REVIEW_CAPACITY: 'Scene3D review capacity is temporarily unavailable',
+        SCENE3D_REVIEW_DRY_RUN_REQUIRED: 'Scene3D review requires a successful dry-run',
+        SCENE3D_REVIEW_TOKEN_INVALID: 'Scene3D review token could not be issued',
+        SCENE3D_REVIEW_EVIDENCE_INVALID: 'Scene3D dry-run evidence did not match the governed request',
+        SCENE3D_REVIEW_CODE_CHANGED: 'Scene3D governed recipe changed after review; run a fresh dry-run',
+    };
+
+    return Object.freeze({
+        ok: false,
+        error: Object.freeze({
+            code,
+            message: messages[code] || 'Scene3D transport failed',
+            retryable: false,
+        }),
+    });
+}
+
+function unwrapTransport(response, sanitizer) {
+    if (!response || response.ok !== true) {
+        const transportError = response && response.error ? response.error : {};
+        return Object.freeze({
+            ok: false,
+            error: Object.freeze({
+                code: String(transportError.code || 'SCENE3D_TRANSPORT_ERROR'),
+                message: 'Scene3D transport failed',
+                retryable: false,
+            }),
+        });
+    }
+    return sanitizer(response.result);
+}
+
+function register({
+    appImpl,
+    env = process.env,
+    ipcMainImpl = ipcMain,
+    assertTrustedSenderImpl = assertTrustedSender,
+    randomUUIDImpl = randomUUID,
+    createClientImpl = createScene3DSidecarClient,
+    createReviewRegistryImpl = createScene3DExecutionReviewRegistry,
+    reviewTokenImpl = randomUUID,
+    resolveConfigImpl = resolveScene3DPilotConfig,
+    diagnostic = (message) => console.error('[ORBI Scene3D]', message),
+} = {}) {
+    if (!appImpl || typeof appImpl.getPath !== 'function') {
+        throw new TypeError('Electron app implementation is required');
+    }
+
+    const config = resolveConfigImpl({
+        env,
+        userDataPath: appImpl.getPath('userData'),
+        platform: process.platform,
+    });
+
+    let client = null;
+    const reviewRegistry = createReviewRegistryImpl({
+        randomUUIDImpl: reviewTokenImpl,
+    });
+
+    function getClient() {
+        if (!config.enabled) return null;
+        if (!client) {
+            client = createClientImpl({
+                config,
+                randomUUIDImpl,
+                onDiagnostic: diagnostic,
+            });
+        }
+        return client;
+    }
+
+    function withTrust(handler) {
+        return async (event, ...args) => {
+            assertTrustedSenderImpl(event);
+            try {
+                return await handler(...args);
+            } catch (error) {
+                return sanitizeTransportError(error);
+            }
+        };
+    }
+
+    for (const channel of Object.values(CHANNELS)) {
+        ipcMainImpl.removeHandler(channel);
+    }
+
+    ipcMainImpl.handle(CHANNELS.status, withTrust(async () => {
+        return Object.freeze({
+            ok: true,
+            status: Object.freeze({
+                ...publicScene3DConfig(config),
+                processStarted: Boolean(client && client.isStarted()),
+                recipes: ALLOWED_RECIPES,
+            }),
+        });
+    }));
+
+    ipcMainImpl.handle(CHANNELS.sceneInfo, withTrust(async () => {
+        const sidecar = getClient();
+        if (!sidecar) return disabled();
+
+        const response = await sidecar.request(
+            'scene_info',
+            {},
+            { requestId: randomUUIDImpl() },
+        );
+        return unwrapTransport(response, sanitizeOrbiResponse);
+    }));
+
+    ipcMainImpl.handle(CHANNELS.objectInfo, withTrust(async (objectName) => {
+        if (!config.enabled) return disabled();
+
+        let name;
+        try {
+            name = validateObjectName(objectName);
+        } catch (error) {
+            return invalid(error.message);
+        }
+
+        const sidecar = getClient();
+        const response = await sidecar.request(
+            'object_info',
+            { object_name: name },
+            { requestId: randomUUIDImpl() },
+        );
+        return unwrapTransport(response, sanitizeOrbiResponse);
+    }));
+
+    ipcMainImpl.handle(CHANNELS.dryRunRecipe, withTrust(async (value) => {
+        if (!config.enabled) return disabled();
+        if (!config.executionEnabled) return executionDisabled();
+
+        let request;
+        try {
+            request = validateRecipeRequest(value, { execution: false });
+        } catch (error) {
+            return invalid(error.message);
+        }
+
+        const sidecar = getClient();
+        const response = await sidecar.request(
+            'dry_run_recipe',
+            {
+                recipe_id: request.recipeId,
+                parameters: request.parameters,
+            },
+            { requestId: randomUUIDImpl() },
+        );
+        const sanitized = unwrapTransport(response, sanitizeOrbiResponse);
+        if (!sanitized || sanitized.ok !== true) return sanitized;
+
+        const review = reviewRegistry.issue({
+            recipeId: request.recipeId,
+            parameters: request.parameters,
+            dryRunResponse: sanitized,
+        });
+
+        return Object.freeze({
+            ...sanitized,
+            review,
+        });
+    }));
+
+    ipcMainImpl.handle(CHANNELS.executeRecipe, withTrust(async (value) => {
+        if (!config.enabled) return disabled();
+        if (!config.executionEnabled) return executionDisabled();
+
+        let request;
+        try {
+            request = validateRecipeRequest(value, { execution: true });
+        } catch (error) {
+            return invalid(error.message);
+        }
+
+        const reviewed = reviewRegistry.consume({
+            token: request.reviewToken,
+            recipeId: request.recipeId,
+            parameters: request.parameters,
+        });
+
+        const sidecar = getClient();
+        const providerInput = {
+            recipe_id: request.recipeId,
+            parameters: request.parameters,
+        };
+
+        // Recompile/inspect on the currently running sidecar immediately before the
+        // side effect. This closes the review→execute gap if the sidecar restarted
+        // or governed recipe code changed after the original dry-run.
+        const verificationResponse = await sidecar.request(
+            'dry_run_recipe',
+            providerInput,
+            { requestId: randomUUIDImpl() },
+        );
+        const verification = unwrapTransport(
+            verificationResponse,
+            sanitizeOrbiResponse,
+        );
+        if (!verification || verification.ok !== true) return verification;
+
+        const currentEvidence = validateDryRunEvidence({
+            recipeId: request.recipeId,
+            parameters: request.parameters,
+            dryRunResponse: verification,
+        });
+        if (currentEvidence.codeSha256 !== reviewed.codeSha256) {
+            const error = new Error(
+                'Scene3D governed recipe code changed after review',
+            );
+            error.code = 'SCENE3D_REVIEW_CODE_CHANGED';
+            throw error;
+        }
+
+        const response = await sidecar.request(
+            'execute_recipe',
+            providerInput,
+            { requestId: randomUUIDImpl() },
+        );
+        return unwrapTransport(response, sanitizeOrbiResponse);
+    }));
+
+    ipcMainImpl.handle(CHANNELS.pendingRecoveries, withTrust(async () => {
+        const sidecar = getClient();
+        if (!sidecar) return disabled();
+
+        return unwrapTransport(
+            await sidecar.request('pending_recoveries', {}),
+            sanitizePendingRecoveries,
+        );
+    }));
+
+    ipcMainImpl.handle(CHANNELS.reconciliationHistory, withTrust(async (requestId) => {
+        const sidecar = getClient();
+        if (!sidecar) return disabled();
+
+        let value;
+        try {
+            value = validateHistoryRequestId(requestId);
+        } catch (error) {
+            return invalid(error.message);
+        }
+        const input = value === null ? {} : { request_id: value };
+
+        return unwrapTransport(
+            await sidecar.request('reconciliation_history', input),
+            sanitizeReconciliationHistory,
+        );
+    }));
+
+    return Object.freeze({
+        enabled: config.enabled,
+        mode: config.mode,
+        channels: CHANNELS,
+        shutdown: () => {
+            reviewRegistry.invalidateAll();
+            if (client) client.close();
+        },
+        executionAuthority: 'scene3d-pilot-only',
+        computeRouterAuthorityChanged: false,
+        mhsActuationEnabled: false,
+        productionCutoverAuthorized: false,
+        executionEnabled: Boolean(config.executionEnabled),
+    });
+}
+
+module.exports = {
+    CHANNELS,
+    register,
+};
