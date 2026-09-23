@@ -82,15 +82,15 @@ test('QB-16 product bridge changes neither Compute Router nor MHS authority', ()
     assert.ok(bridge.includes('productionCutoverAuthorized: false'));
 });
 
-test('QB-16 current renderer feature surfaces do not consume orbiScene3D yet', () => {
-    const files = [
-        'src/components/SettingsModal.js',
+test('QB-17+ renderer consumption is confined to the governed Settings diagnostics surface', () => {
+    const settings = read('src/components/SettingsModal.js');
+    assert.ok(settings.includes('orbiScene3D'));
+
+    for (const path of [
         'src/components/RouterDiagnosticsPanel.js',
         'src/components/ImageStudio.js',
         'src/components/VideoStudio.js',
-    ];
-
-    for (const path of files) {
+    ]) {
         const source = read(path);
         assert.equal(source.includes('orbiScene3D'), false, path);
     }
