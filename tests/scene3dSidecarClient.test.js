@@ -222,3 +222,25 @@ test('QB-16 client rejects outbound messages above the bounded size without spaw
 
     assert.equal(spawnCalls.length, 0);
 });
+
+
+test('QB-16 sidecar client rejects protocol-version mismatch', async () => {
+    const { client, children } = createHarness();
+
+    const promise = client.request('scene_info', {}, { requestId: 'read-protocol' });
+    children[0].stdin.once('data', (chunk) => {
+        const request = JSON.parse(chunk.toString('utf8').trim());
+        children[0].stdout.write(JSON.stringify({
+            protocol: 'orbi.scene3d-sidecar/v999',
+            id: request.id,
+            ok: true,
+            result: {},
+        }) + '\n');
+    });
+
+    await assert.rejects(
+        promise,
+        (error) => error && error.code === 'SCENE3D_SIDECAR_PROTOCOL_ERROR',
+    );
+    assert.equal(children[0].killCalls, 1);
+});
