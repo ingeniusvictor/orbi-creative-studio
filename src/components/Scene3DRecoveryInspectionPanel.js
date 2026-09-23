@@ -34,6 +34,15 @@ function defaultHistoryProvider() {
     return window.orbiScene3D.reconciliationHistory();
 }
 
+function defaultExportProvider() {
+    if (typeof window === 'undefined'
+        || !window.orbiScene3D
+        || typeof window.orbiScene3D.exportRecoveryEvidence !== 'function') {
+        return Promise.resolve(null);
+    }
+    return window.orbiScene3D.exportRecoveryEvidence();
+}
+
 export function normalizeRecoveryStatus(response) {
     if (!response
         || response.ok !== true
@@ -74,6 +83,45 @@ export function normalizePendingRecoveries(value) {
         }));
     }
     return Object.freeze(normalized);
+}
+
+export function normalizeRecoveryExportResult(value) {
+    if (!value
+        || typeof value !== 'object'
+        || value.readOnlyEvidence !== true
+        || value.executionAuthorized !== false
+        || value.retryAuthorized !== false
+        || value.reconciliationAuthorized !== false
+        || value.requestIdReleaseAuthorized !== false
+        || value.productionCutoverAuthorized !== false) {
+        return null;
+    }
+
+    if (value.status === 'SCENE3D_RECOVERY_EXPORT_CANCELED') {
+        return Object.freeze({ status: 'canceled' });
+    }
+
+    if (value.status === 'SCENE3D_RECOVERY_EXPORT_REJECTED') {
+        return Object.freeze({ status: 'rejected' });
+    }
+
+    if (value.status !== 'SCENE3D_RECOVERY_EXPORT_WRITTEN'
+        || typeof value.fileName !== 'string'
+        || !value.fileName
+        || /[\\/]/.test(value.fileName)
+        || typeof value.sha256 !== 'string'
+        || !/^[a-f0-9]{64}$/.test(value.sha256)
+        || !Number.isInteger(value.bytes)
+        || value.bytes <= 0) {
+        return null;
+    }
+
+    return Object.freeze({
+        status: 'written',
+        fileName: value.fileName,
+        sha256: value.sha256,
+        bytes: value.bytes,
+    });
 }
 
 export function normalizeReconciliationHistory(value) {
@@ -184,12 +232,14 @@ export function Scene3DRecoveryInspectionPanel({
     statusProvider = defaultStatusProvider,
     pendingProvider = defaultPendingProvider,
     historyProvider = defaultHistoryProvider,
+    exportProvider = defaultExportProvider,
 } = {}) {
     const root = document.createElement('section');
     root.dataset.orbiScene3dRecovery = 'user-initiated-read-only';
     root.style.cssText = 'display:none;flex-direction:column;gap:0.65rem;padding:0.9rem;border:1px solid rgba(251,191,36,0.13);border-radius:0.85rem;background:rgba(245,158,11,0.02);';
 
     let loading = false;
+    let exportReady = false;
 
     async function initialize() {
         let enabled = null;
@@ -228,6 +278,17 @@ export function Scene3DRecoveryInspectionPanel({
         output.dataset.orbiScene3dRecoveryOutput = 'sanitized-read-only';
         output.style.cssText = 'display:flex;flex-direction:column;gap:0.45rem;';
 
+        const exportButton = document.createElement('button');
+        exportButton.type = 'button';
+        exportButton.dataset.orbiScene3dRecoveryExport = 'explicit-user-save';
+        exportButton.textContent = t('scene3dRecovery.export');
+        exportButton.disabled = true;
+        exportButton.style.cssText = 'align-self:flex-start;padding:0.45rem 0.75rem;border-radius:0.5rem;background:rgba(34,211,238,0.06);border:1px solid rgba(34,211,238,0.16);color:#a5f3fc;font-size:0.66rem;font-weight:800;cursor:pointer;';
+
+        const exportResult = document.createElement('div');
+        exportResult.dataset.orbiScene3dRecoveryExportResult = 'sanitized-metadata-only';
+        exportResult.style.cssText = 'display:flex;flex-direction:column;gap:0.25rem;';
+
         action.onclick = async () => {
             if (loading) return;
             loading = true;
@@ -255,6 +316,8 @@ export function Scene3DRecoveryInspectionPanel({
 
                 renderPending(output, pending);
                 renderHistory(output, history);
+                exportReady = true;
+                exportButton.disabled = false;
                 output.appendChild(textNode(
                     'div',
                     t('scene3dRecovery.boundary'),
@@ -262,6 +325,8 @@ export function Scene3DRecoveryInspectionPanel({
                 ));
             } catch {
                 output.innerHTML = '';
+                exportReady = false;
+                exportButton.disabled = true;
                 renderEmpty(output, t('scene3dRecovery.unavailable'));
             } finally {
                 loading = false;
@@ -269,8 +334,56 @@ export function Scene3DRecoveryInspectionPanel({
             }
         };
 
+        exportButton.onclick = async () => {
+            if (!exportReady || loading) return;
+
+            exportButton.disabled = true;
+            exportResult.innerHTML = '';
+            exportResult.appendChild(textNode(
+                'div',
+                t('scene3dRecovery.exporting'),
+                'font-size:0.62rem;color:rgba(255,255,255,0.35);',
+            ));
+
+            try {
+                const normalized = normalizeRecoveryExportResult(await exportProvider());
+                exportResult.innerHTML = '';
+
+                if (!normalized) {
+                    renderEmpty(exportResult, t('scene3dRecovery.exportRejected'));
+                } else if (normalized.status === 'canceled') {
+                    renderEmpty(exportResult, t('scene3dRecovery.exportCanceled'));
+                } else if (normalized.status === 'rejected') {
+                    renderEmpty(exportResult, t('scene3dRecovery.exportRejected'));
+                } else {
+                    exportResult.appendChild(textNode(
+                        'div',
+                        `${t('scene3dRecovery.exportFile')}: ${normalized.fileName}`,
+                        'font-size:0.62rem;color:rgba(255,255,255,0.4);word-break:break-word;',
+                    ));
+                    exportResult.appendChild(textNode(
+                        'code',
+                        normalized.sha256,
+                        'font-size:0.58rem;color:#a5f3fc;word-break:break-all;',
+                    ));
+                    exportResult.appendChild(textNode(
+                        'div',
+                        `${normalized.bytes} ${t('scene3dRecovery.exportBytes')}`,
+                        'font-size:0.6rem;color:rgba(255,255,255,0.3);',
+                    ));
+                }
+            } catch {
+                exportResult.innerHTML = '';
+                renderEmpty(exportResult, t('scene3dRecovery.exportRejected'));
+            } finally {
+                exportButton.disabled = !exportReady;
+            }
+        };
+
         root.appendChild(action);
         root.appendChild(output);
+        root.appendChild(exportButton);
+        root.appendChild(exportResult);
         return enabled;
     }
 
