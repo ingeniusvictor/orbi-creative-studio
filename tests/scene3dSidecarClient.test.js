@@ -5,6 +5,7 @@ const { PassThrough } = require('node:stream');
 
 const {
     PROTOCOL,
+    buildScene3DChildEnv,
     createScene3DSidecarClient,
 } = require('../electron/lib/scene3dSidecarClient');
 
@@ -244,4 +245,57 @@ test('QB-16 sidecar client rejects protocol-version mismatch', async () => {
         (error) => error && error.code === 'SCENE3D_SIDECAR_PROTOCOL_ERROR',
     );
     assert.equal(children[0].killCalls, 1);
+});
+
+
+test('QB-16 sidecar child environment is allowlisted and strips secrets/PATH', () => {
+    const env = buildScene3DChildEnv({
+        HOME: '/home/user',
+        LANG: 'en_US.UTF-8',
+        DISPLAY: ':0',
+        SystemRoot: 'C:\\Windows',
+        PATH: '/malicious/bin',
+        MUAPI_API_KEY: 'secret-value',
+        OPENAI_API_KEY: 'secret-value',
+        ORBI_SCENE3D_PILOT_ENABLED: '1',
+    });
+
+    assert.equal(env.HOME, '/home/user');
+    assert.equal(env.LANG, 'en_US.UTF-8');
+    assert.equal(env.DISPLAY, ':0');
+    assert.equal(env.SystemRoot, 'C:\\Windows');
+    assert.equal('PATH' in env, false);
+    assert.equal('MUAPI_API_KEY' in env, false);
+    assert.equal('OPENAI_API_KEY' in env, false);
+    assert.equal('ORBI_SCENE3D_PILOT_ENABLED' in env, false);
+});
+
+test('QB-16 spawn receives only the explicit sidecar child environment', async () => {
+    const children = [];
+    const spawnCalls = [];
+    const child = createFakeChild();
+    children.push(child);
+
+    const client = createScene3DSidecarClient({
+        config: {
+            enabled: true,
+            command: '/opt/python',
+            args: ['/opt/sidecar.py'],
+            cwd: '/opt',
+        },
+        spawnImpl: (command, args, options) => {
+            spawnCalls.push({ command, args, options });
+            return child;
+        },
+        randomUUIDImpl: () => 'env-id',
+        timeoutMs: 100,
+        childEnv: Object.freeze({ HOME: '/safe/home' }),
+    });
+
+    const promise = client.request('status', {});
+    const observed = respondToNext(child);
+    await Promise.all([promise, observed]);
+
+    assert.deepEqual(spawnCalls[0].options.env, { HOME: '/safe/home' });
+    assert.equal('PATH' in spawnCalls[0].options.env, false);
 });
