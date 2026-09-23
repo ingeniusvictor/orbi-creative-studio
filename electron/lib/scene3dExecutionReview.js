@@ -29,7 +29,7 @@ function normalizeJson(value, path = '$') {
         if (proto !== Object.prototype && proto !== null) {
             throw new TypeError(`${path} must contain only plain JSON objects`);
         }
-        const out = {};
+        const out = Object.create(null);
         for (const key of Object.keys(value).sort()) {
             const item = value[key];
             if (item === undefined) {
