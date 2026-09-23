@@ -49,6 +49,8 @@ The panel does not automatically:
 - inspect recovery state,
 - execute any recipe.
 
+Provider-touching controls are fail-closed until `getStatus()` explicitly reports `enabled=true`.
+
 ## User-initiated read operations
 
 When the pilot is enabled, the user may explicitly request:
@@ -112,7 +114,7 @@ Tests:
 tests/scene3dPilotDiagnosticsSurface.test.js
 ```
 
-New QB-17 tests: **7**.
+New QB-17 tests: **8**.
 
 ## Validation
 
