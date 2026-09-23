@@ -102,3 +102,20 @@ test('QB-17 diagnostics panel never changes Compute Router or MHS authority', ()
     assert.equal(source.includes('orbiBenchmark'), false);
     assert.equal(source.includes('mhs'), false);
 });
+
+
+test('QB-17 provider-touching actions are fail-closed until enabled status arrives', () => {
+    const source = read('src/components/Scene3DPilotDiagnosticsPanel.js');
+
+    assert.ok(source.includes('function setEnabledActions(enabled)'));
+    assert.ok(source.includes('setEnabledActions(false);'));
+    assert.ok(source.includes(
+        "const enabled = Boolean(value && value.ok === true && value.status?.enabled === true)"
+    ));
+    assert.ok(source.includes('setEnabledActions(enabled);'));
+
+    const initialDisable = source.indexOf('setEnabledActions(false);');
+    const automaticStatus = source.indexOf('scene3d.getStatus()');
+    assert.ok(initialDisable >= 0);
+    assert.ok(automaticStatus > initialDisable);
+});
