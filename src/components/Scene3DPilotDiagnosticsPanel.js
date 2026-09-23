@@ -14,8 +14,25 @@ function button(label, onClick) {
     return node;
 }
 
+const MAX_DIAGNOSTIC_CHARS = 65536;
+
 function pretty(value) {
-    return JSON.stringify(value, null, 2);
+    let text;
+    try {
+        text = JSON.stringify(value, null, 2);
+    } catch {
+        text = JSON.stringify({
+            ok: false,
+            error: {
+                code: 'SCENE3D_DIAGNOSTIC_FORMAT_FAILED',
+                message: 'Scene3D diagnostic result could not be formatted',
+            },
+        }, null, 2);
+    }
+
+    if (text.length <= MAX_DIAGNOSTIC_CHARS) return text;
+    return `${text.slice(0, MAX_DIAGNOSTIC_CHARS)}
+… [diagnostic output truncated]`;
 }
 
 export function Scene3DPilotDiagnosticsPanel({
@@ -71,7 +88,7 @@ export function Scene3DPilotDiagnosticsPanel({
 
     function renderStatus(value) {
         status = value;
-        statusBox.innerHTML = '';
+        statusBox.replaceChildren();
 
         if (!value || value.ok !== true || !value.status) {
             statusBox.appendChild(textNode(
