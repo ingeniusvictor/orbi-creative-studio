@@ -144,3 +144,15 @@ test('QB-20 execution UI has no retry loop or authority mutation surface', () =>
         assert.equal(source.includes(forbidden), false, forbidden);
     }
 });
+
+
+test('QB-20 opaque review token remains closure-only and is never persisted', () => {
+    const source = read('src/components/Scene3DExecutionReviewPanel.js');
+
+    assert.ok(source.includes('let review = null'));
+    assert.ok(source.includes('token: response.review.token'));
+    assert.equal(source.includes('localStorage'), false);
+    assert.equal(source.includes('sessionStorage'), false);
+    assert.equal(source.includes('dataset.reviewToken'), false);
+    assert.equal(source.includes('setAttribute(\'data-review'), false);
+});
