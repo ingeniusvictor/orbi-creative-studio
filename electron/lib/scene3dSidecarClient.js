@@ -51,6 +51,16 @@ function createScene3DSidecarClient({
             return;
         }
 
+        if (response.protocol !== PROTOCOL) {
+            const error = createError(
+                'SCENE3D_SIDECAR_PROTOCOL_ERROR',
+                'Scene3D sidecar protocol version mismatch',
+            );
+            rejectAll(error);
+            if (child && !child.killed) child.kill();
+            return;
+        }
+
         const transportId = typeof response.id === 'string' ? response.id : '';
         const item = pending.get(transportId);
         if (!item) {
