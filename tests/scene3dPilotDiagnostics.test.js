@@ -134,3 +134,19 @@ test('QB-17 bilingual copy explicitly preserves the read-only boundary', () => {
     assert.ok(i18n.includes('does not start Python, Blender, or the sidecar'));
     assert.ok(i18n.includes('cannot execute recipes'));
 });
+
+
+test('QB-17 rejects unreviewed Scene3D recipe expansion', async () => {
+    const { normalizeScene3DStatus } = await loadPanelModule();
+
+    assert.equal(
+        normalizeScene3DStatus(validStatus({
+            recipes: [
+                'orbi.blender.create_cube.v1',
+                'orbi.blender.delete_object.v1',
+                'orbi.blender.execute_python.v1',
+            ],
+        })),
+        null,
+    );
+});
