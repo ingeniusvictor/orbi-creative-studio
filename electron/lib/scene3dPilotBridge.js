@@ -190,8 +190,7 @@ function register({
     }));
 
     ipcMainImpl.handle(CHANNELS.objectInfo, withTrust(async (objectName) => {
-        const sidecar = getClient();
-        if (!sidecar) return disabled();
+        if (!config.enabled) return disabled();
 
         let name;
         try {
@@ -200,6 +199,7 @@ function register({
             return invalid(error.message);
         }
 
+        const sidecar = getClient();
         const response = await sidecar.request(
             'object_info',
             { object_name: name },
@@ -211,7 +211,6 @@ function register({
     ipcMainImpl.handle(CHANNELS.dryRunRecipe, withTrust(async (value) => {
         if (!config.enabled) return disabled();
         if (!config.executionEnabled) return executionDisabled();
-        const sidecar = getClient();
 
         let request;
         try {
@@ -220,6 +219,7 @@ function register({
             return invalid(error.message);
         }
 
+        const sidecar = getClient();
         const response = await sidecar.request(
             'dry_run_recipe',
             {
@@ -246,7 +246,6 @@ function register({
     ipcMainImpl.handle(CHANNELS.executeRecipe, withTrust(async (value) => {
         if (!config.enabled) return disabled();
         if (!config.executionEnabled) return executionDisabled();
-        const sidecar = getClient();
 
         let request;
         try {
@@ -261,6 +260,7 @@ function register({
             parameters: request.parameters,
         });
 
+        const sidecar = getClient();
         const response = await sidecar.request(
             'execute_recipe',
             {
