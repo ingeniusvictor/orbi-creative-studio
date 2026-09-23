@@ -94,6 +94,39 @@ SCENE3D_REVIEW_EVIDENCE_INVALID
 
 No token is issued.
 
+## Review-to-execution code identity revalidation
+
+QB-21 closes the remaining review→execute TOCTOU gap.
+
+A successful review token is not sufficient by itself. On execution, Electron main now performs:
+
+```text
+consume one-shot review token
+    ↓
+current sidecar dry_run_recipe
+    ↓
+validate recipe id + canonical parameters
+    ↓
+validate code SHA-256 + no network + empty filesystem scope
+    ↓
+compare current code SHA with reviewed code SHA
+    ↓
+execute_recipe
+```
+
+If the sidecar restarted or governed recipe code changed after review:
+
+```text
+SCENE3D_REVIEW_CODE_CHANGED
+```
+
+is returned and `execute_recipe` is never dispatched.
+
+The review token is consumed **before** this revalidation, so a failed code-identity check cannot be
+retried with the same capability token.
+
+This extra dry-run is provider-free and has no side effect.
+
 ## Environment
 
 ### Native/Wsl/Linux
