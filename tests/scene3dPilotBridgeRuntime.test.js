@@ -291,12 +291,14 @@ test('QB-16 delete execution requires confirmation and never forwards it', async
         reviewToken: 'review-1',
     });
     assert.equal(allowed.ok, true);
-    assert.equal(harness.requests.length, 1);
-    assert.deepEqual(harness.requests[0].input, {
+    assert.equal(harness.requests.length, 2);
+    assert.equal(harness.requests[0].operation, 'dry_run_recipe');
+    assert.equal(harness.requests[1].operation, 'execute_recipe');
+    assert.deepEqual(harness.requests[1].input, {
         recipe_id: 'orbi.blender.delete_object.v1',
         parameters: { name: 'Cube' },
     });
-    assert.equal('confirmed' in harness.requests[0].input, false);
+    assert.equal('confirmed' in harness.requests[1].input, false);
 });
 
 test('QB-16 pending recovery inspection removes provider metadata', async () => {
