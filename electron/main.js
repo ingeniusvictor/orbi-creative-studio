@@ -7,6 +7,7 @@ const { register: registerMuapiTransport } = require('./lib/muapiTransport');
 const { register: registerReadinessSnapshot } = require('./lib/providerReadinessSnapshotBridge');
 const { register: registerControlledBenchmark } = require('./lib/controlledBenchmarkBridge');
 const { register: registerHardwarePilotExport } = require('./lib/hardwarePilotFileExportBridge');
+const { register: registerScene3DPilot } = require('./lib/scene3dPilotBridge');
 const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
 process.on('uncaughtException', (err) => {
@@ -28,6 +29,7 @@ if (process.platform === 'linux') {
 }
 
 let mainWindow;
+let scene3dPilotRegistration = null;
 
 function createWindow() {
     const isMac = process.platform === 'darwin';
@@ -115,6 +117,14 @@ app.whenReady().then(() => {
         console.error('Failed to register hardware pilot export bridge:', err);
     }
 
+    try {
+        scene3dPilotRegistration = registerScene3DPilot({ appImpl: app });
+    } catch (err) {
+        // Scene3D is a default-OFF pilot. Failure to initialize its bridge must not
+        // prevent the rest of Creative Studio from starting.
+        console.error('Failed to register ORBI Scene3D pilot bridge:', err);
+    }
+
     if (providerSecretStore) {
         try {
             registerReadinessSnapshot({ store: providerSecretStore });
@@ -133,5 +143,16 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
+    }
+});
+
+
+app.on('before-quit', () => {
+    try {
+        if (scene3dPilotRegistration && typeof scene3dPilotRegistration.shutdown === 'function') {
+            scene3dPilotRegistration.shutdown();
+        }
+    } catch (err) {
+        console.error('Failed to stop ORBI Scene3D pilot sidecar:', err);
     }
 });
