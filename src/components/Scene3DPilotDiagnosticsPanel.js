@@ -16,8 +16,35 @@ function button(label, onClick) {
     return node;
 }
 
+const MAX_DIAGNOSTIC_CHARS = 65536;
+
 function pretty(value) {
-    return JSON.stringify(value, null, 2);
+    let text;
+    try {
+        text = JSON.stringify(value, null, 2);
+    } catch {
+        text = JSON.stringify({
+            ok: false,
+            error: {
+                code: 'SCENE3D_DIAGNOSTIC_FORMAT_FAILED',
+                message: 'Scene3D diagnostic result could not be formatted',
+            },
+        }, null, 2);
+    }
+
+    if (typeof text !== 'string') {
+        text = JSON.stringify({
+            ok: false,
+            error: {
+                code: 'SCENE3D_DIAGNOSTIC_EMPTY_RESULT',
+                message: 'Scene3D diagnostic returned no serializable result',
+            },
+        }, null, 2);
+    }
+
+    if (text.length <= MAX_DIAGNOSTIC_CHARS) return text;
+    return `${text.slice(0, MAX_DIAGNOSTIC_CHARS)}
+… [diagnostic output truncated]`;
 }
 
 export function Scene3DPilotDiagnosticsPanel({
@@ -68,6 +95,14 @@ export function Scene3DPilotDiagnosticsPanel({
 
     let status = null;
 
+    function setEnabledActions(enabled) {
+        objectInput.disabled = !enabled;
+        for (const node of actions.querySelectorAll('[data-requires-enabled="true"]')) {
+            node.disabled = !enabled;
+            node.style.opacity = enabled ? '1' : '0.45';
+        }
+    }
+
     function setBusy(value) {
         for (const node of actions.querySelectorAll('button')) {
             node.disabled = value;
@@ -77,9 +112,18 @@ export function Scene3DPilotDiagnosticsPanel({
 
     function renderStatus(value) {
         status = value;
-        statusBox.innerHTML = '';
+        statusBox.replaceChildren();
+        executionHost.replaceChildren();
+
+        const enabled = Boolean(value && value.ok === true && value.status?.enabled === true);
+        setEnabledActions(enabled);
 
         if (!value || value.ok !== true || !value.status) {
+            executionHost.appendChild(textNode(
+                'div',
+                'Governed execution controls are unavailable until main-process status is valid.',
+                'font-size:0.64rem;color:rgba(255,255,255,0.35);line-height:1.4;',
+            ));
             statusBox.appendChild(textNode(
                 'div',
                 'Scene3D bridge unavailable',
@@ -87,8 +131,6 @@ export function Scene3DPilotDiagnosticsPanel({
             ));
             return;
         }
-
-        const enabled = value.status.enabled === true;
         statusBox.appendChild(textNode(
             'div',
             enabled ? 'Pilot enabled' : 'Pilot disabled',
@@ -100,13 +142,6 @@ export function Scene3DPilotDiagnosticsPanel({
             'font-size:0.64rem;color:rgba(255,255,255,0.42);margin-top:0.35rem;',
         ));
 
-        objectInput.disabled = !enabled;
-        for (const node of actions.querySelectorAll('[data-requires-enabled="true"]')) {
-            node.disabled = !enabled;
-            node.style.opacity = enabled ? '1' : '0.45';
-        }
-
-        executionHost.innerHTML = '';
         if (enabled && value.status.executionEnabled === true) {
             executionHost.appendChild(Scene3DExecutionReviewPanel({ scene3d }));
         } else {
@@ -139,10 +174,7 @@ export function Scene3DPilotDiagnosticsPanel({
         } finally {
             setBusy(false);
             if (status?.status?.enabled !== true) {
-                for (const node of actions.querySelectorAll('[data-requires-enabled="true"]')) {
-                    node.disabled = true;
-                    node.style.opacity = '0.45';
-                }
+                setEnabledActions(false);
             }
         }
     }
@@ -188,6 +220,10 @@ export function Scene3DPilotDiagnosticsPanel({
     });
     objectLookup.dataset.requiresEnabled = 'true';
     objectRow.appendChild(objectLookup);
+
+    // All provider-touching diagnostics are fail-closed until getStatus explicitly
+    // confirms that the pilot is enabled.
+    setEnabledActions(false);
 
     if (!scene3d?.getStatus) {
         renderStatus(null);
