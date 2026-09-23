@@ -30,6 +30,16 @@ function pretty(value) {
         }, null, 2);
     }
 
+    if (typeof text !== 'string') {
+        text = JSON.stringify({
+            ok: false,
+            error: {
+                code: 'SCENE3D_DIAGNOSTIC_EMPTY_RESULT',
+                message: 'Scene3D diagnostic returned no serializable result',
+            },
+        }, null, 2);
+    }
+
     if (text.length <= MAX_DIAGNOSTIC_CHARS) return text;
     return `${text.slice(0, MAX_DIAGNOSTIC_CHARS)}
 … [diagnostic output truncated]`;
