@@ -117,3 +117,35 @@ test('QB-16 object name and recovery request-id readers are bounded', () => {
     assert.throws(() => validateHistoryRequestId(''), /non-empty/);
     assert.throws(() => validateHistoryRequestId('x'.repeat(257)), /256/);
 });
+
+
+test('QB-19 confirmation is strict boolean true and review tokens are bounded', () => {
+    assert.throws(
+        () => validateRecipeRequest({
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters: {},
+            confirmed: 'true',
+            reviewToken: 'review-token',
+        }, { execution: true }),
+        /explicit product confirmation/,
+    );
+
+    assert.throws(
+        () => validateRecipeRequest({
+            recipeId: 'orbi.blender.create_cube.v1',
+            parameters: {},
+            confirmed: true,
+            reviewToken: 'x'.repeat(129),
+        }, { execution: true }),
+        /valid dry-run review token/,
+    );
+
+    const request = validateRecipeRequest({
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+        confirmed: true,
+        reviewToken: '  review-token  ',
+    }, { execution: true });
+
+    assert.equal(request.reviewToken, 'review-token');
+});
