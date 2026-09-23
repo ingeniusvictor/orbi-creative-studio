@@ -3,6 +3,7 @@
 const path = require('node:path');
 
 const FEATURE_ENV = 'ORBI_SCENE3D_PILOT_ENABLED';
+const EXECUTION_ENV = 'ORBI_SCENE3D_EXECUTION_ENABLED';
 const MODE_ENV = 'ORBI_SCENE3D_LAUNCHER_MODE';
 
 function parseEnabled(value) {
@@ -25,6 +26,7 @@ function resolveScene3DPilotConfig({
     platform = process.platform,
 } = {}) {
     const enabled = parseEnabled(env[FEATURE_ENV]);
+    const executionEnabled = enabled && parseEnabled(env[EXECUTION_ENV]);
 
     if (!enabled) {
         return Object.freeze({
@@ -34,6 +36,7 @@ function resolveScene3DPilotConfig({
             args: Object.freeze([]),
             cwd: null,
             ledgerPath: null,
+            executionEnabled: false,
         });
     }
 
@@ -69,6 +72,7 @@ function resolveScene3DPilotConfig({
             ]),
             cwd: pathImpl.dirname(sidecarPath),
             ledgerPath,
+            executionEnabled,
         });
     }
 
@@ -129,6 +133,7 @@ function resolveScene3DPilotConfig({
             args: Object.freeze(args),
             cwd: null,
             ledgerPath,
+            executionEnabled,
         });
     }
 
@@ -143,11 +148,14 @@ function publicScene3DConfig(config) {
         rendererCanConfigure: false,
         automaticR2Retry: false,
         reconciliationMutation: false,
+        executionEnabled: Boolean(config && config.executionEnabled),
+        executionDefaultOff: true,
     });
 }
 
 module.exports = {
     FEATURE_ENV,
+    EXECUTION_ENV,
     MODE_ENV,
     parseEnabled,
     publicScene3DConfig,
