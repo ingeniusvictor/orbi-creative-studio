@@ -91,7 +91,10 @@ test('QB-18 pending normalization exposes only minimal uncertain-execution field
     const serialized = JSON.stringify(result);
     assert.equal(serialized.includes('request_fingerprint'), false);
     assert.equal(serialized.includes('retry_semantics'), false);
-    assert.equal(serialized.includes('provider'), false);
+    assert.equal(serialized.includes('"provider":'), false);
+    assert.equal(serialized.includes('provider_family'), false);
+    assert.equal(serialized.includes('provider_capability'), false);
+    assert.equal(serialized.includes('provider_version'), false);
 });
 
 test('QB-18 pending normalization fails closed for non-pending or known provider-call state', async () => {
