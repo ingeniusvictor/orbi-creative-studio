@@ -85,6 +85,7 @@ function sanitizeTransportError(error) {
         SCENE3D_REVIEW_CAPACITY: 'Scene3D review capacity is temporarily unavailable',
         SCENE3D_REVIEW_DRY_RUN_REQUIRED: 'Scene3D review requires a successful dry-run',
         SCENE3D_REVIEW_TOKEN_INVALID: 'Scene3D review token could not be issued',
+        SCENE3D_REVIEW_EVIDENCE_INVALID: 'Scene3D dry-run evidence did not match the governed request',
     };
 
     return Object.freeze({
