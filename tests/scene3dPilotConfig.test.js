@@ -46,6 +46,7 @@ test('QB-16 native mode resolves a main-owned ledger under userData', () => {
         path.join('/home/test/.config/orbi', 'orbi-scene3d', 'execution-ledger.sqlite3'),
     ]);
     assert.equal(config.cwd, '/opt/orbi');
+    assert.equal(config.executionEnabled, false);
 });
 
 test('QB-16 WSL mode launches wsl.exe without shell-owned command text', () => {
@@ -77,6 +78,7 @@ test('QB-16 WSL mode launches wsl.exe without shell-owned command text', () => {
         '/home/user/.local/share/orbi/scene3d.sqlite3',
     ]);
     assert.equal(config.cwd, null);
+    assert.equal(config.executionEnabled, false);
 });
 
 test('QB-16 WSL mode is rejected outside Windows', () => {
@@ -125,6 +127,8 @@ test('QB-16 public config never exposes command args or ledger paths', () => {
         rendererCanConfigure: false,
         automaticR2Retry: false,
         reconciliationMutation: false,
+        executionEnabled: false,
+        executionDefaultOff: true,
     });
     assert.equal('command' in publicConfig, false);
     assert.equal('args' in publicConfig, false);
@@ -164,4 +168,57 @@ test('QB-16 WSL mode requires trusted absolute SystemRoot', () => {
         }),
         /SystemRoot must be an absolute path/,
     );
+});
+
+
+test('QB-18 execution authority is OFF unless both pilot and execution flags are explicit', () => {
+    const disabledPilot = resolveScene3DPilotConfig({
+        env: {
+            ORBI_SCENE3D_EXECUTION_ENABLED: '1',
+        },
+    });
+    assert.equal(disabledPilot.enabled, false);
+    assert.equal(disabledPilot.executionEnabled, false);
+
+    const readOnlyPilot = resolveScene3DPilotConfig({
+        env: {
+            ORBI_SCENE3D_PILOT_ENABLED: '1',
+            ORBI_SCENE3D_EXECUTION_ENABLED: '0',
+            ORBI_SCENE3D_SIDECAR_PATH: '/opt/orbi/qb15_scene3d_sidecar.py',
+            ORBI_SCENE3D_PYTHON: '/opt/orbi/.venv/bin/python',
+        },
+        userDataPath: '/tmp/orbi',
+        platform: 'linux',
+    });
+    assert.equal(readOnlyPilot.enabled, true);
+    assert.equal(readOnlyPilot.executionEnabled, false);
+
+    const executionPilot = resolveScene3DPilotConfig({
+        env: {
+            ORBI_SCENE3D_PILOT_ENABLED: '1',
+            ORBI_SCENE3D_EXECUTION_ENABLED: 'yes',
+            ORBI_SCENE3D_SIDECAR_PATH: '/opt/orbi/qb15_scene3d_sidecar.py',
+            ORBI_SCENE3D_PYTHON: '/opt/orbi/.venv/bin/python',
+        },
+        userDataPath: '/tmp/orbi',
+        platform: 'linux',
+    });
+    assert.equal(executionPilot.enabled, true);
+    assert.equal(executionPilot.executionEnabled, true);
+});
+
+test('QB-18 renderer cannot enable execution through public config mutation', () => {
+    const publicConfig = publicScene3DConfig({
+        enabled: true,
+        mode: 'native',
+        executionEnabled: false,
+        command: '/private/python',
+        args: ['/private/sidecar.py'],
+        ledgerPath: '/private/ledger.sqlite3',
+    });
+
+    assert.equal(publicConfig.executionEnabled, false);
+    assert.equal(publicConfig.executionDefaultOff, true);
+    assert.equal('setExecutionEnabled' in publicConfig, false);
+    assert.equal('executionEnv' in publicConfig, false);
 });
