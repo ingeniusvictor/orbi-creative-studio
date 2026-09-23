@@ -16,6 +16,11 @@ const {
     validateObjectName,
     validateRecipeRequest,
 } = require('./scene3dPilotPolicy');
+const {
+    sanitizeOrbiResponse,
+    sanitizePendingRecoveries,
+    sanitizeReconciliationHistory,
+} = require('./scene3dRendererSanitizer');
 
 const CHANNELS = Object.freeze({
     status: 'orbi-scene3d:status',
@@ -60,19 +65,19 @@ function sanitizeTransportError(error) {
     });
 }
 
-function unwrapTransport(response) {
+function unwrapTransport(response, sanitizer) {
     if (!response || response.ok !== true) {
         const transportError = response && response.error ? response.error : {};
         return Object.freeze({
             ok: false,
             error: Object.freeze({
                 code: String(transportError.code || 'SCENE3D_TRANSPORT_ERROR'),
-                message: String(transportError.message || 'Scene3D transport failed'),
+                message: 'Scene3D transport failed',
                 retryable: false,
             }),
         });
     }
-    return response.result;
+    return sanitizer(response.result);
 }
 
 function register({
@@ -144,7 +149,7 @@ function register({
             {},
             { requestId: randomUUIDImpl() },
         );
-        return unwrapTransport(response);
+        return unwrapTransport(response, sanitizeOrbiResponse);
     }));
 
     ipcMainImpl.handle(CHANNELS.objectInfo, withTrust(async (objectName) => {
@@ -163,7 +168,7 @@ function register({
             { object_name: name },
             { requestId: randomUUIDImpl() },
         );
-        return unwrapTransport(response);
+        return unwrapTransport(response, sanitizeOrbiResponse);
     }));
 
     ipcMainImpl.handle(CHANNELS.dryRunRecipe, withTrust(async (value) => {
@@ -185,7 +190,7 @@ function register({
             },
             { requestId: randomUUIDImpl() },
         );
-        return unwrapTransport(response);
+        return unwrapTransport(response, sanitizeOrbiResponse);
     }));
 
     ipcMainImpl.handle(CHANNELS.executeRecipe, withTrust(async (value) => {
@@ -207,14 +212,17 @@ function register({
             },
             { requestId: randomUUIDImpl() },
         );
-        return unwrapTransport(response);
+        return unwrapTransport(response, sanitizeOrbiResponse);
     }));
 
     ipcMainImpl.handle(CHANNELS.pendingRecoveries, withTrust(async () => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
 
-        return unwrapTransport(await sidecar.request('pending_recoveries', {}));
+        return unwrapTransport(
+            await sidecar.request('pending_recoveries', {}),
+            sanitizePendingRecoveries,
+        );
     }));
 
     ipcMainImpl.handle(CHANNELS.reconciliationHistory, withTrust(async (requestId) => {
@@ -229,7 +237,10 @@ function register({
         }
         const input = value === null ? {} : { request_id: value };
 
-        return unwrapTransport(await sidecar.request('reconciliation_history', input));
+        return unwrapTransport(
+            await sidecar.request('reconciliation_history', input),
+            sanitizeReconciliationHistory,
+        );
     }));
 
     return Object.freeze({
