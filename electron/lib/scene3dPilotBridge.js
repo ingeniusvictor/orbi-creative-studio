@@ -75,46 +75,6 @@ function unwrapTransport(response) {
     return response.result;
 }
 
-function assertPlainObject(value, label) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        throw new TypeError(`${label} must be an object`);
-    }
-    return value;
-}
-
-function assertExactKeys(value, allowedKeys, label) {
-    const keys = Object.keys(value);
-    const unknown = keys.filter((key) => !allowedKeys.has(key));
-    if (unknown.length > 0) {
-        throw new TypeError(`${label} contains unexpected field(s): ${unknown.sort().join(', ')}`);
-    }
-}
-
-function validateRecipeRequest(value, { execution }) {
-    const request = assertPlainObject(value, 'Scene3D recipe request');
-    const allowed = execution
-        ? new Set(['recipeId', 'parameters', 'confirmed'])
-        : new Set(['recipeId', 'parameters']);
-    assertExactKeys(request, allowed, 'Scene3D recipe request');
-
-    const recipeId = typeof request.recipeId === 'string' ? request.recipeId.trim() : '';
-    if (!ALLOWED_RECIPES.has(recipeId)) {
-        throw new TypeError('Scene3D recipe is not allowlisted');
-    }
-
-    const parameters = request.parameters === undefined ? {} : request.parameters;
-    assertPlainObject(parameters, 'Scene3D recipe parameters');
-
-    if (execution && recipeId === DELETE_RECIPE && request.confirmed !== true) {
-        throw new TypeError('Deleting a Blender object requires explicit product confirmation');
-    }
-
-    return Object.freeze({
-        recipeId,
-        parameters,
-    });
-}
-
 function register({
     appImpl,
     env = process.env,
