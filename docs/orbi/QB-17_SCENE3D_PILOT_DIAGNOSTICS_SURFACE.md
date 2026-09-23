@@ -81,7 +81,9 @@ knowledge.
 
 Diagnostic results are rendered through `textContent` into a `pre` element.
 
-Provider data is never inserted with `innerHTML`.
+Provider data is never inserted with `innerHTML`; the status container is cleared with `replaceChildren()`.
+
+Formatted diagnostic output is capped at **65,536 characters** before rendering. Larger results are truncated with an explicit marker to protect renderer responsiveness/memory.
 
 The component consumes only the already-sanitized QB-16 renderer surface.
 
@@ -110,7 +112,7 @@ Tests:
 tests/scene3dPilotDiagnosticsSurface.test.js
 ```
 
-New QB-17 tests: **6**.
+New QB-17 tests: **7**.
 
 ## Validation
 
