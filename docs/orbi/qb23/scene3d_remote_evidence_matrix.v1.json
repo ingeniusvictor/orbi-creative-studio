@@ -7,24 +7,28 @@
   "lab_repository": "ingeniusvictor/orbi-qwen-mm-plugins-lab",
   "lab_dependency_state": {
     "qb12": {
-      "status": "LOCAL_REGRESSION_PENDING",
-      "head": "a05196d7302f3c2632dc5790673a97e338634d91",
-      "required_regression_count": 62,
-      "live_observed": "PASS"
+      "status": "CERTIFIED",
+      "implementation_candidate": "a05196d7302f3c2632dc5790673a97e338634d91",
+      "certification_head": "4a2de2fc718dbb2a33cc76df4ccb8cb3c56a17e0",
+      "regression_count": 62,
+      "regression_result": "PASS",
+      "regression_duration_seconds": 1.26,
+      "live_observed": "PASS",
+      "integration_branch": "integration/orbi-lab"
     },
     "qb13": {
-      "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
-      "head": "6b66a3560522253d442afe7aaa141c9520cba51d",
+      "status": "LOCAL_VALIDATION_PENDING",
+      "head": "19a07b3b043801acb65f5108d53023c497209cc0",
       "required_regression_count": 78
     },
     "qb14": {
       "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
-      "head": "6be50f8bf4a81eb3b1c6124c54b57a42b2aa26e4",
+      "head": "243cf11af0edc1df6ad04b09fa17fcb0189f13cf",
       "required_accumulated_count": 90
     },
     "qb15": {
       "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
-      "head": "63accd18ff21f13b111d6959905d34c1776d1be7",
+      "head": "ce9425e5f946a2e37da9e9c2525bcae40cac93ea",
       "required_accumulated_count": 106
     }
   },
@@ -71,5 +75,5 @@
     "computeRouterAuthorityChanged": false,
     "mhsActuationEnabled": false
   },
-  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__LAB_CERTIFICATION_PENDING"
+  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__QB12_CERTIFIED__QB13_QB15_PENDING"
 }
