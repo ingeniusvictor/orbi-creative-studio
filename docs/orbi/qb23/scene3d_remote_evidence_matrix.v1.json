@@ -27,14 +27,20 @@
       "integration_branch": "integration/orbi-lab"
     },
     "qb14": {
-      "status": "LOCAL_VALIDATION_PENDING",
-      "head": "2827d39bfcf9eae0dd928b62e49decd3c4ad1a6b",
-      "required_accumulated_count": 90
+      "status": "CERTIFIED",
+      "implementation_candidate": "2827d39bfcf9eae0dd928b62e49decd3c4ad1a6b",
+      "certification_head": "c6ea0718acb2831d8cd2ef8b94c760bab88864b8",
+      "contract_validator": "PASS",
+      "contract_invariants": 18,
+      "regression_count": 90,
+      "regression_result": "PASS",
+      "integration_branch": "integration/orbi-lab"
     },
     "qb15": {
-      "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
-      "head": "318d161cc9804e02630a7f46594c23200f8db3df",
-      "required_accumulated_count": 106
+      "status": "LOCAL_VALIDATION_PENDING",
+      "head": "c1d54e41d79d80a97cf3e8e97b7ae7b7ba6d046c",
+      "required_accumulated_count": 106,
+      "live_sidecar_required": true
     }
   },
   "creative_studio_remote_evidence": {
@@ -80,5 +86,5 @@
     "computeRouterAuthorityChanged": false,
     "mhsActuationEnabled": false
   },
-  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__QB12_QB13_CERTIFIED__QB14_QB15_PENDING"
+  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__QB12_QB14_CERTIFIED__QB15_PENDING"
 }
