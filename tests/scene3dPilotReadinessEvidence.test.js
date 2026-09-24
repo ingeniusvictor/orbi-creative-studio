@@ -211,7 +211,11 @@ test('QB-22 readiness tooling has no runtime execution or Electron authority', (
         'setExecutionEnabled',
         'ORBI_SCENE3D_EXECUTION_ENABLED',
         'orbiComputeRouter',
-        'mhs',
+        'mhsWrite',
+        'mhsActuate',
+        'mhsReset',
+        'mhsDiscover',
+        'window.orbiHardware',
     ]) {
         assert.equal(sources.includes(forbidden), false, forbidden);
     }
