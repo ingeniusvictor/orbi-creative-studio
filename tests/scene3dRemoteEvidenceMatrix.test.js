@@ -27,33 +27,27 @@ test('QB-23 remote evidence matrix keeps all product-side phases GREEN', () => {
     }
 });
 
-test('QB-23 remote evidence matrix records QB-12 and QB-13 certifications without upgrading later lab phases', () => {
-    for (const phase of ['qb12', 'qb13']) {
+test('QB-23 remote evidence matrix records QB-12 through QB-14 certifications while QB-15 remains pending', () => {
+    for (const phase of ['qb12', 'qb13', 'qb14']) {
         const item = MATRIX.lab_dependency_state[phase];
         assert.equal(item.status, 'CERTIFIED');
         assert.match(item.implementation_candidate, /^[0-9a-f]{40}$/);
         assert.match(item.certification_head, /^[0-9a-f]{40}$/);
-        assert.equal(item.regression_result, 'PASS');
-        assert.equal(item.live_observed, 'PASS');
     }
 
     assert.equal(MATRIX.lab_dependency_state.qb12.regression_count, 62);
     assert.equal(MATRIX.lab_dependency_state.qb13.regression_count, 78);
+    assert.equal(MATRIX.lab_dependency_state.qb14.regression_count, 90);
+    assert.equal(MATRIX.lab_dependency_state.qb14.contract_validator, 'PASS');
 
-    for (const phase of ['qb14','qb15']) {
-        assert.notEqual(
-            MATRIX.lab_dependency_state[phase].status,
-            'CERTIFIED',
-        );
-        assert.match(
-            MATRIX.lab_dependency_state[phase].head,
-            /^[0-9a-f]{40}$/,
-        );
-    }
+    assert.notEqual(MATRIX.lab_dependency_state.qb15.status, 'CERTIFIED');
+    assert.match(MATRIX.lab_dependency_state.qb15.head, /^[0-9a-f]{40}$/);
+    assert.equal(MATRIX.lab_dependency_state.qb15.required_accumulated_count, 106);
+    assert.equal(MATRIX.lab_dependency_state.qb15.live_sidecar_required, true);
 
     assert.equal(
         MATRIX.checkpoint_state,
-        'REMOTE_PRODUCT_STACK_GREEN__QB12_QB13_CERTIFIED__QB14_QB15_PENDING',
+        'REMOTE_PRODUCT_STACK_GREEN__QB12_QB14_CERTIFIED__QB15_PENDING',
     );
 });
 
