@@ -42,8 +42,9 @@ test('QB-23 remote evidence matrix records QB-12 through QB-14 certifications wh
 
     assert.notEqual(MATRIX.lab_dependency_state.qb15.status, 'CERTIFIED');
     assert.match(MATRIX.lab_dependency_state.qb15.head, /^[0-9a-f]{40}$/);
-    assert.equal(MATRIX.lab_dependency_state.qb15.required_accumulated_count, 106);
+    assert.equal(MATRIX.lab_dependency_state.qb15.required_accumulated_count, 107);
     assert.equal(MATRIX.lab_dependency_state.qb15.live_sidecar_required, true);
+    assert.equal(MATRIX.lab_dependency_state.qb15.sqlite_concurrent_init_hardening, true);
 
     assert.equal(
         MATRIX.checkpoint_state,
