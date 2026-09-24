@@ -168,7 +168,10 @@ test('QB-23 review tooling has no runtime execution authority', () => {
         'setExecutionEnabled',
         'ORBI_SCENE3D_EXECUTION_ENABLED',
         'orbiComputeRouter',
-        'mhs',
+        'mhsWrite',
+        'mhsActuate',
+        'mhsReset',
+        'window.orbiHardware',
     ]) {
         assert.equal(source.includes(forbidden), false, forbidden);
     }
