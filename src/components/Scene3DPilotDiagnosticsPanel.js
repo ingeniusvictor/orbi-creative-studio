@@ -1,3 +1,5 @@
+import { Scene3DExecutionReviewPanel } from './Scene3DExecutionReviewPanel.js';
+
 function textNode(tag, text, style = '') {
     const node = document.createElement(tag);
     node.textContent = text;
@@ -67,6 +69,10 @@ export function Scene3DPilotDiagnosticsPanel({
     statusBox.style.cssText = 'padding:0.8rem;border:1px solid rgba(255,255,255,0.08);border-radius:0.75rem;background:rgba(255,255,255,0.025);';
     root.appendChild(statusBox);
 
+    const executionHost = document.createElement('div');
+    executionHost.dataset.orbiScene3dExecutionHost = 'main-authority-gated';
+    root.appendChild(executionHost);
+
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;';
     root.appendChild(actions);
@@ -107,11 +113,17 @@ export function Scene3DPilotDiagnosticsPanel({
     function renderStatus(value) {
         status = value;
         statusBox.replaceChildren();
+        executionHost.replaceChildren();
 
         const enabled = Boolean(value && value.ok === true && value.status?.enabled === true);
         setEnabledActions(enabled);
 
         if (!value || value.ok !== true || !value.status) {
+            executionHost.appendChild(textNode(
+                'div',
+                'Governed execution controls are unavailable until main-process status is valid.',
+                'font-size:0.64rem;color:rgba(255,255,255,0.35);line-height:1.4;',
+            ));
             statusBox.appendChild(textNode(
                 'div',
                 'Scene3D bridge unavailable',
@@ -126,9 +138,21 @@ export function Scene3DPilotDiagnosticsPanel({
         ));
         statusBox.appendChild(textNode(
             'div',
-            `mode=${value.status.mode} · processStarted=${Boolean(value.status.processStarted)} · automaticR2Retry=${Boolean(value.status.automaticR2Retry)} · executionEnabled=${Boolean(value.status.executionEnabled)}`,
+            `mode=${value.status.mode} · processStarted=${Boolean(value.status.processStarted)} · executionEnabled=${Boolean(value.status.executionEnabled)} · automaticR2Retry=${Boolean(value.status.automaticR2Retry)}`,
             'font-size:0.64rem;color:rgba(255,255,255,0.42);margin-top:0.35rem;',
         ));
+
+        if (enabled && value.status.executionEnabled === true) {
+            executionHost.appendChild(Scene3DExecutionReviewPanel({ scene3d }));
+        } else {
+            executionHost.appendChild(textNode(
+                'div',
+                enabled
+                    ? 'Governed execution controls are disabled by main-process policy.'
+                    : 'Governed execution controls are unavailable while the pilot is disabled.',
+                'font-size:0.64rem;color:rgba(255,255,255,0.35);line-height:1.4;',
+            ));
+        }
     }
 
     async function run(label, fn) {
