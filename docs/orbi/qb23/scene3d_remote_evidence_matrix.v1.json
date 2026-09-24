@@ -1,0 +1,75 @@
+{
+  "schema": "orbi.scene3d-remote-evidence-matrix/v1",
+  "generated_for": "QB-23 remote readiness checkpoint",
+  "product_repository": "ingeniusvictor/orbi-creative-studio",
+  "product_branch": "feature/qb-23-scene3d-manual-pilot-review-record",
+  "canonical_branch": "integration/orbi-foundation",
+  "lab_repository": "ingeniusvictor/orbi-qwen-mm-plugins-lab",
+  "lab_dependency_state": {
+    "qb12": {
+      "status": "LOCAL_REGRESSION_PENDING",
+      "head": "a05196d7302f3c2632dc5790673a97e338634d91",
+      "required_regression_count": 62,
+      "live_observed": "PASS"
+    },
+    "qb13": {
+      "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
+      "head": "6b66a3560522253d442afe7aaa141c9520cba51d",
+      "required_regression_count": 78
+    },
+    "qb14": {
+      "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
+      "head": "6be50f8bf4a81eb3b1c6124c54b57a42b2aa26e4",
+      "required_accumulated_count": 90
+    },
+    "qb15": {
+      "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
+      "head": "63accd18ff21f13b111d6959905d34c1776d1be7",
+      "required_accumulated_count": 106
+    }
+  },
+  "creative_studio_remote_evidence": {
+    "qb16": {
+      "head": "276671e6353b75f787ed6d0c55db03b62e9c6030",
+      "ci": "GREEN"
+    },
+    "qb17": {
+      "head": "27d073acce5f94ad31061057c9341ba628171d59",
+      "ci": "GREEN"
+    },
+    "qb18": {
+      "head": "fe253a80f94275f77618451f9032d86d204ad8a1",
+      "ci": "GREEN"
+    },
+    "qb19": {
+      "head": "78c50bc0b5cf6d883d67f82f689c4c9ce3e13957",
+      "ci": "GREEN"
+    },
+    "qb20": {
+      "head": "3d1bb74ac20b82d3b961c73b56f97ec9b3a2b22e",
+      "ci": "GREEN"
+    },
+    "qb21": {
+      "head": "b9efd9fa1fb75095a97641cac9f1bed277effcec",
+      "ci": "GREEN"
+    },
+    "qb22": {
+      "head": "d04bb00524dca4b172466f0cd69a20416315f2e7",
+      "ci": "GREEN"
+    },
+    "qb23": {
+      "head": "279b1f82d1d97dd9942457d4de1b0521d7c04340",
+      "ci": "GREEN"
+    }
+  },
+  "authority_state": {
+    "pilotDefaultOff": true,
+    "executionDefaultOff": true,
+    "automaticR2Retry": false,
+    "featureEnableAuthorized": false,
+    "productionCutoverAuthorized": false,
+    "computeRouterAuthorityChanged": false,
+    "mhsActuationEnabled": false
+  },
+  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__LAB_CERTIFICATION_PENDING"
+}
