@@ -12,6 +12,7 @@ const {
 } = require('./scene3dSidecarClient');
 const {
     createScene3DExecutionReviewRegistry,
+    validateDryRunEvidence,
 } = require('./scene3dExecutionReview');
 const {
     ALLOWED_RECIPES,
@@ -85,6 +86,8 @@ function sanitizeTransportError(error) {
         SCENE3D_REVIEW_CAPACITY: 'Scene3D review capacity is temporarily unavailable',
         SCENE3D_REVIEW_DRY_RUN_REQUIRED: 'Scene3D review requires a successful dry-run',
         SCENE3D_REVIEW_TOKEN_INVALID: 'Scene3D review token could not be issued',
+        SCENE3D_REVIEW_EVIDENCE_INVALID: 'Scene3D dry-run evidence did not match the governed request',
+        SCENE3D_REVIEW_CODE_CHANGED: 'Scene3D governed recipe changed after review; run a fresh dry-run',
     };
 
     return Object.freeze({
@@ -254,19 +257,48 @@ function register({
             return invalid(error.message);
         }
 
-        reviewRegistry.consume({
+        const reviewed = reviewRegistry.consume({
             token: request.reviewToken,
             recipeId: request.recipeId,
             parameters: request.parameters,
         });
 
         const sidecar = getClient();
+        const providerInput = {
+            recipe_id: request.recipeId,
+            parameters: request.parameters,
+        };
+
+        // Recompile/inspect immediately before the side effect. The one-shot review
+        // token has already been consumed, so a failed revalidation cannot be retried
+        // with the same capability.
+        const verificationResponse = await sidecar.request(
+            'dry_run_recipe',
+            providerInput,
+            { requestId: randomUUIDImpl() },
+        );
+        const verification = unwrapTransport(
+            verificationResponse,
+            sanitizeOrbiResponse,
+        );
+        if (!verification || verification.ok !== true) return verification;
+
+        const currentEvidence = validateDryRunEvidence({
+            recipeId: request.recipeId,
+            parameters: request.parameters,
+            dryRunResponse: verification,
+        });
+        if (currentEvidence.codeSha256 !== reviewed.codeSha256) {
+            const error = new Error(
+                'Scene3D governed recipe code changed after review',
+            );
+            error.code = 'SCENE3D_REVIEW_CODE_CHANGED';
+            throw error;
+        }
+
         const response = await sidecar.request(
             'execute_recipe',
-            {
-                recipe_id: request.recipeId,
-                parameters: request.parameters,
-            },
+            providerInput,
             { requestId: randomUUIDImpl() },
         );
         return unwrapTransport(response, sanitizeOrbiResponse);
