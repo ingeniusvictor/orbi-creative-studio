@@ -69,6 +69,24 @@ function createHarness({ enabled = true, executionEnabled = true, responses = []
             requests.push({ operation, input, options });
             if (responses.length > 0) return responses.shift();
 
+            const data = operation === 'dry_run_recipe'
+                ? {
+                    execution: 'dry-run',
+                    recipe: {
+                        recipe_id: input.recipe_id,
+                        version: '1.0.0',
+                        parameters: input.parameters,
+                        code_sha256: 'a'.repeat(64),
+                        filesystem_scope: [],
+                        network_allowed: false,
+                    },
+                    audit: {
+                        provider_tool: 'execute_blender_code',
+                        provider_called: false,
+                    },
+                }
+                : undefined;
+
             return {
                 protocol: 'orbi.scene3d-sidecar/v1',
                 id: 'transport',
@@ -78,6 +96,7 @@ function createHarness({ enabled = true, executionEnabled = true, responses = []
                     operation: operation === 'scene_info' || operation === 'object_info'
                         ? operation
                         : 'execute_recipe',
+                    ...(data === undefined ? {} : { data }),
                 }),
             };
         },
@@ -272,12 +291,14 @@ test('QB-16 delete execution requires confirmation and never forwards it', async
         reviewToken: 'review-1',
     });
     assert.equal(allowed.ok, true);
-    assert.equal(harness.requests.length, 1);
-    assert.deepEqual(harness.requests[0].input, {
+    assert.equal(harness.requests.length, 2);
+    assert.equal(harness.requests[0].operation, 'dry_run_recipe');
+    assert.equal(harness.requests[1].operation, 'execute_recipe');
+    assert.deepEqual(harness.requests[1].input, {
         recipe_id: 'orbi.blender.delete_object.v1',
         parameters: { name: 'Cube' },
     });
-    assert.equal('confirmed' in harness.requests[0].input, false);
+    assert.equal('confirmed' in harness.requests[1].input, false);
 });
 
 test('QB-16 pending recovery inspection removes provider metadata', async () => {
@@ -444,15 +465,16 @@ test('QB-19 reviewed execution consumes token before dispatch and never forwards
         parameters: { name: 'Cube', size: 1, location: [0, 0, 0] },
     });
 
-    assert.equal(harness.requests.length, 2);
+    assert.equal(harness.requests.length, 3);
     assert.equal(harness.requests[0].operation, 'dry_run_recipe');
-    assert.equal(harness.requests[1].operation, 'execute_recipe');
-    assert.deepEqual(harness.requests[1].input, {
+    assert.equal(harness.requests[1].operation, 'dry_run_recipe');
+    assert.equal(harness.requests[2].operation, 'execute_recipe');
+    assert.deepEqual(harness.requests[2].input, {
         recipe_id: 'orbi.blender.create_cube.v1',
         parameters: { name: 'Cube', size: 1, location: [0, 0, 0] },
     });
-    assert.equal('reviewToken' in harness.requests[1].input, false);
-    assert.equal('confirmed' in harness.requests[1].input, false);
+    assert.equal('reviewToken' in harness.requests[2].input, false);
+    assert.equal('confirmed' in harness.requests[2].input, false);
 });
 
 test('QB-19 review registry failure prevents execution sidecar request', async () => {
@@ -726,9 +748,10 @@ test('QB-19 real review registry binds successful dry-run payload to execution',
     );
 
     assert.equal(executed.ok, true);
-    assert.equal(requests.length, 3);
-    assert.equal(requests[2].operation, 'execute_recipe');
-    assert.deepEqual(requests[2].input, {
+    assert.equal(requests.length, 4);
+    assert.equal(requests[2].operation, 'dry_run_recipe');
+    assert.equal(requests[3].operation, 'execute_recipe');
+    assert.deepEqual(requests[3].input, {
         recipe_id: 'orbi.blender.create_cube.v1',
         parameters,
     });
@@ -766,4 +789,128 @@ test('QB-18 public renderer bridge exposes no execution-authority mutation chann
     }
 
     assert.equal(bridge.includes("CHANNELS.setExecutionEnabled"), false);
+});
+
+
+test('QB-21 reviewed execution revalidates recipe code before provider side effect', async () => {
+    const harness = createHarness();
+
+    const dry = await harness.invoke(CHANNELS.dryRunRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: { name: 'Cube', size: 1, location: [0, 0, 0] },
+    });
+
+    const executed = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: { name: 'Cube', size: 1, location: [0, 0, 0] },
+        confirmed: true,
+        reviewToken: dry.review.token,
+    });
+
+    assert.equal(executed.ok, true);
+    assert.deepEqual(
+        harness.requests.map((item) => item.operation),
+        ['dry_run_recipe', 'dry_run_recipe', 'execute_recipe'],
+    );
+    assert.notEqual(
+        harness.requests[1].options.requestId,
+        harness.requests[2].options.requestId,
+    );
+});
+
+test('QB-21 changed recipe code consumes review and blocks execute_recipe', async () => {
+    const ipc = createIpc();
+    const requests = [];
+    let requestId = 0;
+    let reviewId = 0;
+    let dryRunCount = 0;
+
+    register({
+        appImpl: { getPath: () => '/tmp/orbi' },
+        ipcMainImpl: ipc,
+        assertTrustedSenderImpl: () => {},
+        randomUUIDImpl: () => `main-request-${++requestId}`,
+        reviewTokenImpl: () => `review-token-${++reviewId}`,
+        createClientImpl: () => ({
+            request: async (operation, input, options = {}) => {
+                requests.push({ operation, input, options });
+                if (operation === 'dry_run_recipe') {
+                    dryRunCount += 1;
+                    return {
+                        protocol: 'orbi.scene3d-sidecar/v1',
+                        id: 'transport-dry',
+                        ok: true,
+                        result: providerResult({
+                            requestId: options.requestId,
+                            operation: 'execute_recipe',
+                            data: {
+                                execution: 'dry-run',
+                                recipe: {
+                                    recipe_id: input.recipe_id,
+                                    version: '1.0.0',
+                                    parameters: input.parameters,
+                                    code_sha256: (dryRunCount === 1 ? 'a' : 'b').repeat(64),
+                                    filesystem_scope: [],
+                                    network_allowed: false,
+                                },
+                                audit: {
+                                    provider_tool: 'execute_blender_code',
+                                    provider_called: false,
+                                },
+                            },
+                            audit: {
+                                schema: 'orbi.execution-audit/v1',
+                                provider_called: false,
+                            },
+                        }),
+                    };
+                }
+                throw new Error('execute_recipe must not be called after code drift');
+            },
+            close() {},
+            isStarted: () => true,
+        }),
+        resolveConfigImpl: () => ({
+            enabled: true,
+            executionEnabled: true,
+            mode: 'native',
+            command: '/opt/python',
+            args: [],
+            cwd: '/opt',
+            ledgerPath: '/private/ledger.sqlite3',
+        }),
+        diagnostic: () => {},
+    });
+
+    const payload = {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: { name: 'CodeDriftCube', size: 1, location: [0, 0, 0] },
+    };
+
+    const dry = await ipc.handlers.get(CHANNELS.dryRunRecipe)({}, payload);
+    const denied = await ipc.handlers.get(CHANNELS.executeRecipe)(
+        {},
+        {
+            ...payload,
+            confirmed: true,
+            reviewToken: dry.review.token,
+        },
+    );
+
+    assert.equal(denied.ok, false);
+    assert.equal(denied.error.code, 'SCENE3D_REVIEW_CODE_CHANGED');
+    assert.equal(requests.filter((item) => item.operation === 'execute_recipe').length, 0);
+    assert.equal(requests.filter((item) => item.operation === 'dry_run_recipe').length, 2);
+
+    const reused = await ipc.handlers.get(CHANNELS.executeRecipe)(
+        {},
+        {
+            ...payload,
+            confirmed: true,
+            reviewToken: dry.review.token,
+        },
+    );
+    assert.equal(reused.ok, false);
+    assert.equal(reused.error.code, 'SCENE3D_REVIEW_REQUIRED');
+    assert.equal(requests.filter((item) => item.operation === 'execute_recipe').length, 0);
 });
