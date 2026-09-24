@@ -17,18 +17,23 @@
       "integration_branch": "integration/orbi-lab"
     },
     "qb13": {
-      "status": "LOCAL_VALIDATION_PENDING",
-      "head": "19a07b3b043801acb65f5108d53023c497209cc0",
-      "required_regression_count": 78
+      "status": "CERTIFIED",
+      "implementation_candidate": "19a07b3b043801acb65f5108d53023c497209cc0",
+      "certification_head": "a13ef60b801054ab663268828ffbec6886edbc12",
+      "regression_count": 78,
+      "regression_result": "PASS",
+      "regression_duration_seconds": 1.13,
+      "live_observed": "PASS",
+      "integration_branch": "integration/orbi-lab"
     },
     "qb14": {
-      "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
-      "head": "243cf11af0edc1df6ad04b09fa17fcb0189f13cf",
+      "status": "LOCAL_VALIDATION_PENDING",
+      "head": "2827d39bfcf9eae0dd928b62e49decd3c4ad1a6b",
       "required_accumulated_count": 90
     },
     "qb15": {
       "status": "DEPENDENCY_AND_LOCAL_VALIDATION_PENDING",
-      "head": "ce9425e5f946a2e37da9e9c2525bcae40cac93ea",
+      "head": "318d161cc9804e02630a7f46594c23200f8db3df",
       "required_accumulated_count": 106
     }
   },
@@ -75,5 +80,5 @@
     "computeRouterAuthorityChanged": false,
     "mhsActuationEnabled": false
   },
-  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__QB12_CERTIFIED__QB13_QB15_PENDING"
+  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__QB12_QB13_CERTIFIED__QB14_QB15_PENDING"
 }
