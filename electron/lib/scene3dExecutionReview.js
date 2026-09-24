@@ -51,6 +51,52 @@ function executionFingerprint(recipeId, parameters) {
     return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
 
+function validateDryRunEvidence({ recipeId, parameters, dryRunResponse }) {
+    if (!dryRunResponse
+        || dryRunResponse.ok !== true
+        || dryRunResponse.data?.execution !== 'dry-run'
+        || dryRunResponse.data?.providerCalled !== false) {
+        throw createReviewError(
+            'SCENE3D_REVIEW_DRY_RUN_REQUIRED',
+            'A successful provider-free dry-run is required before review issuance',
+        );
+    }
+
+    const requestedFingerprint = executionFingerprint(recipeId, parameters);
+    const recipeEvidence = dryRunResponse.data.recipe;
+
+    let evidenceFingerprint = null;
+    try {
+        evidenceFingerprint = recipeEvidence
+            && typeof recipeEvidence === 'object'
+            && !Array.isArray(recipeEvidence)
+            ? executionFingerprint(recipeId, recipeEvidence.parameters)
+            : null;
+    } catch {
+        evidenceFingerprint = null;
+    }
+
+    if (!recipeEvidence
+        || typeof recipeEvidence !== 'object'
+        || Array.isArray(recipeEvidence)
+        || recipeEvidence.recipe_id !== recipeId
+        || !/^[0-9a-f]{64}$/.test(String(recipeEvidence.code_sha256 || ''))
+        || recipeEvidence.network_allowed !== false
+        || !Array.isArray(recipeEvidence.filesystem_scope)
+        || recipeEvidence.filesystem_scope.length !== 0
+        || evidenceFingerprint !== requestedFingerprint) {
+        throw createReviewError(
+            'SCENE3D_REVIEW_EVIDENCE_INVALID',
+            'Dry-run recipe evidence does not match the requested governed execution',
+        );
+    }
+
+    return Object.freeze({
+        fingerprint: requestedFingerprint,
+        codeSha256: recipeEvidence.code_sha256,
+    });
+}
+
 function createScene3DExecutionReviewRegistry({
     randomUUIDImpl = randomUUID,
     nowImpl = Date.now,
@@ -74,21 +120,14 @@ function createScene3DExecutionReviewRegistry({
     }
 
     function issue({ recipeId, parameters, dryRunResponse }) {
-        if (!dryRunResponse
-            || dryRunResponse.ok !== true
-            || dryRunResponse.data?.execution !== 'dry-run'
-            || dryRunResponse.data?.providerCalled !== false) {
-            throw createReviewError(
-                'SCENE3D_REVIEW_DRY_RUN_REQUIRED',
-                'A successful provider-free dry-run is required before review issuance',
-            );
-        }
-
-        const fingerprint = executionFingerprint(recipeId, parameters);
-        const recipeEvidence = dryRunResponse.data.recipe || {};
-        const codeSha256 = typeof recipeEvidence.code_sha256 === 'string'
-            ? recipeEvidence.code_sha256
-            : null;
+        const {
+            fingerprint,
+            codeSha256,
+        } = validateDryRunEvidence({
+            recipeId,
+            parameters,
+            dryRunResponse,
+        });
 
         pruneExpired();
         if (reviews.size >= maxReviews) {
@@ -191,4 +230,5 @@ module.exports = {
     createScene3DExecutionReviewRegistry,
     executionFingerprint,
     normalizeJson,
+    validateDryRunEvidence,
 };
