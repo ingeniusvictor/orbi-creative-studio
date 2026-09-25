@@ -137,14 +137,14 @@ Certified QB-19 accumulated gate:
 QB-20 adds:
 
 ```text
-14 tests
+13 tests
 ```
 
 Expected accumulated focused gate:
 
 ```text
-tests 98
-pass 98
+tests 97
+pass 97
 fail 0
 ```
 
