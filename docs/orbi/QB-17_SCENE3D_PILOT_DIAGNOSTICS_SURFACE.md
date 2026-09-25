@@ -114,7 +114,7 @@ Tests:
 tests/scene3dPilotDiagnosticsSurface.test.js
 ```
 
-New QB-17 tests: **8**.
+New QB-17 tests: **9**.
 
 ## Validation
 
