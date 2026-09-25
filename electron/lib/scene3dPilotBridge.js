@@ -1,8 +1,6 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const { ipcMain } = require('electron');
-const { assertTrustedSender } = require('./providerCredentials');
 const {
     publicScene3DConfig,
     resolveScene3DPilotConfig,
@@ -95,8 +93,8 @@ function unwrapTransport(response, sanitizer) {
 function register({
     appImpl,
     env = process.env,
-    ipcMainImpl = ipcMain,
-    assertTrustedSenderImpl = assertTrustedSender,
+    ipcMainImpl = undefined,
+    assertTrustedSenderImpl = undefined,
     randomUUIDImpl = randomUUID,
     createClientImpl = createScene3DSidecarClient,
     resolveConfigImpl = resolveScene3DPilotConfig,
@@ -105,6 +103,10 @@ function register({
     if (!appImpl || typeof appImpl.getPath !== 'function') {
         throw new TypeError('Electron app implementation is required');
     }
+
+    const effectiveIpcMain = ipcMainImpl || require('electron').ipcMain;
+    const effectiveAssertTrustedSender = assertTrustedSenderImpl
+        || require('./providerCredentials').assertTrustedSender;
 
     const config = resolveConfigImpl({
         env,
@@ -128,7 +130,7 @@ function register({
 
     function withTrust(handler) {
         return async (event, ...args) => {
-            assertTrustedSenderImpl(event);
+            effectiveAssertTrustedSender(event);
             try {
                 return await handler(...args);
             } catch (error) {
@@ -138,10 +140,10 @@ function register({
     }
 
     for (const channel of Object.values(CHANNELS)) {
-        ipcMainImpl.removeHandler(channel);
+        effectiveIpcMain.removeHandler(channel);
     }
 
-    ipcMainImpl.handle(CHANNELS.status, withTrust(async () => {
+    effectiveIpcMain.handle(CHANNELS.status, withTrust(async () => {
         return Object.freeze({
             ok: true,
             status: Object.freeze({
@@ -152,7 +154,7 @@ function register({
         });
     }));
 
-    ipcMainImpl.handle(CHANNELS.sceneInfo, withTrust(async () => {
+    effectiveIpcMain.handle(CHANNELS.sceneInfo, withTrust(async () => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
 
@@ -164,7 +166,7 @@ function register({
         return unwrapTransport(response, sanitizeOrbiResponse);
     }));
 
-    ipcMainImpl.handle(CHANNELS.objectInfo, withTrust(async (objectName) => {
+    effectiveIpcMain.handle(CHANNELS.objectInfo, withTrust(async (objectName) => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
 
@@ -183,7 +185,7 @@ function register({
         return unwrapTransport(response, sanitizeOrbiResponse);
     }));
 
-    ipcMainImpl.handle(CHANNELS.dryRunRecipe, withTrust(async (value) => {
+    effectiveIpcMain.handle(CHANNELS.dryRunRecipe, withTrust(async (value) => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
 
@@ -205,7 +207,7 @@ function register({
         return unwrapTransport(response, sanitizeOrbiResponse);
     }));
 
-    ipcMainImpl.handle(CHANNELS.executeRecipe, withTrust(async (value) => {
+    effectiveIpcMain.handle(CHANNELS.executeRecipe, withTrust(async (value) => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
 
@@ -227,7 +229,7 @@ function register({
         return unwrapTransport(response, sanitizeOrbiResponse);
     }));
 
-    ipcMainImpl.handle(CHANNELS.pendingRecoveries, withTrust(async () => {
+    effectiveIpcMain.handle(CHANNELS.pendingRecoveries, withTrust(async () => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
 
@@ -237,7 +239,7 @@ function register({
         );
     }));
 
-    ipcMainImpl.handle(CHANNELS.reconciliationHistory, withTrust(async (requestId) => {
+    effectiveIpcMain.handle(CHANNELS.reconciliationHistory, withTrust(async (requestId) => {
         const sidecar = getClient();
         if (!sidecar) return disabled();
 

@@ -51,7 +51,7 @@ test('QB-16 Electron main registers Scene3D bridge but never executes a recipe a
 test('QB-16 bridge authenticates every IPC path through one trusted wrapper', () => {
     const bridge = read('electron/lib/scene3dPilotBridge.js');
 
-    assert.ok(bridge.includes('assertTrustedSenderImpl(event)'));
+    assert.ok(bridge.includes('effectiveAssertTrustedSender(event)'));
     assert.ok(bridge.includes('function withTrust(handler)'));
 
     for (const channel of [

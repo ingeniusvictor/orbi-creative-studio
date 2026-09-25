@@ -43,7 +43,7 @@ test('QB-16 native mode resolves a main-owned ledger under userData', () => {
     assert.deepEqual(config.args, [
         '/opt/orbi/qb15_scene3d_sidecar.py',
         '--ledger',
-        path.join('/home/test/.config/orbi', 'orbi-scene3d', 'execution-ledger.sqlite3'),
+        path.posix.join('/home/test/.config/orbi', 'orbi-scene3d', 'execution-ledger.sqlite3'),
     ]);
     assert.equal(config.cwd, '/opt/orbi');
 });
