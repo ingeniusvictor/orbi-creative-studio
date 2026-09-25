@@ -40,19 +40,23 @@ function resolveScene3DPilotConfig({
     const mode = String(env[MODE_ENV] || 'native').trim().toLowerCase();
 
     if (mode === 'native') {
+        const nativePathImpl = platform === 'win32'
+            ? pathImpl.win32
+            : pathImpl.posix;
+
         const sidecarPath = requireAbsolute(
             env.ORBI_SCENE3D_SIDECAR_PATH,
             'ORBI_SCENE3D_SIDECAR_PATH',
-            pathImpl,
+            nativePathImpl,
         );
         const pythonExecutable = requireAbsolute(
             env.ORBI_SCENE3D_PYTHON,
             'ORBI_SCENE3D_PYTHON',
-            pathImpl,
+            nativePathImpl,
         );
 
-        const root = requireAbsolute(userDataPath, 'userDataPath', pathImpl);
-        const ledgerPath = pathImpl.join(
+        const root = requireAbsolute(userDataPath, 'userDataPath', nativePathImpl);
+        const ledgerPath = nativePathImpl.join(
             root,
             'orbi-scene3d',
             'execution-ledger.sqlite3',
@@ -67,7 +71,7 @@ function resolveScene3DPilotConfig({
                 '--ledger',
                 ledgerPath,
             ]),
-            cwd: pathImpl.dirname(sidecarPath),
+            cwd: nativePathImpl.dirname(sidecarPath),
             ledgerPath,
         });
     }
