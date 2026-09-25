@@ -27,8 +27,8 @@ test('QB-23 remote evidence matrix keeps all product-side phases GREEN', () => {
     }
 });
 
-test('QB-23 remote evidence matrix records QB-12 through QB-14 certifications while QB-15 remains pending', () => {
-    for (const phase of ['qb12', 'qb13', 'qb14']) {
+test('QB-23 remote evidence matrix records QB-12 through QB-15 certifications', () => {
+    for (const phase of ['qb12', 'qb13', 'qb14', 'qb15']) {
         const item = MATRIX.lab_dependency_state[phase];
         assert.equal(item.status, 'CERTIFIED');
         assert.match(item.implementation_candidate, /^[0-9a-f]{40}$/);
@@ -40,16 +40,23 @@ test('QB-23 remote evidence matrix records QB-12 through QB-14 certifications wh
     assert.equal(MATRIX.lab_dependency_state.qb14.regression_count, 90);
     assert.equal(MATRIX.lab_dependency_state.qb14.contract_validator, 'PASS');
 
-    assert.notEqual(MATRIX.lab_dependency_state.qb15.status, 'CERTIFIED');
+    assert.equal(MATRIX.lab_dependency_state.qb15.regression_count, 107);
+    assert.equal(MATRIX.lab_dependency_state.qb15.regression_result, 'PASS');
+    assert.equal(MATRIX.lab_dependency_state.qb15.live_observed, 'PASS');
     assert.equal(MATRIX.lab_dependency_state.qb15.live_sidecar_result, 'PASS');
-    assert.match(MATRIX.lab_dependency_state.qb15.head, /^[0-9a-f]{40}$/);
-    assert.equal(MATRIX.lab_dependency_state.qb15.required_accumulated_count, 107);
-    assert.equal(MATRIX.lab_dependency_state.qb15.live_sidecar_required, true);
     assert.equal(MATRIX.lab_dependency_state.qb15.sqlite_concurrent_init_hardening, true);
+    assert.equal(
+        MATRIX.lab_dependency_state.qb15.implementation_candidate,
+        '044a2059d63ecbc99a5bbd2562d7d82bafd91109',
+    );
+    assert.equal(
+        MATRIX.lab_dependency_state.qb15.certification_head,
+        '09edd9f3d0d1b4201f1257bc55e67e76f96c9f38',
+    );
 
     assert.equal(
         MATRIX.checkpoint_state,
-        'REMOTE_PRODUCT_STACK_GREEN__QB12_QB14_CERTIFIED__QB15_LIVE_PASS__107_REGRESSION_PENDING',
+        'REMOTE_PRODUCT_STACK_GREEN__QB12_QB15_CERTIFIED__QB16_QB23_DRAFT_CI_GREEN',
     );
 });
 
