@@ -1,0 +1,96 @@
+{
+  "schema": "orbi.scene3d-remote-evidence-matrix/v1",
+  "generated_for": "QB-23 remote readiness checkpoint",
+  "product_repository": "ingeniusvictor/orbi-creative-studio",
+  "product_branch": "feature/qb-23-scene3d-manual-pilot-review-record",
+  "canonical_branch": "integration/orbi-foundation",
+  "lab_repository": "ingeniusvictor/orbi-qwen-mm-plugins-lab",
+  "lab_dependency_state": {
+    "qb12": {
+      "status": "CERTIFIED",
+      "implementation_candidate": "a05196d7302f3c2632dc5790673a97e338634d91",
+      "certification_head": "4a2de2fc718dbb2a33cc76df4ccb8cb3c56a17e0",
+      "regression_count": 62,
+      "regression_result": "PASS",
+      "regression_duration_seconds": 1.26,
+      "live_observed": "PASS",
+      "integration_branch": "integration/orbi-lab"
+    },
+    "qb13": {
+      "status": "CERTIFIED",
+      "implementation_candidate": "19a07b3b043801acb65f5108d53023c497209cc0",
+      "certification_head": "a13ef60b801054ab663268828ffbec6886edbc12",
+      "regression_count": 78,
+      "regression_result": "PASS",
+      "regression_duration_seconds": 1.13,
+      "live_observed": "PASS",
+      "integration_branch": "integration/orbi-lab"
+    },
+    "qb14": {
+      "status": "CERTIFIED",
+      "implementation_candidate": "2827d39bfcf9eae0dd928b62e49decd3c4ad1a6b",
+      "certification_head": "c6ea0718acb2831d8cd2ef8b94c760bab88864b8",
+      "contract_validator": "PASS",
+      "contract_invariants": 18,
+      "regression_count": 90,
+      "regression_result": "PASS",
+      "integration_branch": "integration/orbi-lab"
+    },
+    "qb15": {
+      "status": "CERTIFIED",
+      "implementation_candidate": "044a2059d63ecbc99a5bbd2562d7d82bafd91109",
+      "certification_head": "09edd9f3d0d1b4201f1257bc55e67e76f96c9f38",
+      "regression_count": 107,
+      "regression_result": "PASS",
+      "live_observed": "PASS",
+      "live_sidecar_result": "PASS",
+      "integration_branch": "integration/orbi-lab",
+      "sqlite_concurrent_init_hardening": true,
+      "hardening_reason": "first QB-15 stacked preflight exposed concurrent WAL initialization lock contention"
+    }
+  },
+  "creative_studio_remote_evidence": {
+    "qb16": {
+      "head": "276671e6353b75f787ed6d0c55db03b62e9c6030",
+      "ci": "GREEN"
+    },
+    "qb17": {
+      "head": "27d073acce5f94ad31061057c9341ba628171d59",
+      "ci": "GREEN"
+    },
+    "qb18": {
+      "head": "fe253a80f94275f77618451f9032d86d204ad8a1",
+      "ci": "GREEN"
+    },
+    "qb19": {
+      "head": "78c50bc0b5cf6d883d67f82f689c4c9ce3e13957",
+      "ci": "GREEN"
+    },
+    "qb20": {
+      "head": "3d1bb74ac20b82d3b961c73b56f97ec9b3a2b22e",
+      "ci": "GREEN"
+    },
+    "qb21": {
+      "head": "b9efd9fa1fb75095a97641cac9f1bed277effcec",
+      "ci": "GREEN"
+    },
+    "qb22": {
+      "head": "d04bb00524dca4b172466f0cd69a20416315f2e7",
+      "ci": "GREEN"
+    },
+    "qb23": {
+      "head": "279b1f82d1d97dd9942457d4de1b0521d7c04340",
+      "ci": "GREEN"
+    }
+  },
+  "authority_state": {
+    "pilotDefaultOff": true,
+    "executionDefaultOff": true,
+    "automaticR2Retry": false,
+    "featureEnableAuthorized": false,
+    "productionCutoverAuthorized": false,
+    "computeRouterAuthorityChanged": false,
+    "mhsActuationEnabled": false
+  },
+  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__QB12_QB15_CERTIFIED__QB16_QB23_DRAFT_CI_GREEN"
+}
