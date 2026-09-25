@@ -41,6 +41,7 @@ test('QB-23 remote evidence matrix records QB-12 through QB-14 certifications wh
     assert.equal(MATRIX.lab_dependency_state.qb14.contract_validator, 'PASS');
 
     assert.notEqual(MATRIX.lab_dependency_state.qb15.status, 'CERTIFIED');
+    assert.equal(MATRIX.lab_dependency_state.qb15.live_sidecar_result, 'PASS');
     assert.match(MATRIX.lab_dependency_state.qb15.head, /^[0-9a-f]{40}$/);
     assert.equal(MATRIX.lab_dependency_state.qb15.required_accumulated_count, 107);
     assert.equal(MATRIX.lab_dependency_state.qb15.live_sidecar_required, true);
@@ -48,7 +49,7 @@ test('QB-23 remote evidence matrix records QB-12 through QB-14 certifications wh
 
     assert.equal(
         MATRIX.checkpoint_state,
-        'REMOTE_PRODUCT_STACK_GREEN__QB12_QB14_CERTIFIED__QB15_PENDING',
+        'REMOTE_PRODUCT_STACK_GREEN__QB12_QB14_CERTIFIED__QB15_LIVE_PASS__107_REGRESSION_PENDING',
     );
 });
 
