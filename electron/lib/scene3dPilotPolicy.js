@@ -27,7 +27,7 @@ function assertExactKeys(value, allowedKeys, label) {
 function validateRecipeRequest(value, { execution }) {
     const request = assertPlainObject(value, 'Scene3D recipe request');
     const allowed = execution
-        ? new Set(['recipeId', 'parameters', 'confirmed'])
+        ? new Set(['recipeId', 'parameters', 'confirmed', 'reviewToken'])
         : new Set(['recipeId', 'parameters']);
     assertExactKeys(request, allowed, 'Scene3D recipe request');
 
@@ -39,15 +39,32 @@ function validateRecipeRequest(value, { execution }) {
     const parameters = request.parameters === undefined ? {} : request.parameters;
     assertPlainObject(parameters, 'Scene3D recipe parameters');
 
-    if (execution && recipeId === DELETE_RECIPE && request.confirmed !== true) {
+    if (!execution) {
+        return Object.freeze({
+            recipeId,
+            parameters,
+        });
+    }
+
+    if (request.confirmed !== true) {
         throw new TypeError(
-            'Deleting a Blender object requires explicit product confirmation',
+            'Scene3D execution requires explicit product confirmation',
+        );
+    }
+
+    const reviewToken = typeof request.reviewToken === 'string'
+        ? request.reviewToken.trim()
+        : '';
+    if (!reviewToken || reviewToken.length > 128) {
+        throw new TypeError(
+            'Scene3D execution requires a valid dry-run review token',
         );
     }
 
     return Object.freeze({
         recipeId,
         parameters,
+        reviewToken,
     });
 }
 
