@@ -29,8 +29,8 @@ QB-16 certification head = f9c00d0d24831ea9f6e450c5da469271225a00b3
 Observed on the certified QB-17 candidate:
 
 ```text
-tests 58
-pass 58
+tests 59
+pass 59
 fail 0
 ```
 
@@ -120,7 +120,7 @@ QB-17 is a read-only diagnostics phase. The governed Windows -> WSL -> QB-15 -> 
 
 ```text
 QB-17 SCENE3D PILOT DIAGNOSTICS SURFACE: CERTIFIED
-local accumulated gate = 58/58 PASS
+local accumulated gate = 59/59 PASS
 integrated CI = SUCCESS
 P1C64 UI CI = SUCCESS
 candidate = 3a9c2e1df1c4bfea532f8e6ba9ca3b3d35fa9810
