@@ -54,7 +54,7 @@ function providerResult({
     return result;
 }
 
-function createHarness({ enabled = true, responses = [] } = {}) {
+function createHarness({ enabled = true, executionEnabled = true, responses = [] } = {}) {
     const ipc = createIpc();
     const requests = [];
     let createClientCalls = 0;
@@ -106,6 +106,7 @@ function createHarness({ enabled = true, responses = [] } = {}) {
             args: [],
             cwd: null,
             ledgerPath: enabled ? '/private/ledger.sqlite3' : null,
+            executionEnabled: enabled && executionEnabled,
         }),
         diagnostic: () => {},
     });
@@ -288,6 +289,7 @@ test('QB-16 transport exception is sanitized and does not expose local paths', a
             args: [],
             cwd: '/private',
             ledgerPath: '/private/ledger.sqlite3',
+            executionEnabled: true,
         }),
         createClientImpl: () => ({
             request: async () => {
@@ -306,4 +308,101 @@ test('QB-16 transport exception is sanitized and does not expose local paths', a
     assert.equal(response.error.code, 'SCENE3D_SIDECAR_START_FAILED');
     assert.equal(response.error.message, 'Scene3D sidecar failed to start');
     assert.equal(JSON.stringify(response).includes('/private'), false);
+});
+
+
+test('QB-18 enabled pilot remains read-only when execution authority is OFF', async () => {
+    const harness = createHarness({ enabled: true, executionEnabled: false });
+
+    const status = await harness.invoke(CHANNELS.status);
+    assert.equal(status.ok, true);
+    assert.equal(status.status.enabled, true);
+    assert.equal(status.status.executionEnabled, false);
+
+    const scene = await harness.invoke(CHANNELS.sceneInfo);
+    assert.equal(scene.ok, true);
+    assert.equal(harness.requests.length, 1);
+    assert.equal(harness.requests[0].operation, 'scene_info');
+
+    const dry = await harness.invoke(CHANNELS.dryRunRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+    });
+    const execute = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+    });
+
+    assert.equal(dry.ok, false);
+    assert.equal(dry.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(execute.ok, false);
+    assert.equal(execute.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(harness.requests.length, 1);
+});
+
+test('QB-18 execution-disabled calls are denied before client creation', async () => {
+    const harness = createHarness({ enabled: true, executionEnabled: false });
+
+    const dry = await harness.invoke(CHANNELS.dryRunRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+    });
+    const execute = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+    });
+
+    assert.equal(dry.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(execute.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(harness.createClientCalls, 0);
+    assert.equal(harness.requests.length, 0);
+});
+
+test('QB-18 renderer arguments cannot elevate execution authority', async () => {
+    const harness = createHarness({ enabled: true, executionEnabled: false });
+
+    const denied = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: {},
+        executionEnabled: true,
+    });
+
+    assert.equal(denied.ok, false);
+    assert.equal(denied.error.code, 'SCENE3D_EXECUTION_DISABLED');
+    assert.equal(harness.createClientCalls, 0);
+    assert.equal(harness.requests.length, 0);
+});
+
+test('QB-18 execution ON preserves governed QB-16 dispatch semantics', async () => {
+    const harness = createHarness({ enabled: true, executionEnabled: true });
+
+    const dry = await harness.invoke(CHANNELS.dryRunRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: { name: 'Cube' },
+    });
+    assert.equal(dry.ok, true);
+    assert.equal(harness.requests[0].operation, 'dry_run_recipe');
+
+    const execute = await harness.invoke(CHANNELS.executeRecipe, {
+        recipeId: 'orbi.blender.create_cube.v1',
+        parameters: { name: 'Cube2' },
+    });
+    assert.equal(execute.ok, true);
+    assert.equal(harness.requests[1].operation, 'execute_recipe');
+});
+
+test('QB-18 public preload exposes no execution-authority mutation channel', () => {
+    const fs = require('node:fs');
+    const preload = fs.readFileSync('electron/preload.js', 'utf8');
+    const bridge = fs.readFileSync('electron/lib/scene3dPilotBridge.js', 'utf8');
+
+    for (const forbidden of [
+        'setExecutionEnabled',
+        'orbi-scene3d:set-execution-enabled',
+        'ORBI_SCENE3D_EXECUTION_ENABLED',
+    ]) {
+        assert.equal(preload.includes(forbidden), false, forbidden);
+    }
+
+    assert.equal(bridge.includes('CHANNELS.setExecutionEnabled'), false);
 });
