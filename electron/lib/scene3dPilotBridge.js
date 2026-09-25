@@ -9,6 +9,9 @@ const {
     createScene3DSidecarClient,
 } = require('./scene3dSidecarClient');
 const {
+    createScene3DExecutionReviewRegistry,
+} = require('./scene3dExecutionReview');
+const {
     ALLOWED_RECIPES,
     validateHistoryRequestId,
     validateObjectName,
@@ -74,6 +77,12 @@ function sanitizeTransportError(error) {
         SCENE3D_SIDECAR_PROTOCOL_ERROR: 'Scene3D sidecar protocol error',
         SCENE3D_SIDECAR_RESPONSE_TOO_LARGE: 'Scene3D sidecar response exceeded the allowed size',
         SCENE3D_REQUEST_TOO_LARGE: 'Scene3D request exceeded the allowed size',
+        SCENE3D_REVIEW_REQUIRED: 'Scene3D execution requires a fresh dry-run review',
+        SCENE3D_REVIEW_EXPIRED: 'Scene3D dry-run review expired',
+        SCENE3D_REVIEW_MISMATCH: 'Scene3D execution differs from the reviewed dry-run',
+        SCENE3D_REVIEW_CAPACITY: 'Scene3D review capacity is temporarily unavailable',
+        SCENE3D_REVIEW_DRY_RUN_REQUIRED: 'Scene3D review requires a successful dry-run',
+        SCENE3D_REVIEW_TOKEN_INVALID: 'Scene3D review token could not be issued',
     };
 
     return Object.freeze({
@@ -108,6 +117,8 @@ function register({
     assertTrustedSenderImpl = undefined,
     randomUUIDImpl = randomUUID,
     createClientImpl = createScene3DSidecarClient,
+    createReviewRegistryImpl = createScene3DExecutionReviewRegistry,
+    reviewTokenImpl = randomUUID,
     resolveConfigImpl = resolveScene3DPilotConfig,
     diagnostic = (message) => console.error('[ORBI Scene3D]', message),
 } = {}) {
@@ -126,6 +137,9 @@ function register({
     });
 
     let client = null;
+    const reviewRegistry = createReviewRegistryImpl({
+        randomUUIDImpl: reviewTokenImpl,
+    });
 
     function getClient() {
         if (!config.enabled) return null;
@@ -178,8 +192,7 @@ function register({
     }));
 
     effectiveIpcMain.handle(CHANNELS.objectInfo, withTrust(async (objectName) => {
-        const sidecar = getClient();
-        if (!sidecar) return disabled();
+        if (!config.enabled) return disabled();
 
         let name;
         try {
@@ -188,6 +201,7 @@ function register({
             return invalid(error.message);
         }
 
+        const sidecar = getClient();
         const response = await sidecar.request(
             'object_info',
             { object_name: name },
@@ -199,7 +213,6 @@ function register({
     effectiveIpcMain.handle(CHANNELS.dryRunRecipe, withTrust(async (value) => {
         if (!config.enabled) return disabled();
         if (!config.executionEnabled) return executionDisabled();
-        const sidecar = getClient();
 
         let request;
         try {
@@ -208,6 +221,7 @@ function register({
             return invalid(error.message);
         }
 
+        const sidecar = getClient();
         const response = await sidecar.request(
             'dry_run_recipe',
             {
@@ -216,13 +230,24 @@ function register({
             },
             { requestId: randomUUIDImpl() },
         );
-        return unwrapTransport(response, sanitizeOrbiResponse);
+        const sanitized = unwrapTransport(response, sanitizeOrbiResponse);
+        if (!sanitized || sanitized.ok !== true) return sanitized;
+
+        const review = reviewRegistry.issue({
+            recipeId: request.recipeId,
+            parameters: request.parameters,
+            dryRunResponse: sanitized,
+        });
+
+        return Object.freeze({
+            ...sanitized,
+            review,
+        });
     }));
 
     effectiveIpcMain.handle(CHANNELS.executeRecipe, withTrust(async (value) => {
         if (!config.enabled) return disabled();
         if (!config.executionEnabled) return executionDisabled();
-        const sidecar = getClient();
 
         let request;
         try {
@@ -231,6 +256,13 @@ function register({
             return invalid(error.message);
         }
 
+        reviewRegistry.consume({
+            token: request.reviewToken,
+            recipeId: request.recipeId,
+            parameters: request.parameters,
+        });
+
+        const sidecar = getClient();
         const response = await sidecar.request(
             'execute_recipe',
             {
@@ -275,6 +307,7 @@ function register({
         mode: config.mode,
         channels: CHANNELS,
         shutdown: () => {
+            reviewRegistry.invalidateAll();
             if (client) client.close();
         },
         executionAuthority: 'scene3d-pilot-only',
