@@ -4,15 +4,15 @@ Status: **IMPLEMENTATION CANDIDATE — READ-ONLY — DEFAULT-OFF DEPENDENCY**
 
 ## Dependency chain
 
-QB-17 is stacked on QB-16 at:
+QB-17 is stacked on the certified QB-16 canonical integration head:
 
 ```text
-276671e6353b75f787ed6d0c55db03b62e9c6030
+f9c00d0d24831ea9f6e450c5da469271225a00b3
 ```
 
-QB-16 itself remains unmerged and depends on certification of the lab chain QB-12 → QB-15.
+QB-16 is formally certified and `integration/orbi-foundation` has been advanced to that certification commit.
 
-QB-17 must not be merged independently of those dependencies.
+QB-17 still requires its own focused validation and canonical integrated CI before certification.
 
 ## Purpose
 
