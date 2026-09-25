@@ -139,3 +139,12 @@ test('QB-17 Settings integration cannot call Scene3D execution methods', () => {
         assert.equal(sources.includes(forbidden), false, forbidden);
     }
 });
+
+
+test('QB-18 diagnostics may display execution authority but cannot mutate it', () => {
+    const source = read('src/components/Scene3DPilotDiagnosticsPanel.js');
+
+    assert.ok(source.includes('executionEnabled='));
+    assert.equal(source.includes('setExecutionEnabled'), false);
+    assert.equal(source.includes('ORBI_SCENE3D_EXECUTION_ENABLED'), false);
+});
