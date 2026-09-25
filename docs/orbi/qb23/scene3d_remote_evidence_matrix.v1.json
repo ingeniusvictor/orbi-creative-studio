@@ -37,12 +37,13 @@
       "integration_branch": "integration/orbi-lab"
     },
     "qb15": {
-      "status": "LOCAL_VALIDATION_PENDING",
+      "status": "LOCAL_REGRESSION_PENDING",
       "head": "044a2059d63ecbc99a5bbd2562d7d82bafd91109",
       "required_accumulated_count": 107,
       "live_sidecar_required": true,
       "sqlite_concurrent_init_hardening": true,
-      "hardening_reason": "first QB-15 stacked preflight exposed concurrent WAL initialization lock contention"
+      "hardening_reason": "first QB-15 stacked preflight exposed concurrent WAL initialization lock contention",
+      "live_sidecar_result": "PASS"
     }
   },
   "creative_studio_remote_evidence": {
@@ -88,5 +89,5 @@
     "computeRouterAuthorityChanged": false,
     "mhsActuationEnabled": false
   },
-  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__QB12_QB14_CERTIFIED__QB15_PENDING"
+  "checkpoint_state": "REMOTE_PRODUCT_STACK_GREEN__QB12_QB14_CERTIFIED__QB15_LIVE_PASS__107_REGRESSION_PENDING"
 }
