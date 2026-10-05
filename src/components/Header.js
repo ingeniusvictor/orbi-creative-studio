@@ -1,33 +1,40 @@
 import { SettingsModal } from './SettingsModal.js';
 import { t, getLang, setLang } from '../lib/i18n.js';
+import productIdentity from '../../shared/productIdentity.json';
 
 export function Header(navigate) {
     const header = document.createElement('header');
     header.className = 'w-full flex flex-col z-50 sticky top-0';
 
-
-    // 2. Main Navigation Bar
+    // Main Navigation Bar
     const navBar = document.createElement('div');
     navBar.className = 'w-full h-16 bg-black flex items-center justify-between px-4 md:px-6 border-b border-white/5 backdrop-blur-md bg-opacity-95';
 
     const leftPart = document.createElement('div');
-    leftPart.className = 'flex items-center gap-8';
+    leftPart.className = 'flex items-center gap-6 xl:gap-8 min-w-0';
 
-    // Logo
-    const logoContainer = document.createElement('div');
-    logoContainer.className = 'cursor-pointer hover:scale-110 transition-transform';
+    // ORBI product identity. This is intentionally renderer-only branding;
+    // packaged app/storage identifiers remain unchanged until migration is gated.
+    const logoContainer = document.createElement('button');
+    logoContainer.type = 'button';
+    logoContainer.title = productIdentity.name;
+    logoContainer.setAttribute('aria-label', `${productIdentity.name} — Image Studio`);
+    logoContainer.className = 'flex items-center gap-2.5 group shrink-0 bg-transparent border-0 p-0 cursor-pointer text-left';
     logoContainer.innerHTML = `
-        <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center p-1.5 shadow-lg">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="black"/>
-                <path d="M2 17L12 22L22 17" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </div>
+        <span class="relative w-9 h-9 rounded-xl border border-primary/25 bg-primary/5 flex items-center justify-center overflow-hidden shadow-glow-sm group-hover:border-primary/50 transition-colors" aria-hidden="true">
+            <span class="absolute w-6 h-3 rounded-[50%] border border-primary/70 rotate-[28deg]"></span>
+            <span class="absolute w-6 h-3 rounded-[50%] border border-cyan-200/35 -rotate-[28deg]"></span>
+            <span class="w-2 h-2 rounded-full bg-primary shadow-glow relative z-10"></span>
+        </span>
+        <span class="hidden sm:flex flex-col leading-none">
+            <span class="text-white text-sm font-black tracking-[0.18em]">${productIdentity.brand}</span>
+            <span class="mt-1 text-[8px] font-bold tracking-[0.24em] text-primary/75">${productIdentity.surfaceLabel}</span>
+        </span>
     `;
+    logoContainer.onclick = () => navigate('image');
 
     const menu = document.createElement('nav');
-    menu.className = 'hidden lg:flex items-center gap-6 text-[13px] font-bold text-secondary';
+    menu.className = 'hidden lg:flex items-center gap-5 xl:gap-6 text-[13px] font-bold text-secondary';
     const items = [
         { label: t('nav.image'),   page: 'image' },
         { label: t('nav.video'),   page: 'video' },
@@ -78,7 +85,6 @@ export function Header(navigate) {
         document.body.appendChild(SettingsModal());
     };
 
-    // Language toggle button
     const langBtn = document.createElement('button');
     const currentLang = getLang();
     langBtn.className = 'flex items-center px-3 py-1.5 rounded-md border border-white/10 bg-white/5 text-[13px] font-bold text-white/80 hover:text-white hover:bg-white/10 hover:border-white/20 transition-colors';
