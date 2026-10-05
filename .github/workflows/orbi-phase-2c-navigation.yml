@@ -1,0 +1,26 @@
+name: ORBI Phase 2C Navigation Capability Truth
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/Header.js'
+      - 'src/main.js'
+      - 'ORBI-CREATIVE-STUDIO-MASTER-STATUS.md'
+      - 'docs/PHASE-2C-NAVIGATION-CAPABILITY-TRUTH.md'
+      - 'tests/desktopNavigationCapabilityTruth.test.js'
+      - '.github/workflows/orbi-phase-2c-navigation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Desktop navigation capability-truth contract
+        run: node --test tests/desktopNavigationCapabilityTruth.test.js

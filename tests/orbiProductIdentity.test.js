@@ -31,7 +31,8 @@ test('Phase 2B applies ORBI identity to Electron and desktop header', () => {
     assert.ok(header.includes("import productIdentity from '../../shared/productIdentity.json'"));
     assert.ok(header.includes('${productIdentity.brand}'));
     assert.ok(header.includes('${productIdentity.surfaceLabel}'));
-    assert.ok(header.includes("logoContainer.onclick = () => navigate('image')"));
+    assert.ok(header.includes("logoContainer.onclick = () => {"));
+    assert.ok(header.includes("navigate('image')"));
 });
 
 test('Phase 2B applies ORBI identity to Vite and Next metadata', () => {

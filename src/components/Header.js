@@ -6,15 +6,14 @@ export function Header(navigate) {
     const header = document.createElement('header');
     header.className = 'w-full flex flex-col z-50 sticky top-0';
 
-    // Main Navigation Bar
     const navBar = document.createElement('div');
     navBar.className = 'w-full h-16 bg-black flex items-center justify-between px-4 md:px-6 border-b border-white/5 backdrop-blur-md bg-opacity-95';
 
     const leftPart = document.createElement('div');
     leftPart.className = 'flex items-center gap-6 xl:gap-8 min-w-0';
 
-    // ORBI product identity. This is intentionally renderer-only branding;
-    // packaged app/storage identifiers remain unchanged until migration is gated.
+    // ORBI product identity. Packaged app/storage identifiers remain unchanged
+    // until their migration is covered by a dedicated compatibility gate.
     const logoContainer = document.createElement('button');
     logoContainer.type = 'button';
     logoContainer.title = productIdentity.name;
@@ -31,39 +30,61 @@ export function Header(navigate) {
             <span class="mt-1 text-[8px] font-bold tracking-[0.24em] text-primary/75">${productIdentity.surfaceLabel}</span>
         </span>
     `;
-    logoContainer.onclick = () => navigate('image');
 
     const menu = document.createElement('nav');
+    menu.setAttribute('aria-label', 'Desktop creative tools');
     menu.className = 'hidden lg:flex items-center gap-5 xl:gap-6 text-[13px] font-bold text-secondary';
-    const items = [
-        { label: t('nav.image'),   page: 'image' },
-        { label: t('nav.video'),   page: 'video' },
+
+    // Phase 2C capability truth: primary desktop navigation only advertises
+    // creative surfaces that are implemented in the Electron renderer today.
+    // Web-only/developer surfaces remain in the repository for later governed
+    // convergence, but are intentionally not presented as desktop capabilities.
+    const primaryDesktopItems = [
+        { label: t('nav.image'), page: 'image' },
+        { label: t('nav.video'), page: 'video' },
+        { label: t('nav.cinema'), page: 'cinema' },
         { label: t('nav.lipsync'), page: 'lipsync' },
-        { label: t('nav.cinema'),  page: 'cinema' },
-        { label: t('nav.workflows'), page: 'workflows' },
-        { label: t('nav.agents'),  page: 'agents' },
-        { label: t('nav.mcpcli'),  page: 'mcp-cli' },
     ];
 
-    items.forEach(({ label, page }, idx) => {
-        const link = document.createElement('a');
-        link.textContent = label;
-        link.className = `hover:text-white transition-all cursor-pointer relative group ${idx === 0 ? 'text-white' : ''}`;
+    const menuLinks = new Map();
 
-        if (idx === 0) {
-            const dot = document.createElement('div');
-            dot.className = 'absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full';
-            link.appendChild(dot);
+    const setActivePage = (activePage) => {
+        for (const [page, link] of menuLinks.entries()) {
+            const active = page === activePage;
+            link.classList.toggle('text-white', active);
+            link.setAttribute('aria-current', active ? 'page' : 'false');
+            const dot = link.querySelector('[data-orbi-nav-active]');
+            if (dot) dot.style.opacity = active ? '1' : '0';
         }
+    };
+
+    primaryDesktopItems.forEach(({ label, page }) => {
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.textContent = label;
+        link.className = 'bg-transparent border-0 p-0 text-secondary hover:text-white transition-all cursor-pointer relative group';
+
+        const dot = document.createElement('span');
+        dot.dataset.orbiNavActive = 'true';
+        dot.className = 'absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full transition-opacity';
+        dot.style.opacity = '0';
+        dot.setAttribute('aria-hidden', 'true');
+        link.appendChild(dot);
 
         link.onclick = () => {
-            Array.from(menu.children).forEach(child => child.classList.remove('text-white'));
-            link.classList.add('text-white');
+            setActivePage(page);
             navigate(page);
         };
 
+        menuLinks.set(page, link);
         menu.appendChild(link);
     });
+
+    setActivePage('image');
+    logoContainer.onclick = () => {
+        setActivePage('image');
+        navigate('image');
+    };
 
     leftPart.appendChild(logoContainer);
     leftPart.appendChild(menu);

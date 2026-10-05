@@ -1,31 +1,35 @@
 # ORBI Creative Studio — Master Status
 
-Current Phase 2 canonical entering identity work: `1c77d101dfbce481c9443c75a63cfea02e297e08`.
+Current Phase 2 canonical entering navigation work: `34c730fa8e5c858ecf5e5991355075ef67b69752`.
 
 ## Product identity
 
-**ORBI Creative Studio** is the creative AI workstation inside the ORBI ecosystem. The repository originated from Open Generative AI; ORBI development now adds its own governed local-AI compute routing, hardware evidence, Scene3D pilot work, desktop security boundaries, QA gates and product identity layer.
+**ORBI Creative Studio** is the creative AI workstation inside the ORBI ecosystem. The repository originated from Open Generative AI; ORBI development now adds its own governed local-AI compute routing, hardware evidence, Scene3D pilot work, desktop security boundaries, QA gates and ORBI product identity layer.
 
 The product is larger than the Compute Router. The router is infrastructure underneath the creative surfaces.
 
-The repository currently contains two application surfaces:
+The repository contains two application surfaces that must not be confused:
 
 ```text
 ORBI CREATIVE STUDIO
 ├─ Electron / Vite desktop
-│  ├─ Image Studio ............. functional, cloud + local
-│  ├─ Video Studio ............. functional, cloud + local/Wan2GP
-│  ├─ Cinema Studio ............ functional, cloud
-│  ├─ Lip Sync Studio .......... functional, cloud
-│  ├─ Workflows ................ desktop placeholder / web capability exists
-│  ├─ Agents ................... desktop placeholder / web capability exists
-│  ├─ MCP / CLI ................ upstream-oriented developer information
-│  ├─ Local Models ............. functional advanced settings
-│  ├─ Router Diagnostics ....... functional engineering surface
+│  ├─ Primary creative navigation
+│  │  ├─ Image Studio .......... functional, cloud + local
+│  │  ├─ Video Studio .......... functional, cloud + local/Wan2GP
+│  │  ├─ Cinema Studio ......... functional, cloud
+│  │  └─ Lip Sync Studio ....... functional, cloud
+│  ├─ Deferred / non-primary desktop routes
+│  │  ├─ Workflows ............. placeholder; web capability exists
+│  │  ├─ Agents ................ placeholder; web capability exists
+│  │  └─ MCP / CLI ............. developer/upstream-oriented surface
+│  ├─ Advanced settings
+│  │  ├─ Local Models .......... functional
+│  │  └─ Router Diagnostics .... functional engineering surface
 │  └─ Scene3D .................. governed pilot, default OFF
 │
 ├─ Next / web application
 │  ├─ Studio shared shell
+│  ├─ Image / Video / Audio and additional Studio modules
 │  ├─ Workflow routes
 │  ├─ Agent create/edit/runtime routes
 │  └─ Assistant route
@@ -37,7 +41,7 @@ ORBI CREATIVE STUDIO
    └─ hardware-pilot evidence governance
 ```
 
-A standalone Audio Studio is **not currently present** in the Electron product and must not be described as shipping functionality.
+A standalone Audio Studio is **not currently present in the Electron product**. Audio exists in the shared web Studio and must not be advertised as an Electron capability until integrated and verified there.
 
 ## Phase 1C — CLOSED
 
@@ -72,57 +76,62 @@ Compute Router work is maintenance-only unless a concrete product feature requir
 
 Canonical audit: `docs/PHASE-2A-CREATIVE-STUDIO-PRODUCT-AUDIT.md`.
 
-The audit established four product truths:
+Established the real desktop/web product inventory and ended infrastructure-first planning.
 
-1. Image, Video, Cinema and Lip Sync are already substantial working creative surfaces; Phase 2 is not a restart.
-2. Workflows and Agents are placeholders only in the Electron shell; real web/workspace implementations already exist and should be integrated rather than rebuilt blindly.
-3. Scene3D has governed backend infrastructure but is still a default-OFF pilot without a primary creative surface.
-4. Visible identity remained predominantly Open Generative AI / MuAPI despite substantial ORBI engineering underneath.
-
-### Phase 2B — ORBI Identity Foundation — CURRENT
+### Phase 2B — ORBI Identity Foundation — COMPLETE
 
 Canonical design: `docs/PHASE-2B-ORBI-IDENTITY-FOUNDATION.md`.
 
-This phase introduces an explicit ORBI product identity across active desktop and web surfaces while preserving compatibility-sensitive legacy installer/storage identifiers until migration is proven.
-
-Current Phase 2B scope:
-
-- canonical `shared/productIdentity.json`;
-- Electron window/error identity;
-- desktop ORBI wordmark/header identity;
-- Vite title and metadata;
-- Next root and route metadata;
-- package description/homepage;
-- explicit upstream attribution boundary;
-- CI lock preventing accidental rename of storage-sensitive legacy identifiers.
-
-Compatibility boundary for this pass:
+Visible Electron/Vite and Next surfaces now identify as **ORBI Creative Studio** while compatibility-sensitive installer/storage identifiers remain intentionally frozen:
 
 - npm `name` remains `open-generative-ai`;
 - Electron Builder `productName` remains `Open Generative AI`;
 - Electron Builder `appId` remains `ai.generative.open`.
 
-Those fields may change only after a user-data migration gate proves that local models, runtimes and encrypted credentials remain recoverable across upgrade.
+Those identifiers may change only after a user-data migration gate proves that local models, runtimes and encrypted credentials remain recoverable across upgrade.
 
-README top-level reframing and installer/storage identity migration remain separate attribution/migration work and must not be done by blind string replacement.
+### Phase 2C — Navigation & Capability Truth — CURRENT
 
-### Phase 2C — Navigation & Capability Truth — NEXT AFTER 2B
+Canonical design: `docs/PHASE-2C-NAVIGATION-CAPABILITY-TRUTH.md`.
 
-After visible identity is stable, reorganize navigation around actual capability:
+Electron primary navigation is intentionally limited to real desktop creative journeys:
 
-- Core creative: Image, Video, Cinema, Lip Sync.
-- Web-integrated/pending desktop convergence: Workflows, Agents.
-- Experimental: Scene3D.
-- Advanced: Local Models, Router Diagnostics.
-- Developer surface: MCP/CLI only after an ORBI product decision.
+- Image
+- Video
+- Cinema Studio
+- Lip Sync
 
-### Phase 2D — Desktop/Web Convergence Spike
+Workflows, Agents and MCP/CLI remain in the repository but are no longer advertised as finished primary Electron capabilities. Their code is preserved for controlled convergence work.
 
-Prove one shared integration path for Workflows/Agents before scaling it. Do not duplicate existing web applications without evidence that shared integration is unsuitable.
+Phase 2C also establishes:
+
+- Audio is web-available but not yet an Electron Studio;
+- Scene3D remains an experimental/default-OFF pilot;
+- Local Models and Router Diagnostics remain advanced/settings surfaces;
+- the active navigation indicator follows the selected primary page rather than remaining visually pinned to Image.
+
+### Phase 2D — Desktop/Web Convergence Spike — NEXT
+
+Prove **one** shared integration path before scaling convergence.
+
+Recommended first target: Workflows, because the Electron route already exists as a placeholder and the web application already has a dedicated workflow route/shell.
+
+The goal is to answer whether Electron should:
+
+- embed/reuse the existing web surface safely;
+- share the underlying workspace package directly;
+- or use another narrow integration boundary.
+
+Do not duplicate Workflows or Agents until this spike produces evidence.
 
 ### Phase 2E — End-to-End Creative QA
 
-Validate the product as a coherent ORBI experience across core creative generation, local/cloud paths and selected web integration.
+Validate ORBI Creative Studio as one coherent product across:
+
+- core Electron creative generation;
+- cloud/local execution paths;
+- selected web convergence;
+- product identity and capability truth.
 
 ## Governance rules
 
@@ -132,5 +141,6 @@ Validate the product as a coherent ORBI experience across core creative generati
 4. Prefer integrating existing working surfaces over rebuilding them.
 5. Keep engineering diagnostics out of the primary creative journey unless a user explicitly opens advanced settings.
 6. Phase 2 milestones are outcome-sized; do not split them into dozens of micro-milestones unless correctness/release gating truly requires it.
+7. Desktop and web capability claims must remain explicit; existence in one surface does not imply availability in the other.
 
 These rules exist to keep ORBI Creative Studio understandable as a product rather than allowing infrastructure detail to obscure the goal again.
