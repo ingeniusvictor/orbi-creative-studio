@@ -1,50 +1,61 @@
 # ORBI Creative Studio — Master Status
 
-Last canonical checkpoint before this closeout: `c6d7df62750d64552b4dfe3261d7f28e455b9c41`.
+Current Phase 2A starting canonical: `4147512695eb0ad94afd5f488a4c530dfeefc94f`.
 
 ## Product identity
 
-ORBI Creative Studio is the creative AI workstation inside the ORBI ecosystem. The repository originated from Open Generative AI, but ORBI development adds its own governed local-AI compute routing, hardware evidence, Scene3D pilot work, desktop security boundaries, QA gates, and future ORBI product/brand integration.
+**ORBI Creative Studio** is the creative AI workstation inside the ORBI ecosystem. The repository originated from Open Generative AI and still contains substantial upstream Open Generative AI / MuAPI identity, while ORBI development has added its own governed local-AI compute routing, hardware evidence, Scene3D pilot work, desktop security boundaries and QA gates.
 
 The product is larger than the Compute Router. The router is infrastructure underneath the creative surfaces.
 
+The repository currently contains two application surfaces:
+
 ```text
 ORBI CREATIVE STUDIO
-├─ Image creation / editing
-├─ Video creation / composition
-├─ Audio / voice workflows
-├─ Lip-sync / cinema / workflow surfaces inherited from the base application
-├─ Scene3D pilot
-├─ Desktop application shell
-└─ Compute Router
-   ├─ cloud-provider readiness
-   └─ local-AI execution governance
+├─ Electron / Vite desktop
+│  ├─ Image Studio ............. functional, cloud + local
+│  ├─ Video Studio ............. functional, cloud + local/Wan2GP
+│  ├─ Cinema Studio ............ functional, cloud
+│  ├─ Lip Sync Studio .......... functional, cloud
+│  ├─ Workflows ................ desktop placeholder / web capability exists
+│  ├─ Agents ................... desktop placeholder / web capability exists
+│  ├─ MCP / CLI ................ upstream-oriented developer information
+│  ├─ Local Models ............. functional advanced settings
+│  ├─ Router Diagnostics ....... functional engineering surface
+│  └─ Scene3D .................. governed pilot, default OFF
+│
+├─ Next / web application
+│  ├─ Studio shared shell
+│  ├─ Workflow routes
+│  ├─ Agent create/edit/runtime routes
+│  └─ Assistant route
+│
+└─ Infrastructure
+   ├─ provider credentials / transport
+   ├─ local inference
+   ├─ Compute Router
+   └─ hardware-pilot evidence governance
 ```
 
-## Why Phase 1C became so large
+A standalone Audio Studio is **not currently present** in the Electron product and must not be described as shipping functionality.
 
-Phase 1C concentrated on one narrow but safety-critical question: when ORBI sees a local model and a local machine, what evidence is required before that combination can ever be trusted for later routing decisions?
+## Phase 1C — CLOSED
 
-The phase therefore accumulated many small gates around benchmark collection, provenance, resource observations, export/import, review, and non-authorizing certification. Those milestones are infrastructure work, not separate products.
+Phase 1C answered one narrow but safety-critical question: what evidence is required before a local model/hardware combination can ever be considered for later routing decisions?
 
-## Phase 1C final closeout
+P1C62–P1C70 established and closed that governance foundation:
 
-P1C62–P1C66 established the current hardware-pilot evidence loop:
+- P1C62 — real hardware-pilot evidence bundle.
+- P1C63 — governed JSON export.
+- P1C64 — explicit export UI.
+- P1C65 — trusted import and current-contract revalidation.
+- P1C66 — import UI and sanitized intake metadata.
+- P1C67 — safe human-review projection.
+- P1C68 — explicit approve/reject human decision record.
+- P1C69 — evidence-scoped pilot-certified profile.
+- P1C70 — final Phase 1C lock.
 
-- P1C62 — build the real hardware-pilot evidence bundle.
-- P1C63 — export governed evidence to JSON.
-- P1C64 — expose explicit export in Router Diagnostics.
-- P1C65 — import and revalidate exported JSON in trusted Electron Main.
-- P1C66 — expose explicit import and sanitized intake metadata in Router Diagnostics.
-
-This closeout intentionally ends the phase with four bounded milestones:
-
-- **P1C67 — Human Review Projection:** derive a safe review projection from imported evidence without returning the raw bundle to the renderer.
-- **P1C68 — Human Decision Record:** require an explicit approve/reject decision plus review note and retain one immutable decision per imported file SHA-256.
-- **P1C69 — Pilot-Certified Local Profile:** an approval may produce an evidence-scoped profile containing observed timing/resource envelopes. It is not a production runtime profile.
-- **P1C70 — Phase 1C Final Lock:** Phase 1C is closed. There is no P1C71 continuation.
-
-## Authority boundary at P1C70
+There is no P1C71 continuation.
 
 Even an approved P1C69 profile remains deliberately non-authorizing:
 
@@ -55,26 +66,61 @@ Even an approved P1C69 profile remains deliberately non-authorizing:
 - `cutoverAuthorized = false`
 - `executionAuthority = legacy-dispatcher-only`
 
-P1C70 therefore does **not** switch generation traffic, activate a provider, promote a runtime profile, or grant cutover authority.
+Compute Router work is now maintenance-only unless a concrete product feature requires a change.
 
-## What comes next
+## Phase 2 — Creative Product Integration & ORBI UX
 
-The next workstream is **Phase 2 — Creative Product Integration & ORBI UX**.
+### Phase 2A — Product Surface Audit — CURRENT
 
-Its first action should be a product-facing audit rather than more local-router milestones:
+Canonical audit: `docs/PHASE-2A-CREATIVE-STUDIO-PRODUCT-AUDIT.md`.
 
-1. inventory the visible Studio surfaces that currently work in the ORBI fork;
-2. identify inherited Open Generative AI branding and UX that must become ORBI-native;
-3. verify Image, Video, Audio/Lip Sync, Scene3D and desktop workflows end-to-end;
-4. define the ORBI Creative Studio navigation and design system;
-5. prioritize user-visible gaps before adding new infrastructure;
-6. keep Compute Router changes in maintenance mode unless a concrete product feature requires them.
+The audit establishes four important truths:
 
-## Governance rule
+1. Image, Video, Cinema and Lip Sync are already substantial working creative surfaces; Phase 2 is not a restart.
+2. Workflows and Agents are placeholders only in the Electron shell; real web/workspace implementations already exist and should be integrated rather than rebuilt blindly.
+3. Scene3D has meaningful governed backend infrastructure but is still a default-OFF pilot without a primary creative surface.
+4. The largest immediate mismatch is identity: the application still presents itself broadly as Open Generative AI / MuAPI even though significant ORBI engineering now exists underneath.
 
-Do not create `P1C71`, `P1C72`, or other Phase 1C continuation milestones. A new requirement must be classified as either:
+### Phase 2B — ORBI Identity Foundation — NEXT
 
-- a Phase 1C maintenance fix/regression, or
-- a new Phase 2 product/integration milestone.
+The next code-changing workstream is a bounded product rebrand/foundation pass:
 
-This rule exists specifically to prevent infrastructure work from obscuring the Studio product again.
+- ORBI Creative Studio package/product identity;
+- Electron window/error identity;
+- Vite/web metadata and favicon/branding surface;
+- desktop header identity;
+- Next route metadata;
+- README top-level product explanation;
+- installer-visible identity where migration is safe;
+- explicit upstream license and attribution preservation.
+
+This phase must not rename provider APIs, third-party model names, upstream license ownership, or other technical identifiers that need compatibility.
+
+### Phase 2C — Navigation & Capability Truth
+
+After identity is stable, reorganize navigation around actual capability:
+
+- Core creative: Image, Video, Cinema, Lip Sync.
+- Web-integrated/pending desktop convergence: Workflows, Agents.
+- Experimental: Scene3D.
+- Advanced: Local Models, Router Diagnostics.
+- Developer surface: MCP/CLI only after an ORBI product decision.
+
+### Phase 2D — Desktop/Web Convergence Spike
+
+Prove one shared integration path for Workflows/Agents before scaling it. Do not duplicate existing web applications without evidence that shared integration is unsuitable.
+
+### Phase 2E — End-to-End Creative QA
+
+Validate the product as a coherent ORBI experience across core creative generation, local/cloud paths and selected web integration.
+
+## Governance rules
+
+1. Do not create P1C71, P1C72 or other Phase 1C continuation milestones.
+2. New work must map to a product outcome in Phase 2 or be an explicit regression/maintenance fix.
+3. Do not advertise capabilities that exist only as placeholders.
+4. Prefer integrating existing working surfaces over rebuilding them.
+5. Keep engineering diagnostics out of the primary creative journey unless a user explicitly opens advanced settings.
+6. Phase 2 milestones are outcome-sized; do not split them into dozens of micro-milestones unless correctness/release gating truly requires it.
+
+These rules exist to keep ORBI Creative Studio understandable as a product rather than allowing infrastructure detail to obscure the goal again.
