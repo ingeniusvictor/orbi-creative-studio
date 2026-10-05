@@ -1,10 +1,10 @@
 # ORBI Creative Studio — Master Status
 
-Current Phase 2A starting canonical: `4147512695eb0ad94afd5f488a4c530dfeefc94f`.
+Current Phase 2 canonical entering identity work: `1c77d101dfbce481c9443c75a63cfea02e297e08`.
 
 ## Product identity
 
-**ORBI Creative Studio** is the creative AI workstation inside the ORBI ecosystem. The repository originated from Open Generative AI and still contains substantial upstream Open Generative AI / MuAPI identity, while ORBI development has added its own governed local-AI compute routing, hardware evidence, Scene3D pilot work, desktop security boundaries and QA gates.
+**ORBI Creative Studio** is the creative AI workstation inside the ORBI ecosystem. The repository originated from Open Generative AI; ORBI development now adds its own governed local-AI compute routing, hardware evidence, Scene3D pilot work, desktop security boundaries, QA gates and product identity layer.
 
 The product is larger than the Compute Router. The router is infrastructure underneath the creative surfaces.
 
@@ -41,9 +41,7 @@ A standalone Audio Studio is **not currently present** in the Electron product a
 
 ## Phase 1C — CLOSED
 
-Phase 1C answered one narrow but safety-critical question: what evidence is required before a local model/hardware combination can ever be considered for later routing decisions?
-
-P1C62–P1C70 established and closed that governance foundation:
+P1C62–P1C70 established and closed the local-AI hardware evidence governance foundation:
 
 - P1C62 — real hardware-pilot evidence bundle.
 - P1C63 — governed JSON export.
@@ -66,39 +64,51 @@ Even an approved P1C69 profile remains deliberately non-authorizing:
 - `cutoverAuthorized = false`
 - `executionAuthority = legacy-dispatcher-only`
 
-Compute Router work is now maintenance-only unless a concrete product feature requires a change.
+Compute Router work is maintenance-only unless a concrete product feature requires a change.
 
 ## Phase 2 — Creative Product Integration & ORBI UX
 
-### Phase 2A — Product Surface Audit — CURRENT
+### Phase 2A — Product Surface Audit — COMPLETE
 
 Canonical audit: `docs/PHASE-2A-CREATIVE-STUDIO-PRODUCT-AUDIT.md`.
 
-The audit establishes four important truths:
+The audit established four product truths:
 
 1. Image, Video, Cinema and Lip Sync are already substantial working creative surfaces; Phase 2 is not a restart.
 2. Workflows and Agents are placeholders only in the Electron shell; real web/workspace implementations already exist and should be integrated rather than rebuilt blindly.
-3. Scene3D has meaningful governed backend infrastructure but is still a default-OFF pilot without a primary creative surface.
-4. The largest immediate mismatch is identity: the application still presents itself broadly as Open Generative AI / MuAPI even though significant ORBI engineering now exists underneath.
+3. Scene3D has governed backend infrastructure but is still a default-OFF pilot without a primary creative surface.
+4. Visible identity remained predominantly Open Generative AI / MuAPI despite substantial ORBI engineering underneath.
 
-### Phase 2B — ORBI Identity Foundation — NEXT
+### Phase 2B — ORBI Identity Foundation — CURRENT
 
-The next code-changing workstream is a bounded product rebrand/foundation pass:
+Canonical design: `docs/PHASE-2B-ORBI-IDENTITY-FOUNDATION.md`.
 
-- ORBI Creative Studio package/product identity;
+This phase introduces an explicit ORBI product identity across active desktop and web surfaces while preserving compatibility-sensitive legacy installer/storage identifiers until migration is proven.
+
+Current Phase 2B scope:
+
+- canonical `shared/productIdentity.json`;
 - Electron window/error identity;
-- Vite/web metadata and favicon/branding surface;
-- desktop header identity;
-- Next route metadata;
-- README top-level product explanation;
-- installer-visible identity where migration is safe;
-- explicit upstream license and attribution preservation.
+- desktop ORBI wordmark/header identity;
+- Vite title and metadata;
+- Next root and route metadata;
+- package description/homepage;
+- explicit upstream attribution boundary;
+- CI lock preventing accidental rename of storage-sensitive legacy identifiers.
 
-This phase must not rename provider APIs, third-party model names, upstream license ownership, or other technical identifiers that need compatibility.
+Compatibility boundary for this pass:
 
-### Phase 2C — Navigation & Capability Truth
+- npm `name` remains `open-generative-ai`;
+- Electron Builder `productName` remains `Open Generative AI`;
+- Electron Builder `appId` remains `ai.generative.open`.
 
-After identity is stable, reorganize navigation around actual capability:
+Those fields may change only after a user-data migration gate proves that local models, runtimes and encrypted credentials remain recoverable across upgrade.
+
+README top-level reframing and installer/storage identity migration remain separate attribution/migration work and must not be done by blind string replacement.
+
+### Phase 2C — Navigation & Capability Truth — NEXT AFTER 2B
+
+After visible identity is stable, reorganize navigation around actual capability:
 
 - Core creative: Image, Video, Cinema, Lip Sync.
 - Web-integrated/pending desktop convergence: Workflows, Agents.
