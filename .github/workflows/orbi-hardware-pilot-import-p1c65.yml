@@ -1,0 +1,27 @@
+name: ORBI P1C65 Hardware Pilot Import Intake
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/hardwarePilotFileImportCore.js'
+      - 'electron/lib/hardwarePilotFileImportBridge.js'
+      - 'electron/preload.js'
+      - 'electron/main.js'
+      - 'tests/hardwarePilotFileImportCore.test.js'
+      - 'tests/hardwarePilotFileImportBridge.test.js'
+      - 'docs/PHASE-1C65-HARDWARE-PILOT-IMPORT-REVIEW-INTAKE.md'
+      - '.github/workflows/orbi-hardware-pilot-import-p1c65.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/hardwarePilotFileImportCore.test.js tests/hardwarePilotFileImportBridge.test.js
