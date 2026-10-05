@@ -11,8 +11,10 @@ test('P1C66 Settings binds the no-argument Electron import action into diagnosti
 
     assert.ok(settings.includes("import { HardwarePilotImportPanel } from './HardwarePilotImportPanel.js';"));
     assert.ok(settings.includes("typeof window.orbiBenchmark?.importPilotBundle === 'function'"));
-    assert.ok(settings.includes('diagnosticsPanel.appendChild(HardwarePilotImportPanel({'));
+    assert.ok(settings.includes('const attachHardwarePilotImport = (panel) => {'));
+    assert.ok(settings.includes('panel.appendChild(HardwarePilotImportPanel({'));
     assert.ok(settings.includes('hardwarePilotImport: () => window.orbiBenchmark.importPilotBundle()'));
+    assert.ok(settings.includes('? attachHardwarePilotImport(RouterDiagnosticsPanel({'));
     assert.equal(settings.includes('importPilotBundle(file'), false);
     assert.equal(settings.includes('showOpenDialog'), false);
     assert.equal(settings.includes('readFile'), false);
