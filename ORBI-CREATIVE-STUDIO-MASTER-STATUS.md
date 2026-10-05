@@ -116,7 +116,7 @@ Validate the product as a coherent ORBI experience across core creative generati
 
 ## Governance rules
 
-1. Do not create P1C71, P1C72 or other Phase 1C continuation milestones.
+1. Do not create `P1C71`, `P1C72` or other Phase 1C continuation milestones.
 2. New work must map to a product outcome in Phase 2 or be an explicit regression/maintenance fix.
 3. Do not advertise capabilities that exist only as placeholders.
 4. Prefer integrating existing working surfaces over rebuilding them.
