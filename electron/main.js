@@ -1,5 +1,6 @@
 const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
+const productIdentity = require('../shared/productIdentity.json');
 const { register: registerLocalInference } = require('./lib/localInference');
 const { register: registerWan2gp } = require('./lib/wan2gpProvider');
 const { register: registerProviderCredentials } = require('./lib/providerCredentials');
@@ -15,7 +16,7 @@ const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 process.on('uncaughtException', (err) => {
     console.error('Uncaught exception:', err);
     try {
-        dialog.showErrorBox('Open Generative AI — Unexpected Error', err && err.stack ? err.stack : String(err));
+        dialog.showErrorBox(`${productIdentity.name} — Unexpected Error`, err && err.stack ? err.stack : String(err));
     } catch (_) {
         // dialog unavailable this early; the console log above is the fallback
     }
@@ -50,7 +51,7 @@ function createWindow() {
         ...(isMac ? { titleBarStyle: 'hiddenInset' } : {}),
         backgroundColor: '#0d0d0d',
         show: false,
-        title: 'Open Generative AI',
+        title: productIdentity.name,
     });
 
     const indexPath = path.join(__dirname, '../dist/index.html');
@@ -103,7 +104,7 @@ app.whenReady().then(() => {
         console.error('Failed to register local-ai/wan2gp handlers:', err);
         dialog.showErrorBox(
             'Local AI features unavailable',
-            `Open Generative AI started, but local model support failed to initialize:\n\n${err.message}`
+            `${productIdentity.name} started, but local model support failed to initialize:\n\n${err.message}`
         );
     }
 
@@ -159,7 +160,6 @@ app.on('window-all-closed', () => {
         app.quit();
     }
 });
-
 
 app.on('before-quit', () => {
     try {
