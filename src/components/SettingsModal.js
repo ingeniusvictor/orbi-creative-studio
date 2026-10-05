@@ -3,6 +3,7 @@ import { isLocalAIAvailable } from '../lib/localInferenceClient.js';
 import { t } from '../lib/i18n.js';
 import { getMuapiKey, setMuapiCredential } from '../lib/providerCredentials.mjs';
 import { RouterDiagnosticsPanel } from './RouterDiagnosticsPanel.js';
+import { HardwarePilotImportPanel } from './HardwarePilotImportPanel.js';
 import { Scene3DPilotDiagnosticsPanel } from './Scene3DPilotDiagnosticsPanel.js';
 import { readShadowCompatibilitySnapshot } from '../lib/computeRouter/shadowCompatibilitySnapshotHandoff.mjs';
 import {
@@ -51,6 +52,9 @@ export function SettingsModal(onClose) {
     // ── Tabs ──────────────────────────────────────────────────────────────────
     const hasScene3DDiagnostics = typeof window !== 'undefined'
         && Boolean(window.orbiScene3D?.isElectron);
+    const hasHardwarePilotImport = typeof window !== 'undefined'
+        && Boolean(window.orbiBenchmark?.isElectron)
+        && typeof window.orbiBenchmark?.importPilotBundle === 'function';
 
     const TABS = [
         { id: 'api', label: t('settings.apiKey') },
@@ -107,8 +111,16 @@ export function SettingsModal(onClose) {
 
     // ── Tab: Local Models ─────────────────────────────────────────────────────
     const localPanel = LocalModelManager();
+    const attachHardwarePilotImport = (panel) => {
+        if (panel && hasHardwarePilotImport) {
+            panel.appendChild(HardwarePilotImportPanel({
+                hardwarePilotImport: () => window.orbiBenchmark.importPilotBundle(),
+            }));
+        }
+        return panel;
+    };
     const diagnosticsPanel = isLocalAIAvailable()
-        ? RouterDiagnosticsPanel({
+        ? attachHardwarePilotImport(RouterDiagnosticsPanel({
             shadowCompatibilitySnapshotProvider: readShadowCompatibilitySnapshot,
             shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh,
             shadowDiagnosticTargetsProvider: listUserShadowDiagnosticTargets,
@@ -123,8 +135,9 @@ export function SettingsModal(onClose) {
             runtimeCertificationPromotionSummaryProvider: getRuntimeCertificationPromotionSummary,
             hardwarePilotBundleBuild: buildUserHardwarePilotEvidenceBundle,
             hardwarePilotExport: (bundle) => window.orbiBenchmark?.exportPilotBundle(bundle),
-        })
+        }))
         : null;
+
     const scene3dDiagnosticsPanel = hasScene3DDiagnostics
         ? Scene3DPilotDiagnosticsPanel({ scene3d: window.orbiScene3D })
         : null;
