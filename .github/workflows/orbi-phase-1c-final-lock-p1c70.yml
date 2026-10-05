@@ -1,0 +1,42 @@
+name: ORBI P1C70 Phase 1C Final Lock
+
+on:
+  pull_request:
+    paths:
+      - 'electron/lib/hardwarePilotReviewCore.js'
+      - 'electron/lib/hardwarePilotReviewBridge.js'
+      - 'electron/main.js'
+      - 'electron/preload.js'
+      - 'src/components/HardwarePilotImportPanel.js'
+      - 'src/components/SettingsModal.js'
+      - 'src/lib/computeRouter/phase1cFinalLock.mjs'
+      - 'tests/hardwarePilotReviewCore.test.js'
+      - 'tests/hardwarePilotReviewUi.test.js'
+      - 'tests/phase1cFinalLock.test.js'
+      - 'tests/hardwarePilotFileImportCore.test.js'
+      - 'tests/hardwarePilotFileImportBridge.test.js'
+      - 'tests/hardwarePilotImportUi.test.js'
+      - 'ORBI-CREATIVE-STUDIO-MASTER-STATUS.md'
+      - 'docs/PHASE-1C70-FINAL-LOCK.md'
+      - '.github/workflows/orbi-phase-1c-final-lock-p1c70.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: >-
+          node --test
+          tests/hardwarePilotReviewCore.test.js
+          tests/hardwarePilotReviewUi.test.js
+          tests/phase1cFinalLock.test.js
+          tests/hardwarePilotFileImportCore.test.js
+          tests/hardwarePilotFileImportBridge.test.js
+          tests/hardwarePilotImportUi.test.js
