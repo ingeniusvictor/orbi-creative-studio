@@ -1,0 +1,36 @@
+name: ORBI Phase 2B Identity Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'shared/productIdentity.json'
+      - 'electron/main.js'
+      - 'src/components/Header.js'
+      - 'index.html'
+      - 'app/layout.js'
+      - 'app/studio/**'
+      - 'app/workflow/**'
+      - 'app/agents/**'
+      - 'app/zh/studio/**'
+      - 'package.json'
+      - 'ORBI-CREATIVE-STUDIO-MASTER-STATUS.md'
+      - 'docs/PHASE-2B-ORBI-IDENTITY-FOUNDATION.md'
+      - 'tests/orbiProductIdentity.test.js'
+      - '.github/workflows/orbi-phase-2b-identity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: ORBI product identity contract
+        run: node --test tests/orbiProductIdentity.test.js
+      - name: Electron syntax
+        run: node --check electron/main.js
