@@ -111,8 +111,16 @@ export function SettingsModal(onClose) {
 
     // ── Tab: Local Models ─────────────────────────────────────────────────────
     const localPanel = LocalModelManager();
+    const attachHardwarePilotImport = (panel) => {
+        if (panel && hasHardwarePilotImport) {
+            panel.appendChild(HardwarePilotImportPanel({
+                hardwarePilotImport: () => window.orbiBenchmark.importPilotBundle(),
+            }));
+        }
+        return panel;
+    };
     const diagnosticsPanel = isLocalAIAvailable()
-        ? RouterDiagnosticsPanel({
+        ? attachHardwarePilotImport(RouterDiagnosticsPanel({
             shadowCompatibilitySnapshotProvider: readShadowCompatibilitySnapshot,
             shadowDiagnosticRefresh: runUserShadowDiagnosticRefresh,
             shadowDiagnosticTargetsProvider: listUserShadowDiagnosticTargets,
@@ -127,14 +135,8 @@ export function SettingsModal(onClose) {
             runtimeCertificationPromotionSummaryProvider: getRuntimeCertificationPromotionSummary,
             hardwarePilotBundleBuild: buildUserHardwarePilotEvidenceBundle,
             hardwarePilotExport: (bundle) => window.orbiBenchmark?.exportPilotBundle(bundle),
-        })
+        }))
         : null;
-
-    if (diagnosticsPanel && hasHardwarePilotImport) {
-        diagnosticsPanel.appendChild(HardwarePilotImportPanel({
-            hardwarePilotImport: () => window.orbiBenchmark.importPilotBundle(),
-        }));
-    }
 
     const scene3dDiagnosticsPanel = hasScene3DDiagnostics
         ? Scene3DPilotDiagnosticsPanel({ scene3d: window.orbiScene3D })
