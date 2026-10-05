@@ -1,7 +1,7 @@
 {
   "name": "open-generative-ai",
-  "description": "Open-source alternative to HF AI — AI image, video, cinema and lip sync studio",
-  "homepage": "https://github.com/Anil-matcha/Open-Generative-AI",
+  "description": "ORBI Creative Studio — governed cloud and local AI creation for image, video, cinema and lip sync",
+  "homepage": "https://github.com/ingeniusvictor/orbi-creative-studio",
   "private": true,
   "version": "2.0.0",
   "license": "MIT",
