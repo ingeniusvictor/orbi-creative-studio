@@ -8,6 +8,7 @@ const { register: registerReadinessSnapshot } = require('./lib/providerReadiness
 const { register: registerControlledBenchmark } = require('./lib/controlledBenchmarkBridge');
 const { register: registerHardwarePilotExport } = require('./lib/hardwarePilotFileExportBridge');
 const { register: registerHardwarePilotImport } = require('./lib/hardwarePilotFileImportBridge');
+const { register: registerHardwarePilotReview } = require('./lib/hardwarePilotReviewBridge');
 const { register: registerScene3DPilot } = require('./lib/scene3dPilotBridge');
 const { isAllowedExternalUrl } = require('./lib/urlPolicy');
 
@@ -122,6 +123,12 @@ app.whenReady().then(() => {
         registerHardwarePilotImport();
     } catch (err) {
         console.error('Failed to register hardware pilot import bridge:', err);
+    }
+
+    try {
+        registerHardwarePilotReview();
+    } catch (err) {
+        console.error('Failed to register hardware pilot review bridge:', err);
     }
 
     try {

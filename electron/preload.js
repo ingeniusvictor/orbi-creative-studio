@@ -78,6 +78,8 @@ contextBridge.exposeInMainWorld('orbiBenchmark', {
     runSample: (request) => ipcRenderer.invoke('compute-router:controlled-benchmark-sample', request),
     exportPilotBundle: (bundle) => ipcRenderer.invoke('compute-router:hardware-pilot-export', bundle),
     importPilotBundle: () => ipcRenderer.invoke('compute-router:hardware-pilot-import'),
+    reviewPilotBundle: (sha256) => ipcRenderer.invoke('compute-router:hardware-pilot-review', sha256),
+    decidePilotBundle: (request) => ipcRenderer.invoke('compute-router:hardware-pilot-review-decision', request),
 });
 
 
