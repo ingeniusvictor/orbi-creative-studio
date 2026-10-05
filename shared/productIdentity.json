@@ -1,0 +1,10 @@
+{
+  "name": "ORBI Creative Studio",
+  "shortName": "ORBI Studio",
+  "brand": "ORBI",
+  "surfaceLabel": "CREATIVE STUDIO",
+  "tagline": "Create with cloud and local AI",
+  "description": "ORBI Creative Studio brings image, video, cinema and lip-sync creation together with governed cloud and local AI workflows.",
+  "repository": "https://github.com/ingeniusvictor/orbi-creative-studio",
+  "upstreamProject": "Open Generative AI"
+}
