@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld('orbiBenchmark', {
     isElectron: true,
     runSample: (request) => ipcRenderer.invoke('compute-router:controlled-benchmark-sample', request),
     exportPilotBundle: (bundle) => ipcRenderer.invoke('compute-router:hardware-pilot-export', bundle),
+    importPilotBundle: () => ipcRenderer.invoke('compute-router:hardware-pilot-import'),
 });
 
 
