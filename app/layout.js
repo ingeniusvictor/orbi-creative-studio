@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: 'Open Generative AI — Free AI Image & Video Studio',
-  description: 'Generate AI images and videos using 200+ models — Flux, Midjourney, Kling, Veo, Seedance and more.',
+  title: 'ORBI Creative Studio — Cloud + Local AI Creation',
+  description: 'Create images, videos, cinematic shots and lip-sync media with ORBI Creative Studio across governed cloud and local AI workflows.',
 };
 
 export default async function RootLayout({ children }) {
