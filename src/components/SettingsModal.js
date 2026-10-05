@@ -54,7 +54,9 @@ export function SettingsModal(onClose) {
         && Boolean(window.orbiScene3D?.isElectron);
     const hasHardwarePilotImport = typeof window !== 'undefined'
         && Boolean(window.orbiBenchmark?.isElectron)
-        && typeof window.orbiBenchmark?.importPilotBundle === 'function';
+        && typeof window.orbiBenchmark?.importPilotBundle === 'function'
+        && typeof window.orbiBenchmark?.reviewPilotBundle === 'function'
+        && typeof window.orbiBenchmark?.decidePilotBundle === 'function';
 
     const TABS = [
         { id: 'api', label: t('settings.apiKey') },
@@ -115,6 +117,8 @@ export function SettingsModal(onClose) {
         if (panel && hasHardwarePilotImport) {
             panel.appendChild(HardwarePilotImportPanel({
                 hardwarePilotImport: () => window.orbiBenchmark.importPilotBundle(),
+                hardwarePilotReview: (sha256) => window.orbiBenchmark.reviewPilotBundle(sha256),
+                hardwarePilotDecision: (request) => window.orbiBenchmark.decidePilotBundle(request),
             }));
         }
         return panel;
