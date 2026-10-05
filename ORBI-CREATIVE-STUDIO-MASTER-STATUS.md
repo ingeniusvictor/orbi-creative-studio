@@ -53,7 +53,7 @@ P1C62–P1C70 established and closed that governance foundation:
 - P1C67 — safe human-review projection.
 - P1C68 — explicit approve/reject human decision record.
 - P1C69 — evidence-scoped pilot-certified profile.
-- P1C70 — final Phase 1C lock.
+- P1C70 — Phase 1C Final Lock.
 
 There is no P1C71 continuation.
 
